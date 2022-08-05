@@ -1,0 +1,7 @@
+namespace BiliUWP {
+    [default_interface]
+    runtimeclass MainPage : Windows.UI.Xaml.Controls.Page {
+        MainPage();
+        Int32 MyProperty;
+    }
+}

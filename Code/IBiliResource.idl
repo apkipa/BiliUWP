@@ -1,0 +1,11 @@
+namespace BiliUWP {
+    // Should be inherited by pages
+    interface IBiliResource {
+        // Main resource identifier; can be null
+        String bili_res_id{ get; };
+        String bili_res_url{ get; };
+        // Alternative resource identifier; can be null
+        String bili_res_id_2{ get; };
+        String bili_res_url_2{ get; };
+    };
+}

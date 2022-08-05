@@ -1,0 +1,131 @@
+namespace BiliUWP {
+    // Common types
+    struct UserCookies {
+        String SESSDATA;
+        String bili_jct;
+        String DedeUserID;
+        String DedeUserID__ckMd5;
+        String sid;
+    };
+    struct APISignKeys {
+        String key;
+        String sec;
+    };
+
+    // API types
+    enum ApiData_ResType {
+        Unknown,
+        Video = 2,
+        Audio = 12,
+        VideoCollection = 21,
+    };
+
+    // API parameter types
+    struct ApiParam_Page {
+        UInt32 n;       // Starts from 1
+        UInt32 size;    // Recommended value is 20
+    };
+    struct ApiParam_VideoPlayUrlPreference {
+        Boolean prefer_dash;
+        Boolean prefer_4k;
+        Boolean prefer_hdr;
+        Boolean prefer_av1;
+    };
+    struct ApiParam_FavItemLookup {
+        UInt64 res_id;
+        ApiData_ResType res_type;
+    };
+    enum ApiParam_FavResSortOrder {
+        ByFavouriteTime,
+        ByViewCount,
+        ByPublishTime,
+    };
+
+    // Main runtime class
+    runtimeclass BiliClientManaged {
+        BiliClientManaged();
+
+        String data_user_agent;
+        String data_access_token;
+        UserCookies data_cookies;
+
+        // Authentication
+        // NOTE: Authentication functions do not automatically update stored credentials
+        // TODO: Use IReference<APISignKeys> for optional keys
+        //   https://passport.bilibili.com/x/passport-tv-login/qrcode/auth_code
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_passport_x_passport_tv_login_qrcode_auth_code(
+            APISignKeys keys,
+            Guid local_id
+        );
+        //   https://passport.bilibili.com/x/passport-tv-login/qrcode/poll
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_passport_x_passport_tv_login_qrcode_poll(
+            APISignKeys keys,
+            String auth_code,
+            Guid local_id
+        );
+        //   https://passport.bilibili.com/api/v2/oauth2/refresh_token | access_token
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_passport_api_v2_oauth2_refresh_token(
+            Windows.Foundation.IReference<APISignKeys> keys,
+            String refresh_token
+        );
+        //   https://passport.bilibili.com/x/passport-login/revoke | access_token + cookies
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_passport_x_passport_login_revoke(
+            APISignKeys keys
+        );
+
+        // User information
+        //   https://app.bilibili.com/x/v2/account/myinfo | access_token
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_app_x_v2_account_myinfo(
+            APISignKeys keys
+        );
+        //   https://app.bilibili.com/x/web-interface/nav | cookies
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_app_x_web_interface_nav();
+        //   https://app.bilibili.com/x/web-interface/nav/stat | cookies
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_app_x_web_interface_nav_stat();
+
+        // Video information
+        // NOTE: avid format: "<digits>"; bvid format: "BV<chars>"
+        //   https://api.bilibili.com/x/web-interface/view | cookies
+        //   NOTE: bvid is preferred (avid will be used only when bvid is null)
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_web_interface_view(
+            UInt64 avid,
+            String bvid
+        );
+        //   https://api.bilibili.com/x/web-interface/view/detail | cookies
+        //   NOTE: bvid is preferred (avid will be used only when bvid is null)
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_web_interface_view_detail(
+            UInt64 avid,
+            String bvid
+        );
+        //   https://api.bilibili.com/x/player/playurl | cookies
+        //   NOTE: bvid is preferred (avid will be used only when bvid is null)
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_player_playurl(
+            UInt64 avid,
+            String bvid,
+            UInt64 cid,
+            ApiParam_VideoPlayUrlPreference prefers
+        );
+
+        // Audio information
+        //   https://api.bilibili.com/audio/music-service-c/url | access_token
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_audio_music_service_c_url(
+            UInt64 auid,
+            UInt32 quality  // 0 => 128k; 1 => 192k; 2 => 320k; 3 => lossless
+        );
+
+        // Favourites information
+        //   https://api.bilibili.com/x/v3/fav/folder/created/list | cookies
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_v3_fav_folder_created_list(
+            UInt64 mid,
+            ApiParam_Page page,
+            Windows.Foundation.IReference<ApiParam_FavItemLookup> item_to_find
+        );
+        //   https://api.bilibili.com/x/v3/fav/resource/list | cookies
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_v3_fav_resource_list(
+            UInt64 folder_id,
+            ApiParam_Page page,
+            String keyword,
+            ApiParam_FavResSortOrder order
+        );
+    }
+}

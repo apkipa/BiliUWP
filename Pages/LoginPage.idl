@@ -1,0 +1,14 @@
+namespace BiliUWP {
+    enum LoginPageResult {
+        Ok,
+        UserCanceled
+    };
+
+    [default_interface]
+    runtimeclass LoginPage : Windows.UI.Xaml.Controls.Page {
+        LoginPage();
+
+        // NOTE: For unrecoverable errors, an exception will be thrown
+        Windows.Foundation.IAsyncOperation<LoginPageResult> RequestLogin(void);
+    }
+}

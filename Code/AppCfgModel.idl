@@ -1,0 +1,33 @@
+namespace BiliUWP {
+    runtimeclass AppCfgModel : Windows.UI.Xaml.Data.INotifyPropertyChanged {
+        AppCfgModel();
+
+        String SerializeAsString();
+        void DeserializeFromString(String s);
+
+        void ResetConfig();
+
+        void SetItemBoxed(String key, Object value);
+        Object TryGetItemBoxed(String key);
+
+        String ConfigVersion{ get; };
+
+        // Appearance
+        Boolean App_UseTabView;
+        // Misc
+        Boolean App_PersistClipboardAfterExit;
+        Double App_SimplifyVisualsLevel;    // Range: [0, 1]
+        // Developer options
+        Boolean App_ShowDebugConsole;
+        Guid App_LocalId;
+
+        // User data
+        String User_AccessToken;
+        String User_RefreshToken;
+        String User_Cookies_SESSDATA;
+        String User_Cookies_bili_jct;
+        String User_Cookies_DedeUserID;
+        String User_Cookies_DedeUserID__ckMd5;
+        String User_Cookies_sid;
+    }
+}

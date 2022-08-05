@@ -1,0 +1,134 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Midl Include="App.idl" />
+    <Midl Include="Code\AppCfgModel.idl">
+      <Filter>Code</Filter>
+    </Midl>
+    <Midl Include="Code\IBiliResource.idl">
+      <Filter>Code</Filter>
+    </Midl>
+    <Midl Include="Code\BiliClientManaged.idl">
+      <Filter>Code</Filter>
+    </Midl>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pch.cpp" />
+    <ClCompile Include="App.cpp" />
+    <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
+    <ClCompile Include="Code\BiliClient.cpp">
+      <Filter>Code</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\json.cpp">
+      <Filter>Code</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\AppCfgModel.cpp">
+      <Filter>Code</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\util.cpp">
+      <Filter>Code</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\BiliClientManaged.cpp">
+      <Filter>Code</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="Code\BiliClient.hpp">
+      <Filter>Code</Filter>
+    </ClInclude>
+    <ClInclude Include="Code\json.h">
+      <Filter>Code</Filter>
+    </ClInclude>
+    <ClInclude Include="Code\AppCfgModel.h">
+      <Filter>Code</Filter>
+    </ClInclude>
+    <ClInclude Include="Code\util.hpp">
+      <Filter>Code</Filter>
+    </ClInclude>
+    <ClInclude Include="Code\BiliClientManaged.h">
+      <Filter>Code</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Assets\Wide310x150Logo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\StoreLogo.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Square150x150Logo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Square44x44Logo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\SplashScreen.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\LockScreenLogo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <AppxManifest Include="Package.appxmanifest" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Assets">
+      <UniqueIdentifier>{e48dc53e-40b1-40cb-970a-f89935452892}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Pages">
+      <UniqueIdentifier>{b0dc45bc-1d9e-4552-ab1b-7192389c0fcd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Strings">
+      <UniqueIdentifier>{4d612266-f137-49ad-9b7d-c9473784f1fa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code">
+      <UniqueIdentifier>{90189b69-af9b-43d4-a88d-1d40043c229e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="thirdparty">
+      <UniqueIdentifier>{e761d649-704c-41df-bb82-f29f7962f93d}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="PropertySheet.props" />
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="readme.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="Pages\MainPage.xaml">
+      <Filter>Pages</Filter>
+    </Page>
+    <Page Include="Pages\ContainerPage.xaml">
+      <Filter>Pages</Filter>
+    </Page>
+    <Page Include="Pages\SettingsPage.xaml">
+      <Filter>Pages</Filter>
+    </Page>
+    <Page Include="Pages\NewPage.xaml">
+      <Filter>Pages</Filter>
+    </Page>
+    <Page Include="Pages\MediaPlayPage.xaml">
+      <Filter>Pages</Filter>
+    </Page>
+    <Page Include="Pages\LoginPage.xaml">
+      <Filter>Pages</Filter>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <PRIResource Include="Strings\Resources.language-en-US.resw">
+      <Filter>Strings</Filter>
+    </PRIResource>
+    <PRIResource Include="Strings\Resources.language-zh-Hans.resw">
+      <Filter>Strings</Filter>
+    </PRIResource>
+  </ItemGroup>
+</Project>

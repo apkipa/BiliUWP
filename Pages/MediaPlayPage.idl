@@ -1,0 +1,9 @@
+namespace BiliUWP
+{
+    [default_interface]
+    runtimeclass MediaPlayPage : Windows.UI.Xaml.Controls.Page
+    {
+        MediaPlayPage();
+        Int32 MyProperty;
+    }
+}

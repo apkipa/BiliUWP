@@ -1,0 +1,30 @@
+﻿<Application
+    x:Class="BiliUWP.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:BiliUWP"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls">
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" ControlsResourcesVersion="Version1"/>
+            </ResourceDictionary.MergedDictionaries>
+            <!--
+            <Style x:Key="DefaultTabViewStyle" TargetType="muxc:TabView">
+                <Setter Property="KeyboardAcceleratorPlacementMode" Value="Hidden"/>
+            </Style>
+            -->
+            <!-- Removes top padding for TabView -->
+            <Thickness x:Key="TabViewHeaderPadding">8,0,4,0</Thickness>
+            <!-- Make TabViewItem not focusable -->
+            <Style TargetType="muxc:TabViewItem">
+                <Setter Property="IsTabStop" Value="false"/>
+            </Style>
+            <!-- TODO: Add converters in XAML?
+            <local:String2BitmapImageConverter x:Key="Str2Bmp"/>
+            <local:String2UriImageConverter x:Key="Str2Uri"/>
+            -->
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

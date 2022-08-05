@@ -1,0 +1,6 @@
+namespace BiliUWP {
+    [default_interface]
+    runtimeclass ContainerPage : Windows.UI.Xaml.Controls.Page {
+        ContainerPage();
+    }
+}

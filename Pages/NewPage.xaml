@@ -1,0 +1,41 @@
+﻿<Page
+    x:Class="BiliUWP.NewPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:BiliUWP"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="{ThemeResource SystemControlBackgroundAltHighBrush}">
+
+    <Grid>
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+            <AutoSuggestBox x:Uid="App/Pages/NewPage/SearchBox" x:Name="SearchBox" QueryIcon="Find" MinWidth="350"
+                            PreviewKeyDown="SearchBox_PreviewKeyDown"
+                            TextChanged="SearchBox_TextChanged" QuerySubmitted="SearchBox_QuerySubmitted"/>
+            <ItemsControl Margin="10" MaxWidth="400">
+                <ItemsControl.ItemContainerStyle>
+                    <Style TargetType="AppBarButton">
+                        <Setter Property="Margin" Value="4"/>
+                    </Style>
+                </ItemsControl.ItemContainerStyle>
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ItemsWrapGrid Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <AppBarButton x:Uid="App/Pages/NewPage/Button_MyFavourites" Icon="Favorite" Click="Button_MyFavourites_Click"/>
+                <AppBarButton x:Uid="App/Pages/NewPage/Button_Settings" Icon="Setting" Click="Button_Settings_Click"/>
+                <!--
+                <AppBarButton Icon="Placeholder" Label="Placeholder"/>
+                <AppBarButton Icon="Placeholder" Label="Placeholder"/>
+                <AppBarButton Icon="Placeholder" Label="Placeholder"/>
+                <AppBarButton Icon="Placeholder" Label="Placeholder"/>
+                <AppBarButton Icon="Placeholder" Label="Placeholder"/>
+                <AppBarButton Icon="Placeholder" Label="Placeholder"/>
+                <AppBarButton Icon="Placeholder" Label="Placeholder"/>
+                -->
+            </ItemsControl>
+        </StackPanel>
+    </Grid>
+</Page>
