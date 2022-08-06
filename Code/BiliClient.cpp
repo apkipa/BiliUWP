@@ -36,59 +36,6 @@ namespace BiliUWP {
         }
     }
 
-    // TODO: Remove this, use class JsonVisitor to parse instead
-    // Expects Windows::Data::Json::JsonObject
-#define extract_root_jo_scope(jo)    for (                                                              \
-        auto [for_scope_break, for_scope_jo, for_scope_props_tree] =                                    \
-            std::tuple<bool, winrt::Windows::Data::Json::JsonObject&, std::vector<std::string_view>>    \
-            { false, jo, {} };                                                                          \
-        !for_scope_break;                                                                               \
-        for_scope_break = true                                                                          \
-    )
-#define extract_jo_scope(prop_literal)    for (                             \
-        auto [for_scope_break, for_scope_jo_2] =                            \
-            std::tuple<bool, winrt::Windows::Data::Json::JsonObject&>       \
-            { (for_scope_props_tree.push_back("" prop_literal), false),     \
-                for_scope_jo.GetNamedObject(L"" prop_literal) };            \
-        !for_scope_break;                                                   \
-        for_scope_break = true, for_scope_props_tree.pop_back()             \
-    ) for (                                                                 \
-        auto [for_scope_break, for_scope_jo] =                              \
-            std::tuple<bool, winrt::Windows::Data::Json::JsonObject&>       \
-            { false, for_scope_jo_2 };                                      \
-        !for_scope_break;                                                   \
-        for_scope_break = true                                              \
-    )
-
-    // TODO: Use macros finally?
-    /*  Example:
-    *   ApiResult result;
-    *   extract_scope_root_jo(jo) {
-    *       extract_scope_jv("data") {
-    *           extract_scope_unnamed_jo() {
-    *               extract_scope_primitive_jv(result.url, "url");
-    *               extract_scope_primitive_jv(result.auth_code, "auth_code");
-    *               extract_scope_ja(i, result.streams, "streams") {
-    *                   extract_scope_unnamed_jo() {
-    *                       extract_scope_primitive_jv(i.video_url, "vurl");
-    *                       extract_scope_primitive_jv(i.audio_url, "aurl");
-    *                   }
-    *               }
-    *           }
-    *       }
-    *   }
-    */
-    // TODO: Remove this (JsonVisitor)
-    // A helper class to extract JSON data and provide rich exception information
-    class JsonVisitor {
-        winrt::Windows::Data::Json::JsonObject& m_root_jo;
-        std::vector<std::string_view> m_props_tree;
-    public:
-        JsonVisitor(winrt::Windows::Data::Json::JsonObject& root_jo) : m_root_jo(root_jo), m_props_tree() {}
-        // populate
-        // populate_inner
-    };
-
     struct JsonObjectVisitor;
     struct JsonArrayVisitor;
     struct JsonValueVisitor;
@@ -850,10 +797,6 @@ namespace BiliUWP {
         );
         util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
-        //extract_root_jo_scope(jo) {
-        //    // TODO...
-        //    //std::back_inserter
-        //}
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
         jov.populate(result.url, "url");

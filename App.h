@@ -38,9 +38,49 @@ namespace winrt::BiliUWP::implementation {
 }
 
 namespace BiliUWP {
-    // Refers to a app tab (may be virtual)
     struct AppLoggingProvider;
-    struct AppTab;
+
+    // Source: https://devblogs.microsoft.com/oldnewthing/20220721-00/?p=106879
+    template<typename T>
+    struct require_make_shared : std::enable_shared_from_this<T> {
+    protected:
+        struct use_the_make_function {
+            explicit use_the_make_function() = default;
+        };
+        template<typename... Args>
+        static auto create(Args&&... args) {
+            static_assert(std::is_convertible_v<T*, require_make_shared*>,
+                "Must derive publicly from require_make_shared");
+            return std::make_shared<T>(use_the_make_function{}, std::forward<Args>(args)...);
+        }
+    public:
+        require_make_shared() = default;
+        // Deny copy construction
+        require_make_shared(require_make_shared const&) = delete;
+
+        friend class make_helper;
+    };
+
+    class make_helper {
+    public:
+        template<typename T, typename... Types>
+        static auto make(Types&&... args) {
+            return T::create(std::forward<Types>(args)...);
+        }
+    };
+
+    // Delegate constructor
+    template<typename T, typename U = typename T::element_type, typename... Types>
+    T make(Types&&... args) {
+        return make_helper::make<U>(std::forward<Types>(args)...);
+    }
+
+    namespace implementation {
+        // Refers to a app tab (may be virtual)
+        struct AppTab;
+    }
+
+    using AppTab = std::shared_ptr<implementation::AppTab>;
 
     struct AppInst {
         // TODO: Init all things except for home page, ... (?)
@@ -50,16 +90,16 @@ namespace BiliUWP {
         AppInst& operator=(AppInst const&) = delete;
 
         // Tab management
-        //   NOTE: May return nullptr if corresponding AppTab has been destroyed
-        AppTab* get_current_tab(winrt::Windows::UI::Xaml::Controls::Page const& tab_page);
+        //   NOTE: A shim for AppTab::get_from_page
+        AppTab tab_from_page(winrt::Windows::UI::Xaml::Controls::Page const& tab_page);
         //   Adds a new tab next to the specified one (or last one if passed nullptr)
-        AppTab* add_tab(AppTab* insert_after);
+        void add_tab(AppTab new_tab, AppTab insert_after = nullptr);
         //   Closes and removes the tab
-        void remove_tab(AppTab* tab);
+        void remove_tab(AppTab tab);
         //   Activates the tab and brings it into view; may not work in single-view mode
         //   Returns whether activation is successful
         //   NOTE: If tab is nullptr, operation will be no-op
-        bool activate_tab(AppTab* tab);
+        bool activate_tab(AppTab tab);
 
         // Resource management
         //   Gets a string from i18n strings list
@@ -84,6 +124,7 @@ namespace BiliUWP {
         // NOTE: Higher the level, fewer the logs
         void set_log_level(util::debug::LogLevel new_level) { m_cur_log_level = new_level; }
         void log_trace(winrt::hstring str) {
+            // TODO: Add mutex support
             constexpr auto this_level = util::debug::LogLevel::Trace;
             if (this_level < m_cur_log_level) {
                 return;
@@ -128,11 +169,12 @@ namespace BiliUWP {
         friend winrt::BiliUWP::implementation::App;
 
         // Helper functions for internal use
+        void add_tab(AppTab new_tab, winrt::Microsoft::UI::Xaml::Controls::TabView const& tab_view);
         void init_current_window(void);
-        winrt::Microsoft::UI::Xaml::Controls::TabView parent_of_tab(AppTab* tab);
+        winrt::Microsoft::UI::Xaml::Controls::TabView parent_of_tab(AppTab tab);
 
         // TODO: Manage resources here
-        std::vector<AppTab*> m_app_tabs;
+        std::vector<AppTab> m_app_tabs;
         // NOTE: Only used in tab mode for multiple views
         // TODO: Use std::scoped_lock<std::mutex> for TabView (maybe use helper functions?)
         std::vector<winrt::Microsoft::UI::Xaml::Controls::TabView> m_tv;
@@ -246,7 +288,9 @@ namespace BiliUWP {
         }
     }
 
-    struct AppTab {
+    struct implementation::AppTab : require_make_shared<AppTab> {
+        AppTab(use_the_make_function);
+        ~AppTab();
         AppTab(AppTab const&) = delete;
         AppTab& operator=(AppTab const&) = delete;
 
@@ -267,6 +311,7 @@ namespace BiliUWP {
 
         // NOTE: Cancel the returned async operation to close the dialog
         // NOTE: If the close button text is empty, the button will not be shown
+        // TODO: Reuse ContentDialog?
         winrt::Windows::Foundation::IAsyncAction show_dialog(
             winrt::Windows::Foundation::IInspectable const& title,
             winrt::Windows::Foundation::IInspectable const& content,
@@ -274,7 +319,12 @@ namespace BiliUWP {
         );
 
         // A shim for AppInst::activate_tab()
-        bool activate(void) { return m_app_inst->activate_tab(this); }
+        bool activate(void) {
+            if (!m_app_inst) {
+                throw winrt::hresult_error(E_FAIL, L"AppTab is not associated with an AppInst");
+            }
+            return m_app_inst->activate_tab(this->shared_from_this());
+        }
 
         // TODO: Associate AppTab with ui context and update it when tab goes to a new window
         auto ui_context(void) {
@@ -283,18 +333,26 @@ namespace BiliUWP {
     private:
         friend AppInst;
 
-        // WARN: app_inst must be a valid pointer
-        AppTab(AppInst* app_inst, bool use_tab_view);
+        // NOTE: AppInst should be unassociated as soon as it is removed from the instance
+        void associate_app_inst(AppInst* app_inst) { m_app_inst = app_inst; }
         auto get_tab_view_item(void) { return m_tab_item; }
         winrt::Windows::UI::Xaml::FrameworkElement get_container(void) { return m_root_grid; }
         bool has_page(winrt::Windows::UI::Xaml::Controls::Page const& page) {
             return m_page_frame.Content() == page;
         }
+        static ::BiliUWP::AppTab get_from_page(winrt::Windows::UI::Xaml::Controls::Page const& page) {
+            for (auto const& [frame, tab_ptr] : s_frame_tab_map) {
+                if (frame.Content() == page) {
+                    return tab_ptr->shared_from_this();
+                }
+            }
+            return nullptr;
+        }
+
+        static inline std::map<winrt::Windows::UI::Xaml::Controls::Frame, AppTab*> s_frame_tab_map;
 
         AppInst* m_app_inst;
 
-        //winrt::Microsoft::UI::Xaml::Controls::IconSource m_ico_src;
-        //winrt::hstring m_title;
         winrt::Microsoft::UI::Xaml::Controls::TabViewItem m_tab_item;
         winrt::Windows::UI::Xaml::Controls::Grid m_root_grid;
         winrt::Windows::UI::Xaml::Controls::Frame m_page_frame;

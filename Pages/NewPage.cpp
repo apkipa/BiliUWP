@@ -18,11 +18,11 @@ namespace winrt::BiliUWP::implementation {
     }
 
     void NewPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e) {
-        auto tab = ::BiliUWP::App::get()->get_current_tab(*this);
+        auto tab = ::BiliUWP::App::get()->tab_from_page(*this);
         auto ico_src = Microsoft::UI::Xaml::Controls::SymbolIconSource();
         ico_src.Symbol(Symbol::Placeholder);
         tab->set_icon(ico_src);
-        tab->set_title(hstring{ std::format(L"NEW PAGE ({})", (void*)tab) });
+        tab->set_title(hstring{ std::format(L"NEW PAGE ({})", (void*)&*tab) });
     }
 
     void NewPage::SearchBox_PreviewKeyDown(IInspectable const&, KeyRoutedEventArgs const& e) {

@@ -24,7 +24,7 @@ namespace BiliUWP {
         m_app_tabs(), m_tv(), m_glob_frame(nullptr), m_cur_log_level(util::debug::LogLevel::Info),
         m_app_logs(), m_logging_provider(new AppLoggingProvider(this)),
         m_res_ldr(Windows::ApplicationModel::Resources::ResourceLoader::GetForViewIndependentUse()),
-        m_cfg_model(make<winrt::BiliUWP::implementation::AppCfgModel>()),
+        m_cfg_model(winrt::make<winrt::BiliUWP::implementation::AppCfgModel>()),
         m_cfg_app_use_tab_view(m_cfg_model.App_UseTabView()),
         m_bili_client(new BiliClient())
     {
@@ -45,6 +45,7 @@ namespace BiliUWP {
             user_cookies.sid = m_cfg_model.User_Cookies_sid();
             m_bili_client->set_cookies(user_cookies);
         };
+        // TODO: Better listen to broadcast events
         m_cfg_model.PropertyChanged([=](IInspectable const& sender, PropertyChangedEventArgs const& e) {
             // TODO: Reduce update cost according to the property name
             auto prop_name = e.PropertyName();
@@ -67,29 +68,25 @@ namespace BiliUWP {
         delete m_logging_provider;
         delete m_bili_client;
     }
-    AppTab* AppInst::get_current_tab(Windows::UI::Xaml::Controls::Page const& tab_page) {
+    AppTab AppInst::tab_from_page(Windows::UI::Xaml::Controls::Page const& tab_page) {
         // TODO: mutex lock or helper member function
         if (!m_cfg_app_use_tab_view) {
             throw hresult_not_implemented();
         }
-        for (auto& i : m_app_tabs) {
-            if (i->has_page(tab_page)) {
-                return i;
-            }
-        }
-        return nullptr;
+        return implementation::AppTab::get_from_page(tab_page);
     }
-    AppTab* AppInst::add_tab(AppTab* insert_after) {
+    void AppInst::add_tab(AppTab new_tab, AppTab insert_after) {
         // TODO: mutex lock or helper member function
         if (!m_cfg_app_use_tab_view) {
             throw hresult_not_implemented();
         }
-        auto new_tab = new AppTab(this, m_cfg_app_use_tab_view);
-        // TODO: Adapt insert_after
+        if (!new_tab) {
+            return;
+        }
         if (auto tv = this->parent_of_tab(insert_after)) {
             // Tab is in a window
             uint32_t idx;
-            if (insert_after && tv.TabItems().IndexOf(insert_after->get_tab_view_item(), idx)) {
+            if (tv.TabItems().IndexOf(insert_after->get_tab_view_item(), idx)) {
                 tv.TabItems().InsertAt(idx + 1, new_tab->get_tab_view_item());
             }
             else {
@@ -98,12 +95,26 @@ namespace BiliUWP {
         }
         else {
             // Tab is not in a window or is null; insert into default window
+            // TODO: Maybe track view active state and insert into an active one?
+            // TODO: Or store relationship of TabView and ApplicationView and use GetCurrentView
             m_tv[0].TabItems().Append(new_tab->get_tab_view_item());
         }
         m_app_tabs.push_back(new_tab);
-        return new_tab;
+        new_tab->associate_app_inst(this);
     }
-    void AppInst::remove_tab(AppTab* tab) {
+    void AppInst::add_tab(AppTab new_tab, Microsoft::UI::Xaml::Controls::TabView const& tab_view) {
+        // TODO: mutex lock or helper member function
+        if (!m_cfg_app_use_tab_view) {
+            throw hresult_not_implemented();
+        }
+        if (!new_tab) {
+            return;
+        }
+        tab_view.TabItems().Append(new_tab->get_tab_view_item());
+        m_app_tabs.push_back(new_tab);
+        new_tab->associate_app_inst(this);
+    }
+    void AppInst::remove_tab(AppTab tab) {
         using namespace Windows::UI::ViewManagement;
 
         // TODO: mutex lock or helper member function
@@ -114,31 +125,32 @@ namespace BiliUWP {
         if (!tab) {
             return;
         }
-        // Tab may have been removed early in TabClosing event handler
+        tab->associate_app_inst(nullptr);
         auto tv = this->parent_of_tab(tab);
         uint32_t idx;
         if (tv && tv.TabItems().IndexOf(tab->get_tab_view_item(), idx)) {
-            if (/*m_tv.size() == 1 && */tv.TabItems().Size() == 1) {
+            if (tv.TabItems().Size() == 1) {
+                // Close view instead of removing tab from TabView
                 // TODO: Don't close tab, so OnSuspending can save tab state (? should just save here?)
                 // TODO: Use a kv map to perform accurate reverse lookup (TabView -> ApplicationView)
                 ApplicationView::GetForCurrentView().TryConsolidateAsync();
                 // ???
                 if (m_tv.size() > 1) {
-                    // remove TabView from m_tv
+                    // Remove TabView from m_tv
+                    m_tv.erase(std::find(m_tv.begin(), m_tv.end(), tv));
                 }
                 return;
             }
             tv.TabItems().RemoveAt(idx);
         }
         m_app_tabs.erase(std::find(m_app_tabs.begin(), m_app_tabs.end(), tab));
-        delete tab;
         // TODO: Close entire window (view) if no more tabs exist
         // TODO: Save current tab if this is the only window
         /*if (tv && tv.TabItems().Size() == 0) {
             ApplicationView::GetForCurrentView().TryConsolidateAsync();
         }*/
     }
-    bool AppInst::activate_tab(AppTab* tab) {
+    bool AppInst::activate_tab(AppTab tab) {
         // TODO: mutex lock or helper member function
         if (!m_cfg_app_use_tab_view) {
             throw hresult_not_implemented();
@@ -146,12 +158,12 @@ namespace BiliUWP {
         if (!tab) {
             return false;
         }
-        // TODO: Postpone activation until tab is loaded
         auto tab_item = tab->get_tab_view_item();
         if (tab_item.IsLoaded()) {
             this->parent_of_tab(tab).SelectedItem(tab_item);
         }
         else {
+            // Postpone activation until tab is loaded
             auto revoke_et = std::make_shared_for_overwrite<event_token>();
             *revoke_et = tab_item.Loaded([=](IInspectable const& sender, RoutedEventArgs const&) {
                 this->parent_of_tab(tab).SelectedItem(sender);
@@ -167,53 +179,68 @@ namespace BiliUWP {
     Windows::Foundation::IAsyncAction AppInst::request_login(void) {
         using LoginTaskType = concurrency::task<winrt::BiliUWP::LoginPageResult>;
         // TODO: Move static variables to AppInst
-        static LoginTaskType s_login_op;
-        static std::function<void()> s_cancel_login_op_fn;
-        static std::shared_mutex s_mutex_lock;
+        //static LoginTaskType s_login_op;
+        //static std::function<void()> s_cancel_login_op_fn;
+        //static std::shared_mutex s_mutex_lock;
         static struct {
-            1;
-        } s_login_state;
+            AppTab login_tab;
+            LoginTaskType login_op;
+            std::function<void()> cancel_login_op_fn;
+            std::shared_mutex mutex_lock;
+        } s_state;
 
         auto cancellation_token = co_await winrt::get_cancellation_token();
         cancellation_token.callback([] {
-            std::shared_lock lg(s_mutex_lock);
-            if (s_cancel_login_op_fn) {
-                s_cancel_login_op_fn();
+            std::shared_lock lg(s_state.mutex_lock);
+            if (s_state.cancel_login_op_fn) {
+                s_state.cancel_login_op_fn();
             }
         });
 
-        if (std::unique_lock lg(s_mutex_lock); s_login_op == LoginTaskType{}) {
+        // NOTE: LoginPage is in charge of both updating credentials and broadcasting events
+        if (std::unique_lock lg(s_state.mutex_lock); s_state.login_op == LoginTaskType{}) {
             // No pending login tasks, start a new one
-            auto tab = this->add_tab(nullptr);
-            tab->navigate(winrt::xaml_typename<winrt::BiliUWP::LoginPage>());
-            tab->activate();
-            s_login_op = [&]() -> concurrency::task<winrt::BiliUWP::LoginPageResult> {
+            s_state.login_tab = ::BiliUWP::make<AppTab>();
+            s_state.login_tab->navigate(winrt::xaml_typename<winrt::BiliUWP::LoginPage>());
+            this->add_tab(s_state.login_tab);
+            s_state.login_tab->activate();
+            s_state.login_op = [&]() -> concurrency::task<winrt::BiliUWP::LoginPageResult> {
                 // SAFETY: Coroutine is eagerly driven and captured variables
                 //         are not used after any suspension points
-                auto login_action = tab->get_content().as<winrt::BiliUWP::LoginPage>().RequestLogin();
-                s_cancel_login_op_fn = [=] {
-                    login_action.Cancel();
+                auto login_op = s_state.login_tab->get_content().as<winrt::BiliUWP::LoginPage>().RequestLogin();
+                s_state.cancel_login_op_fn = [=] {
+                    login_op.Cancel();
                 };
-                co_return co_await login_action;
+                co_return co_await login_op;
             }();
         }
-        if (std::shared_lock lg(s_mutex_lock); s_login_op != LoginTaskType{}) {
+        if (std::shared_lock lg(s_state.mutex_lock); s_state.login_op != LoginTaskType{}) {
             // Just wait for the existing task to complete
             try {
-                co_await s_login_op;
+                co_await s_state.login_op;
             }
             catch (...) {}
         }
-        if (std::unique_lock lg(s_mutex_lock); s_login_op != LoginTaskType{}) {
-            // Clean up the existing task
-            s_login_op = {};
-            s_cancel_login_op_fn = {};
+        if (std::unique_lock lg(s_state.mutex_lock); s_state.login_op != LoginTaskType{}) {
+            // Clean up existing states
+            this->remove_tab(s_state.login_tab);
+            s_state.login_tab = {};
+            s_state.login_op = {};
+            s_state.cancel_login_op_fn = {};
         }
     }
     Windows::Foundation::IAsyncAction AppInst::request_logout(void) {
-        // TODO...
+        co_await m_bili_client->revoke_login();
+        m_cfg_model.User_AccessToken(L"");
+        m_cfg_model.User_RefreshToken(L"");
+        m_cfg_model.User_Cookies_SESSDATA(L"");
+        m_cfg_model.User_Cookies_bili_jct(L"");
+        m_cfg_model.User_Cookies_DedeUserID(L"");
+        m_cfg_model.User_Cookies_DedeUserID__ckMd5(L"");
+        m_cfg_model.User_Cookies_sid(L"");
+        // TODO: Broadcast events
     }
-    Microsoft::UI::Xaml::Controls::TabView AppInst::parent_of_tab(AppTab* tab) {
+    Microsoft::UI::Xaml::Controls::TabView AppInst::parent_of_tab(AppTab tab) {
         // TODO: mutex lock or helper member function
         if (!tab) {
             return nullptr;
@@ -286,25 +313,15 @@ namespace BiliUWP {
                     for (auto& i : m_app_tabs) {
                         if (e.Tab() == i->get_tab_view_item()) {
                             this->remove_tab(i);
+                            return;
                         }
                     }
                 }
             );
             tab_view.AddTabButtonClick([this](TabView const& sender, IInspectable const&) {
-                // TODO: Finish AddTabButtonClick
-                // TODO: Get last tab item in window to adapt add_tab() logic
-                auto tab_items = sender.TabItems();
-                auto it_begin = tab_items.begin(), it_end = tab_items.end();
-                auto tab_item = it_end - it_begin >= 1 ? *(it_end - 1) : nullptr;
-                AppTab* target_app_tab = nullptr;
-                for (auto& i : m_app_tabs) {
-                    if (i->get_tab_view_item() == tab_item) {
-                        target_app_tab = i;
-                        break;
-                    }
-                }
-                auto new_tab = this->add_tab(target_app_tab);
+                auto new_tab = ::BiliUWP::make<AppTab>();
                 new_tab->navigate(xaml_typename<winrt::BiliUWP::NewPage>());
+                this->add_tab(new_tab, sender);
                 new_tab->activate();
             });
 
@@ -449,92 +466,97 @@ namespace BiliUWP {
         }
     }
 
-    AppTab::AppTab(AppInst* app_inst, bool use_tab_view) :
-        m_app_inst(app_inst), m_tab_item(), m_root_grid(), m_page_frame(),
+    implementation::AppTab::AppTab(use_the_make_function) :
+        m_app_inst(nullptr), m_tab_item(), m_root_grid(), m_page_frame(),
         m_is_dialog_showing(false)
     {
         using namespace Windows::UI::Xaml::Controls::Primitives;
 
-        if (use_tab_view) {
-            m_tab_item.Content(m_root_grid);
-            // TODO: Add context menu for TabViewItem
-            auto str_back = App::res_str(L"App/Common/Back");
-            auto str_forward = App::res_str(L"App/Common/Forward");
-            auto cmd_bar_fo = Microsoft::UI::Xaml::Controls::CommandBarFlyout();
-            auto btn_back = AppBarButton();
-            btn_back.Icon(SymbolIcon(Symbol::Back));
-            btn_back.Label(str_back);
-            ToolTipService::SetToolTip(btn_back, box_value(str_back));
-            cmd_bar_fo.PrimaryCommands().Append(btn_back);
-            auto btn_forward = AppBarButton();
-            btn_forward.Icon(SymbolIcon(Symbol::Forward));
-            btn_forward.Label(str_forward);
-            ToolTipService::SetToolTip(btn_forward, box_value(str_forward));
-            cmd_bar_fo.PrimaryCommands().Append(btn_forward);
-            auto update_menu_fn = [this,
-                btn_back = weak_ref(btn_back), btn_forward = weak_ref(btn_forward)
-            ]() {
-                // TODO: back & forward button should call this function to update
-                //       the entire menu (as the Page instance has changed)
-                // TODO: Maybe we should support stuff like IIntraNavigation for
-                //       things like `in-app WebView` Page instances
-                btn_back.get().IsEnabled(this->can_go_back());
-                btn_forward.get().IsEnabled(this->can_go_forward());
-            };
-            btn_back.Click([=](IInspectable const& sender, RoutedEventArgs const&) {
-                this->go_back();
-                update_menu_fn();
-            });
-            btn_forward.Click([=](IInspectable const& sender, RoutedEventArgs const&) {
-                this->go_forward();
-                update_menu_fn();
-            });
-            auto btn_copy_primary_res_id = AppBarButton();
-            btn_copy_primary_res_id.Label(App::res_str(L"App/MenuItem/CopyResId"));
-            cmd_bar_fo.SecondaryCommands().Append(btn_copy_primary_res_id);
-            cmd_bar_fo.Placement(FlyoutPlacementMode::RightEdgeAlignedTop);
-            cmd_bar_fo.Opening([=](IInspectable const&, IInspectable const&) {
-                update_menu_fn();
-            });
-            m_tab_item.ContextFlyout(cmd_bar_fo);
-            // TODO: Decide whether to show `Copy Res ID`, ... by trying to convert
-            //       Page into IBiliResource, and decide whether to show(?) menu item
-            //       by checking if i->bili_res_id() != L"".
-            // TODO: Reset secondary commands on the fly when menu is being opened
-        }
+        m_tab_item.Content(m_root_grid);
+        // TODO: Add context menu for TabViewItem
+        auto str_back = App::res_str(L"App/Common/Back");
+        auto str_forward = App::res_str(L"App/Common/Forward");
+        auto cmd_bar_fo = Microsoft::UI::Xaml::Controls::CommandBarFlyout();
+        auto btn_back = AppBarButton();
+        btn_back.Icon(SymbolIcon(Symbol::Back));
+        btn_back.Label(str_back);
+        ToolTipService::SetToolTip(btn_back, box_value(str_back));
+        cmd_bar_fo.PrimaryCommands().Append(btn_back);
+        auto btn_forward = AppBarButton();
+        btn_forward.Icon(SymbolIcon(Symbol::Forward));
+        btn_forward.Label(str_forward);
+        ToolTipService::SetToolTip(btn_forward, box_value(str_forward));
+        cmd_bar_fo.PrimaryCommands().Append(btn_forward);
+        auto update_menu_fn = [this,
+            btn_back = weak_ref(btn_back), btn_forward = weak_ref(btn_forward)
+        ]() {
+            // TODO: back & forward button should call this function to update
+            //       the entire menu (as the Page instance has changed)
+            // TODO: Maybe we should support stuff like IIntraNavigation for
+            //       things like `in-app WebView` Page instances
+            btn_back.get().IsEnabled(this->can_go_back());
+            btn_forward.get().IsEnabled(this->can_go_forward());
+        };
+        btn_back.Click([=](IInspectable const& sender, RoutedEventArgs const&) {
+            this->go_back();
+            update_menu_fn();
+        });
+        btn_forward.Click([=](IInspectable const& sender, RoutedEventArgs const&) {
+            this->go_forward();
+            update_menu_fn();
+        });
+        auto btn_copy_primary_res_id = AppBarButton();
+        btn_copy_primary_res_id.Label(App::res_str(L"App/MenuItem/CopyResId"));
+        cmd_bar_fo.SecondaryCommands().Append(btn_copy_primary_res_id);
+        cmd_bar_fo.Placement(FlyoutPlacementMode::RightEdgeAlignedTop);
+        cmd_bar_fo.Opening([=](IInspectable const&, IInspectable const&) {
+            update_menu_fn();
+        });
+        m_tab_item.ContextFlyout(cmd_bar_fo);
+        // TODO: Decide whether to show `Copy Res ID`, ... by trying to convert
+        //       Page into IBiliResource, and decide whether to show(?) menu item
+        //       by checking if i->bili_res_id() != L"".
+        // TODO: Reset secondary commands on the fly when menu is being opened
+
         m_root_grid.Children().Append(m_page_frame);
+
+        // SAFETY: Destructors don't throw
+        s_frame_tab_map.emplace(m_page_frame, this);
     }
-    Microsoft::UI::Xaml::Controls::IconSource AppTab::get_icon() {
+    implementation::AppTab::~AppTab() {
+        s_frame_tab_map.erase(m_page_frame);
+    }
+    Microsoft::UI::Xaml::Controls::IconSource implementation::AppTab::get_icon() {
         return m_tab_item.IconSource();
     }
-    void AppTab::set_icon(Microsoft::UI::Xaml::Controls::IconSource const& ico_src) {
+    void implementation::AppTab::set_icon(Microsoft::UI::Xaml::Controls::IconSource const& ico_src) {
         m_tab_item.IconSource(ico_src);
     }
-    hstring AppTab::get_title() {
+    hstring implementation::AppTab::get_title() {
         return m_tab_item.Header().try_as<hstring>().value_or(L"");
     }
-    void AppTab::set_title(winrt::hstring const& title) {
+    void implementation::AppTab::set_title(winrt::hstring const& title) {
         m_tab_item.Header(box_value(title));
     }
-    bool AppTab::navigate(
+    bool implementation::AppTab::navigate(
         Windows::UI::Xaml::Interop::TypeName const& page_type,
         Windows::Foundation::IInspectable const& param
     ) {
         return m_page_frame.Navigate(page_type, param);
     }
-    bool AppTab::can_go_back(void) {
+    bool implementation::AppTab::can_go_back(void) {
         return m_page_frame.CanGoBack();
     }
-    void AppTab::go_back(void) {
+    void implementation::AppTab::go_back(void) {
         m_page_frame.GoBack();
     }
-    bool AppTab::can_go_forward(void) {
+    bool implementation::AppTab::can_go_forward(void) {
         return m_page_frame.CanGoForward();
     }
-    void AppTab::go_forward(void) {
+    void implementation::AppTab::go_forward(void) {
         m_page_frame.GoForward();
     }
-    IAsyncAction AppTab::show_dialog(
+    IAsyncAction implementation::AppTab::show_dialog(
         IInspectable const& title,
         IInspectable const& content,
         hstring const& close_button_text
@@ -661,7 +683,7 @@ void winrt::BiliUWP::implementation::App::OnLaunched(LaunchActivatedEventArgs co
             }
             else {
                 // TODO: Use default action: create home page tab
-                auto home_tab = m_app_inst->add_tab(nullptr);
+                auto home_tab = ::BiliUWP::make<::BiliUWP::AppTab>();
                 auto ico_src = Microsoft::UI::Xaml::Controls::SymbolIconSource();
                 ico_src.Symbol(Symbol::Home);
                 home_tab->set_icon(ico_src);
@@ -673,6 +695,7 @@ void winrt::BiliUWP::implementation::App::OnLaunched(LaunchActivatedEventArgs co
                 //home_tab->navigate(xaml_typename<ContainerPage>(), box_value(L"111"));
                 home_tab->navigate(xaml_typename<ContainerPage>(), prog_ring);
                 //home_tab->navigate(xaml_typename<ContainerPage>(), box_value(L"333"));
+                m_app_inst->add_tab(home_tab);
                 home_tab->activate();
             }
 
