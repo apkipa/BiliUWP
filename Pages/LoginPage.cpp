@@ -46,30 +46,50 @@ namespace winrt::BiliUWP::implementation {
     }
     void LoginPage::LoginMethodsList_ItemClick(IInspectable const&, ItemClickEventArgs const& e) {
         if (e.ClickedItem() == QRLoginItem()) {
-            // TODO: QRCode login
             LoginMethodSelectionPane().Visibility(Visibility::Collapsed);
             QRCodeLoginPane().Visibility(Visibility::Visible);
             TokenLoginPane().Visibility(Visibility::Collapsed);
-            m_cur_async_op = [this]() -> IAsyncAction {
+            m_cur_async_op = [](LoginPage* that) -> IAsyncAction {
+                using namespace std::chrono_literals;
                 // Fetch QRCode (only for the first time) and poll
                 auto cancellation_token = co_await winrt::get_cancellation_token();
                 cancellation_token.enable_propagation();
-                // TODO...
-                if (m_qr_session.auth_code == L"") {
-                    // Fetch QRCode
-                    QRCodeProgRing().IsActive(true);
-                    deferred([this] {
-                        QRCodeProgRing().IsActive(false);
-                    });
-                    auto client = ::BiliUWP::App::get()->bili_client();
-                    m_qr_session = std::move(co_await client->request_tv_qr_login({}));
+                try {
+                    if (that->m_qr_session.auth_code == L"") {
+                        // Update QRCode
+                        co_await that->UpdateQRCcodeImage();
+                    }
+                    // Poll QRCode
+                    for (;;) {
+                        co_await 3s;
+                        co_await that->Dispatcher();
+                        switch (co_await that->PollQRCcodeStatus()) {
+                        case QRCodePollResult::Expired:
+                            that->QRCodeReload().Visibility(Visibility::Visible);
+                            co_return;
+                        case QRCodePollResult::Success:
+                            *that->m_result = LoginPageResult::Ok;
+                            that->m_finish_event.set();
+                            ::BiliUWP::App::get()->signal_login_state_changed();
+                            co_return;
+                        }
+                    }
                 }
-                // Poll QRCode
-                co_return;
-            }();
+                catch (hresult_error const& e) {
+                    that->QRCodeFailed().Visibility(Visibility::Visible);
+                    util::debug::log_error(e.message());
+                }
+                catch (::BiliUWP::BiliApiException const& e) {
+                    that->QRCodeFailed().Visibility(Visibility::Visible);
+                    util::debug::log_error(winrt::to_hstring(e.what()));
+                }
+                catch (...) {
+                    that->QRCodeFailed().Visibility(Visibility::Visible);
+                    util::debug::log_error(L"Unknown error occurred");
+                }
+            }(this);
         }
         else if (e.ClickedItem() == TokenLoginItem()) {
-            // TODO: Token login
             LoginMethodSelectionPane().Visibility(Visibility::Collapsed);
             QRCodeLoginPane().Visibility(Visibility::Collapsed);
             TokenLoginPane().Visibility(Visibility::Visible);
@@ -88,16 +108,45 @@ namespace winrt::BiliUWP::implementation {
         QRCodeLoginPane().Visibility(Visibility::Collapsed);
         TokenLoginPane().Visibility(Visibility::Collapsed);
     }
-    void LoginPage::QRCodeReload_Click(IInspectable const&, RoutedEventArgs const&) {
-        m_cur_async_op = [this]() -> IAsyncAction {
+    void LoginPage::QRCodeReloadButton_Click(IInspectable const&, RoutedEventArgs const&) {
+        m_cur_async_op = [](LoginPage* that) -> IAsyncAction {
+            using namespace std::chrono_literals;
             // Reload QRCode and poll
             auto cancellation_token = co_await winrt::get_cancellation_token();
             cancellation_token.enable_propagation();
-            // TODO...
-            // Fetch QRCode
-            // Poll QRCode
-            co_return;
-        }();
+            // Update QRCode
+            that->QRCodeFailed().Visibility(Visibility::Collapsed);
+            that->QRCodeReload().Visibility(Visibility::Collapsed);
+            try {
+                co_await that->UpdateQRCcodeImage();
+                for (;;) {
+                    co_await 3s;
+                    co_await that->Dispatcher();
+                    switch (co_await that->PollQRCcodeStatus()) {
+                    case QRCodePollResult::Expired:
+                        that->QRCodeReload().Visibility(Visibility::Visible);
+                        co_return;
+                    case QRCodePollResult::Success:
+                        *that->m_result = LoginPageResult::Ok;
+                        that->m_finish_event.set();
+                        ::BiliUWP::App::get()->signal_login_state_changed();
+                        co_return;
+                    }
+                }
+            }
+            catch (hresult_error const& e) {
+                that->QRCodeFailed().Visibility(Visibility::Visible);
+                util::debug::log_error(e.message());
+            }
+            catch (::BiliUWP::BiliApiException const& e) {
+                that->QRCodeFailed().Visibility(Visibility::Visible);
+                util::debug::log_error(winrt::to_hstring(e.what()));
+            }
+            catch (...) {
+                that->QRCodeFailed().Visibility(Visibility::Visible);
+                util::debug::log_error(L"Unknown error occurred");
+            }
+        }(this);
     }
     void LoginPage::TokenLogin_Click(IInspectable const&, RoutedEventArgs const&) {
         // Populate token and finish the process
@@ -112,5 +161,78 @@ namespace winrt::BiliUWP::implementation {
         *m_result = LoginPageResult::Ok;
         m_finish_event.set();
         ::BiliUWP::App::get()->signal_login_state_changed();
+    }
+    util::winrt::task<> LoginPage::UpdateQRCcodeImage(void) {
+        using namespace Windows::Storage::Streams;
+        using namespace Windows::Graphics::Display;
+        using namespace Windows::Security::Cryptography;
+
+        const int qrcode_border_size = 2;
+        const float zoom_factor = DisplayInformation::GetForCurrentView().LogicalDpi() / 96;
+
+        auto cancellation_token = co_await winrt::get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        auto qrcode_image = this->QRCodeImage();
+        qrcode_image.Source(nullptr);
+        QRCodeProgRing().IsActive(true);
+        deferred([this] {
+            QRCodeProgRing().IsActive(false);
+        });
+
+        auto client = ::BiliUWP::App::get()->bili_client();
+        auto req_result = std::move(co_await client->request_tv_qr_login({}));
+        auto qrcode = qrcodegen::QrCode::encodeText(req_result.url.c_str(), qrcodegen::QrCode::Ecc::MEDIUM);
+        auto qrcode_svg = qrcodegen::toSvgString(qrcode, qrcode_border_size);
+
+        const int qrcode_size = (qrcode.getSize() + qrcode_border_size) * 5;
+
+        auto mem_stream = InMemoryRandomAccessStream();
+        co_await mem_stream.WriteAsync(
+            CryptographicBuffer::ConvertStringToBinary(qrcode_svg, BinaryStringEncoding::Utf8)
+        );
+        mem_stream.Seek(0);
+
+        co_await Dispatcher();
+        auto svg_img_src = Windows::UI::Xaml::Media::Imaging::SvgImageSource();
+        qrcode_image.Width(qrcode_size / zoom_factor);
+        qrcode_image.Height(qrcode_size / zoom_factor);
+        /*qrcode_image.ImageOpened([this](IInspectable const&, RoutedEventArgs const&) {
+            QRCodeProgRing().IsActive(false);
+        });*/
+        qrcode_image.Source(svg_img_src);
+        co_await svg_img_src.SetSourceAsync(mem_stream);
+
+        m_qr_session = std::move(req_result);
+    }
+    util::winrt::task<QRCodePollResult> LoginPage::PollQRCcodeStatus(void) {
+        auto cancellation_token = co_await winrt::get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        auto client = ::BiliUWP::App::get()->bili_client();
+        auto result = std::move(co_await client->poll_tv_qr_login(m_qr_session.auth_code, {}));
+        switch (result.code) {
+        case ::BiliUWP::ApiCode::TvQrLogin_QrNotConfirmed:
+            co_return QRCodePollResult::Continue;
+        case ::BiliUWP::ApiCode::TvQrLogin_QrExpired:
+            co_return QRCodePollResult::Expired;
+        case ::BiliUWP::ApiCode::Success:
+        {
+            util::debug::log_trace(std::format(L"Got tokens which expire in {}", result.expires_in));
+            auto cfg_model = ::BiliUWP::App::get()->cfg_model();
+            cfg_model.User_AccessToken(result.access_token);
+            cfg_model.User_RefreshToken(result.refresh_token);
+            cfg_model.User_Cookies_SESSDATA(result.user_cookies.SESSDATA);
+            cfg_model.User_Cookies_bili_jct(result.user_cookies.bili_jct);
+            cfg_model.User_Cookies_DedeUserID(result.user_cookies.DedeUserID);
+            cfg_model.User_Cookies_DedeUserID__ckMd5(result.user_cookies.DedeUserID__ckMd5);
+            cfg_model.User_Cookies_sid(result.user_cookies.sid);
+            co_return QRCodePollResult::Success;
+        }
+        default:
+            throw hresult_error(E_FAIL,
+                std::format(L"Got unknown ApiCode {}", util::misc::enum_to_int(result.code))
+            );
+        }
     }
 }

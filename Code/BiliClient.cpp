@@ -267,65 +267,6 @@ namespace BiliUWP {
                 static_assert(util::misc::always_false_v<ParamType>, "Incorrect parameter type for functor");
             }
         }
-        /*
-        template<typename T>
-        void populate_inner(T& dst, std::string_view key) = delete;
-        template<>
-        void populate_inner(double& dst, std::string_view key) {
-            auto jv = expect_jo_lookup(m_jo, key);
-            expect_jv_type(jv, winrt::Windows::Data::Json::JsonValueType::Number);
-            dst = jv.GetNumber();
-        }
-        template<>
-        void populate_inner(winrt::hstring& dst, std::string_view key) {
-            auto jv = expect_jo_lookup(m_jo, key);
-            expect_jv_type(jv, winrt::Windows::Data::Json::JsonValueType::String);
-            dst = jv.GetString();
-        }
-        template<>
-        void populate_inner(std::wstring& dst, std::string_view key) {
-            auto jv = expect_jo_lookup(m_jo, key);
-            expect_jv_type(jv, winrt::Windows::Data::Json::JsonValueType::String);
-            dst = jv.GetString();
-        }
-        template<>
-        void populate_inner(bool& dst, std::string_view key) {
-            auto jv = expect_jo_lookup(m_jo, key);
-            expect_jv_type(jv, winrt::Windows::Data::Json::JsonValueType::Boolean);
-            dst = jv.GetBoolean();
-        }
-        template<>
-        void populate_inner(uint32_t& dst, std::string_view key) {
-            double temp;
-            populate_inner(temp, key);
-            dst = static_cast<uint32_t>(temp);
-        }
-        template<>
-        void populate_inner(int32_t& dst, std::string_view key) {
-            double temp;
-            populate_inner(temp, key);
-            dst = static_cast<int32_t>(temp);
-        }
-        template<>
-        void populate_inner(uint64_t& dst, std::string_view key) {
-            double temp;
-            populate_inner(temp, key);
-            dst = static_cast<uint64_t>(temp);
-        }
-        template<>
-        void populate_inner(int64_t& dst, std::string_view key) {
-            double temp;
-            populate_inner(temp, key);
-            dst = static_cast<int64_t>(temp);
-        }
-        template<typename T>
-        void populate(T& dst, std::string_view key) {
-            m_props_walk.push(key);
-            deferred([this] {
-                m_props_walk.pop();
-            });
-            populate_inner(dst, key);
-        }*/
         template<typename T>
         void populate_inner(T& dst, JsonValueVisitor jvv) {
             jvv.populate(dst);
@@ -427,67 +368,14 @@ namespace BiliUWP {
                 this->scope(std::bind(func, container[i], std::placeholders::_1), i);
             }
         }
-        /*
-        template<typename T>
-        void populate_inner(T& dst, size_t idx) = delete;
-        template<>
-        void populate_inner(double& dst, size_t idx) {
-            auto jv = expect_ja_get(m_ja, idx);
-            expect_jv_type(jv, winrt::Windows::Data::Json::JsonValueType::Number);
-            dst = jv.GetNumber();
+        template<typename Functor>
+        auto scope_enumerate(Functor&& func) {
+            // TODO: Maybe improve performance for scope_enumerate
+            auto size = m_ja.Size();
+            for (decltype(size) i = 0; i < size; i++) {
+                this->scope(std::bind(func, static_cast<size_t>(i), std::placeholders::_1), i);
+            }
         }
-        template<>
-        void populate_inner(winrt::hstring& dst, size_t idx) {
-            auto jv = expect_ja_get(m_ja, idx);
-            expect_jv_type(jv, winrt::Windows::Data::Json::JsonValueType::String);
-            dst = jv.GetString();
-        }
-        template<>
-        void populate_inner(std::wstring& dst, size_t idx) {
-            auto jv = expect_ja_get(m_ja, idx);
-            expect_jv_type(jv, winrt::Windows::Data::Json::JsonValueType::String);
-            dst = jv.GetString();
-        }
-        template<>
-        void populate_inner(bool& dst, size_t idx) {
-            auto jv = expect_ja_get(m_ja, idx);
-            expect_jv_type(jv, winrt::Windows::Data::Json::JsonValueType::Boolean);
-            dst = jv.GetBoolean();
-        }
-        template<>
-        void populate_inner(uint32_t& dst, size_t idx) {
-            double temp;
-            populate_inner(temp, idx);
-            dst = static_cast<uint32_t>(temp);
-        }
-        template<>
-        void populate_inner(int32_t& dst, size_t idx) {
-            double temp;
-            populate_inner(temp, idx);
-            dst = static_cast<int32_t>(temp);
-        }
-        template<>
-        void populate_inner(uint64_t& dst, size_t idx) {
-            double temp;
-            populate_inner(temp, idx);
-            dst = static_cast<uint64_t>(temp);
-        }
-        template<>
-        void populate_inner(int64_t& dst, size_t idx) {
-            double temp;
-            populate_inner(temp, idx);
-            dst = static_cast<int64_t>(temp);
-        }
-        // NOTE: populate is just an assignment inside scope
-        template<typename T>
-        void populate(T& dst, size_t idx) {
-            m_props_walk.push(idx);
-            deferred([this] {
-                m_props_walk.pop();
-            });
-            populate_inner(dst, idx);
-        }
-        */
         template<typename T>
         void populate_inner(T& dst, JsonValueVisitor jvv) {
             jvv.populate(dst);
@@ -799,8 +687,10 @@ namespace BiliUWP {
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
-        jov.populate(result.url, "url");
-        jov.populate(result.auth_code, "auth_code");
+        jov.scope([&](JsonObjectVisitor jov) {
+            jov.populate(result.url, "url");
+            jov.populate(result.auth_code, "auth_code");
+        }, "data");
 
         co_return result;
     }
@@ -830,11 +720,28 @@ namespace BiliUWP {
                 jov.populate(result.refresh_token, "refresh_token");
                 jov.populate(result.expires_in, "expires_in");
                 jov.scope([&](JsonObjectVisitor jov) {
-                    jov.populate(result.user_cookies.SESSDATA, "SESSDATA");
-                    jov.populate(result.user_cookies.bili_jct, "bili_jct");
-                    jov.populate(result.user_cookies.DedeUserID, "DedeUserID");
-                    jov.populate(result.user_cookies.DedeUserID__ckMd5, "DedeUserID__ckMd5");
-                    jov.populate(result.user_cookies.sid, "sid");
+                    jov.scope([&](JsonArrayVisitor jav) {
+                        jav.scope_enumerate([&](size_t i, JsonObjectVisitor jov) {
+                            (void)i;
+                            winrt::hstring name;
+                            jov.populate(name, "name");
+                            if (name == L"SESSDATA") {
+                                jov.populate(result.user_cookies.SESSDATA, "value");
+                            }
+                            else if (name == L"bili_jct") {
+                                jov.populate(result.user_cookies.bili_jct, "value");
+                            }
+                            else if (name == L"DedeUserID") {
+                                jov.populate(result.user_cookies.DedeUserID, "value");
+                            }
+                            else if (name == L"DedeUserID__ckMd5") {
+                                jov.populate(result.user_cookies.DedeUserID__ckMd5, "value");
+                            }
+                            else if (name == L"sid") {
+                                jov.populate(result.user_cookies.sid, "value");
+                            }
+                        });
+                    }, "cookies");
                 }, "cookie_info");
             }, "data");
 

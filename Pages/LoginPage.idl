@@ -15,4 +15,11 @@ namespace BiliUWP {
         //       the login process.
         Windows.Foundation.IAsyncOperation<LoginPageResult> RequestLogin(void);
     }
+        
+    // Private only
+    enum QRCodePollResult {
+        Success,
+        Continue,
+        Expired,
+    };
 }

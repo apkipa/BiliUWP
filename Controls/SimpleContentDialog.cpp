@@ -90,25 +90,18 @@ namespace winrt::BiliUWP::implementation {
             });
         }
 
-        std::unique_ptr<SimpleContentDialog> self_ptr = nullptr;
-        {
-            // Use deferred to make sure ownership transfers in case of cancellation
-            deferred([&] {
-                if (m_self) {
-                    self_ptr = std::move(m_self);
-                }
-            });
-            co_await m_finish_event;
-        }
-        if (self_ptr) {
-            // Event fired because of final_release; destroy self immediately
+        auto weak_this = get_weak();
+        co_await m_finish_event;
+        auto strong_this = weak_this.get();
+        if (!strong_this) {
+            // Self is long gone; destroy self immediately
             co_return SimpleContentDialogResult::None;
         }
 
         co_await Dispatcher();
         if (IsLoaded()) {
             VisualStateManager::GoToState(*this, L"DialogHidden", true);
-            // NOTE: In XAML, transition time is 0.5s, and we wait for it to complete
+            // NOTE: Transition time in XAML is 0.5s, and we wait for it to complete
             co_await 500ms;
         }
         else {

@@ -632,10 +632,90 @@ namespace util {
             concurrency::cancellation_token_source m_cts;
             std::shared_ptr<::winrt::cancellable_promise> m_cancellable;
         };
-        // TODO: task<void> specialization
+        // task<void> specialization
         template<>
-        struct task<void> {
-            // TODO...
+        struct task<void> : ::winrt::enable_await_cancellation {
+            struct promise_type {
+                promise_type() : m_cancellable(std::make_shared<::winrt::cancellable_promise>()) {}
+                task get_return_object() {
+                    return {
+                        concurrency::create_task(m_tce, concurrency::task_options{ m_cts.get_token() }),
+                        m_cts,
+                        m_cancellable
+                    };
+                }
+                std::suspend_never initial_suspend() const noexcept { return {}; }
+                std::suspend_never final_suspend() const noexcept { return {}; }
+                void return_void() {
+                    m_tce.set();
+                }
+                void unhandled_exception() {
+                    // TODO: Fix only std::exception is usable (?)
+                    m_tce.set_exception(std::current_exception());
+                }
+                template <typename Expression>
+                auto await_transform(Expression&& expression) {
+                    if (m_cts.get_token().is_canceled()) {
+                        throw ::winrt::hresult_canceled();
+                    }
+                    return ::winrt::impl::notify_awaiter<Expression> {
+                        static_cast<Expression&&>(expression),
+                            m_propagate_cancellation ? &*m_cancellable : nullptr
+                    };
+                }
+                ::winrt::impl::cancellation_token<promise_type> await_transform(
+                    ::winrt::get_cancellation_token_t
+                ) noexcept {
+                    return { static_cast<promise_type*>(this) };
+                }
+                bool enable_cancellation_propagation(bool value) noexcept {
+                    return std::exchange(m_propagate_cancellation, value);
+                }
+            private:
+                concurrency::task_completion_event<void> m_tce;
+                concurrency::cancellation_token_source m_cts;
+                std::shared_ptr<::winrt::cancellable_promise> m_cancellable;
+                bool m_propagate_cancellation{ false };
+            };
+            bool await_ready() const {
+                return m_task.is_done();
+            }
+            void await_suspend(std::coroutine_handle<> resume) {
+                m_task.then(
+                    [resume](concurrency::task<void> const&) { resume(); },
+                    concurrency::task_continuation_context::get_current_winrt_context()
+                );
+            }
+            void await_resume() {
+                m_task.get();
+            }
+            void enable_cancellation(::winrt::cancellable_promise* promise) {
+                promise->set_canceller([](void* context) {
+                    auto that = static_cast<task*>(context);
+                    that->m_cts.cancel();
+                    }, this);
+            }
+            void cancel(void) {
+                m_cancellable->cancel();
+                m_cts.cancel();
+            }
+            ~task() {
+                // Swallow exceptions, if any
+                m_task.then([](concurrency::task<void> const& task) {
+                    try { task.wait(); }
+                    catch (...) {}
+                });
+            }
+        private:
+            task(
+                concurrency::task<void> task,
+                concurrency::cancellation_token_source cts,
+                std::shared_ptr<::winrt::cancellable_promise> cancellable
+            ) : m_task(std::move(task)), m_cts(std::move(cts)), m_cancellable(std::move(cancellable)) {}
+
+            concurrency::task<void> m_task;
+            concurrency::cancellation_token_source m_cts;
+            std::shared_ptr<::winrt::cancellable_promise> m_cancellable;
         };
     }
 }

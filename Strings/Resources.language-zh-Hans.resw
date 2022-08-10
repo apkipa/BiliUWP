@@ -153,6 +153,12 @@
   <data name="App.Pages.LoginPage.ChooseLoginMethod.Text" xml:space="preserve">
     <value>选择一种登录方式以继续...</value>
   </data>
+  <data name="App.Pages.LoginPage.QRCodeExpired.Text" xml:space="preserve">
+    <value>二维码已过期</value>
+  </data>
+  <data name="App.Pages.LoginPage.QRCodeFailed.Text" xml:space="preserve">
+    <value>处理二维码时出现了问题</value>
+  </data>
   <data name="App.Pages.LoginPage.QRCodeLogin.Text" xml:space="preserve">
     <value>二维码登录</value>
   </data>

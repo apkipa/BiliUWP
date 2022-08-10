@@ -47,12 +47,7 @@ namespace winrt::BiliUWP::implementation {
         static Windows::UI::Xaml::DependencyProperty IsSecondaryButtonEnabledProperty() { return m_IsSecondaryButtonEnabledProperty; }
 
         static void final_release(std::unique_ptr<SimpleContentDialog> ptr) noexcept {
-            if (ptr->m_dialog_showing.load()) {
-                // Transfer the ownership later to coroutine
-                auto& that = ptr->m_self;
-                that = std::move(ptr);
-                that->m_finish_event.set();
-            }
+            ptr->m_finish_event.set();
         }
 
     private:

@@ -35,6 +35,9 @@ namespace BiliUWP {
         // TODO: Initialize absent setting items with default value
         util::debug::set_log_provider(m_logging_provider);
 
+        // TODO: Remove this
+        m_cur_log_level = util::debug::LogLevel::Trace;
+
         auto update_bili_client_fn = [this] {
             m_bili_client->set_access_token(m_cfg_model.User_AccessToken());
             m_bili_client->set_refresh_token(m_cfg_model.User_RefreshToken());

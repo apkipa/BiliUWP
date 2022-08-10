@@ -19,7 +19,7 @@ namespace winrt::BiliUWP::implementation {
             Windows::Foundation::IInspectable const&,
             Windows::UI::Xaml::RoutedEventArgs const&
         );
-        void QRCodeReload_Click(
+        void QRCodeReloadButton_Click(
             Windows::Foundation::IInspectable const&,
             Windows::UI::Xaml::RoutedEventArgs const&
         );
@@ -31,6 +31,7 @@ namespace winrt::BiliUWP::implementation {
         static void final_release(std::unique_ptr<LoginPage> ptr) noexcept {
             // Page is closed; stop all pending tasks
             auto cur_async_op = ptr->m_cur_async_op;
+            ptr->m_finish_event.set();
             if (cur_async_op) {
                 cur_async_op.Cancel();
                 // Extend self lifetime
@@ -41,10 +42,12 @@ namespace winrt::BiliUWP::implementation {
                     catch (hresult_canceled const&) {}
                 }(std::move(ptr));
             }
-            ptr->m_finish_event.set();
         }
 
     private:
+        util::winrt::task<> UpdateQRCcodeImage(void);
+        util::winrt::task<QRCodePollResult> PollQRCcodeStatus(void);
+
         util::winrt::awaitable_event m_finish_event;
 
         std::shared_ptr<LoginPageResult> m_result;

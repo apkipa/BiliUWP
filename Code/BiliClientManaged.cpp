@@ -127,6 +127,10 @@ namespace winrt::BiliUWP::implementation {
         m_http_filter.AllowAutoRedirect(false);
         m_http_client = HttpClient(m_http_filter);
         this->data_user_agent(L"Mozilla/5.0 BiliDroid/6.4.0 (bbcallen@gmail.com)");
+        /*this->data_user_agent(L""
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/92.0.4515.107 Safari/537.36"
+        );*/
     }
     hstring BiliClientManaged::data_user_agent() {
         return m_http_client.DefaultRequestHeaders().UserAgent().ToString();
@@ -189,6 +193,8 @@ namespace winrt::BiliUWP::implementation {
 
         // TODO: Figure out the real structure of local_id, or simply ignore it
         //param_maker.add_param(L"local_id", util::winrt::to_hstring(local_id));
+        param_maker.add_param(L"local_id", L"0");
+        param_maker.add_param(L"mobi_app", L"android");
         param_maker.add_param_ts();
         param_maker.finalize(keys);
         auto uri = make_uri(
@@ -208,6 +214,8 @@ namespace winrt::BiliUWP::implementation {
         cancellation_token.enable_propagation();
 
         //param_maker.add_param(L"local_id", util::winrt::to_hstring(local_id));
+        param_maker.add_param(L"local_id", L"0");
+        param_maker.add_param(L"mobi_app", L"android");
         param_maker.add_param(L"auth_code", auth_code);
         param_maker.add_param_ts();
         param_maker.finalize(keys);
