@@ -2,6 +2,7 @@
 #include "util.hpp"
 #include "App.h"
 #include "MainPage.h"
+#include "SimpleContentDialog.h"
 #include <shared_mutex>
 
 using namespace winrt;
@@ -24,7 +25,7 @@ namespace BiliUWP {
         m_app_tabs(), m_tv(), m_glob_frame(nullptr), m_cur_log_level(util::debug::LogLevel::Info),
         m_app_logs(), m_logging_provider(new AppLoggingProvider(this)),
         m_res_ldr(Windows::ApplicationModel::Resources::ResourceLoader::GetForViewIndependentUse()),
-        m_cfg_model(winrt::make<winrt::BiliUWP::implementation::AppCfgModel>()),
+        m_cfg_model(winrt::BiliUWP::AppCfgModel()),
         m_cfg_app_use_tab_view(m_cfg_model.App_UseTabView()),
         m_bili_client(new BiliClient())
     {
@@ -49,15 +50,25 @@ namespace BiliUWP {
         m_cfg_model.PropertyChanged([=](IInspectable const& sender, PropertyChangedEventArgs const& e) {
             // TODO: Reduce update cost according to the property name
             auto prop_name = e.PropertyName();
-            if (prop_name == L"User_AccessToken" ||
-                prop_name == L"User_RefreshToken" ||
-                prop_name == L"User_Cookies_SESSDATA" ||
+            if (prop_name == L"User_AccessToken") {
+                m_bili_client->set_access_token(m_cfg_model.User_AccessToken());
+            }
+            else if (prop_name == L"User_RefreshToken") {
+                m_bili_client->set_refresh_token(m_cfg_model.User_RefreshToken());
+            }
+            else if (prop_name == L"User_Cookies_SESSDATA" ||
                 prop_name == L"User_Cookies_bili_jct" ||
                 prop_name == L"User_Cookies_DedeUserID" ||
                 prop_name == L"User_Cookies_DedeUserID__ckMd5" ||
                 prop_name == L"User_Cookies_sid")
             {
-                update_bili_client_fn();
+                winrt::BiliUWP::UserCookies user_cookies;
+                user_cookies.SESSDATA = m_cfg_model.User_Cookies_SESSDATA();
+                user_cookies.bili_jct = m_cfg_model.User_Cookies_bili_jct();
+                user_cookies.DedeUserID = m_cfg_model.User_Cookies_DedeUserID();
+                user_cookies.DedeUserID__ckMd5 = m_cfg_model.User_Cookies_DedeUserID__ckMd5();
+                user_cookies.sid = m_cfg_model.User_Cookies_sid();
+                m_bili_client->set_cookies(user_cookies);
             }
         });
         update_bili_client_fn();
@@ -142,8 +153,12 @@ namespace BiliUWP {
                 return;
             }
             tv.TabItems().RemoveAt(idx);
+            // Hack: Update tab items layout
+            tv.TabWidthMode(tv.TabWidthMode());
         }
-        m_app_tabs.erase(std::find(m_app_tabs.begin(), m_app_tabs.end(), tab));
+        if (auto it = std::find(m_app_tabs.begin(), m_app_tabs.end(), tab); it != m_app_tabs.end()) {
+            m_app_tabs.erase(it);
+        }
         // TODO: Close entire window (view) if no more tabs exist
         // TODO: Save current tab if this is the only window
         /*if (tv && tv.TabItems().Size() == 0) {
@@ -214,20 +229,43 @@ namespace BiliUWP {
                 co_return co_await login_op;
             }();
         }
+        deferred([&] {
+            if (std::unique_lock lg(s_state.mutex_lock); s_state.login_op != LoginTaskType{}) {
+                // Clean up existing states
+                this->remove_tab(s_state.login_tab);
+                s_state.login_tab = {};
+                s_state.login_op = {};
+                s_state.cancel_login_op_fn = {};
+            }
+        });
         if (std::shared_lock lg(s_state.mutex_lock); s_state.login_op != LoginTaskType{}) {
-            // Just wait for the existing task to complete
+            // Just wait for the existing task to complete, discarding the results
             try {
                 co_await s_state.login_op;
             }
             catch (...) {}
         }
-        if (std::unique_lock lg(s_state.mutex_lock); s_state.login_op != LoginTaskType{}) {
-            // Clean up existing states
-            this->remove_tab(s_state.login_tab);
-            s_state.login_tab = {};
-            s_state.login_op = {};
-            s_state.cancel_login_op_fn = {};
-        }
+    }
+    bool AppInst::is_logged_in(void) {
+        return m_cfg_model.User_AccessToken() != L"";
+    }
+    winrt::Windows::Foundation::IAsyncAction AppInst::request_login_blocking(AppTab tab) {
+        auto cancellation_token = co_await winrt::get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        auto login_dlg = winrt::BiliUWP::SimpleContentDialog();
+        login_dlg.Title(box_value(App::res_str(L"App/Common/Login")));
+        login_dlg.Content(box_value(App::res_str(L"App/Dialog/FinishLogin/Content")));
+        login_dlg.CloseButtonText(App::res_str(L"App/Common/Cancel"));
+
+        auto login_op = this->request_login();
+        auto show_dlg_op = [&]() -> IAsyncAction { co_await tab->show_dialog(login_dlg); }();
+
+        deferred([&] {
+            login_op.Cancel();
+            login_dlg.Hide();
+        });
+        co_await winrt::when_any(login_op, show_dlg_op);
     }
     Windows::Foundation::IAsyncAction AppInst::request_logout(void) {
         co_await m_bili_client->revoke_login();
@@ -238,7 +276,7 @@ namespace BiliUWP {
         m_cfg_model.User_Cookies_DedeUserID(L"");
         m_cfg_model.User_Cookies_DedeUserID__ckMd5(L"");
         m_cfg_model.User_Cookies_sid(L"");
-        // TODO: Broadcast events
+        this->signal_login_state_changed();
     }
     Microsoft::UI::Xaml::Controls::TabView AppInst::parent_of_tab(AppTab tab) {
         // TODO: mutex lock or helper member function
@@ -312,6 +350,7 @@ namespace BiliUWP {
                     // TODO: Improve tab close logic
                     for (auto& i : m_app_tabs) {
                         if (e.Tab() == i->get_tab_view_item()) {
+                            i->signal_closed_by_user();
                             this->remove_tab(i);
                             return;
                         }
@@ -468,7 +507,7 @@ namespace BiliUWP {
 
     implementation::AppTab::AppTab(use_the_make_function) :
         m_app_inst(nullptr), m_tab_item(), m_root_grid(), m_page_frame(),
-        m_is_dialog_showing(false)
+        m_urgent_halt(std::make_shared<std::atomic_bool>(false)), m_show_dlg_op(nullptr)
     {
         using namespace Windows::UI::Xaml::Controls::Primitives;
 
@@ -525,11 +564,22 @@ namespace BiliUWP {
     }
     implementation::AppTab::~AppTab() {
         s_frame_tab_map.erase(m_page_frame);
+
+        m_urgent_halt->store(true);
+
+        if (m_show_dlg_op) {
+            m_show_dlg_op.Cancel();
+        }
     }
     Microsoft::UI::Xaml::Controls::IconSource implementation::AppTab::get_icon() {
         return m_tab_item.IconSource();
     }
     void implementation::AppTab::set_icon(Microsoft::UI::Xaml::Controls::IconSource const& ico_src) {
+        m_tab_item.IconSource(ico_src);
+    }
+    void implementation::AppTab::set_icon(Windows::UI::Xaml::Controls::Symbol const& symbol) {
+        auto ico_src = Microsoft::UI::Xaml::Controls::SymbolIconSource();
+        ico_src.Symbol(symbol);
         m_tab_item.IconSource(ico_src);
     }
     hstring implementation::AppTab::get_title() {
@@ -556,13 +606,30 @@ namespace BiliUWP {
     void implementation::AppTab::go_forward(void) {
         m_page_frame.GoForward();
     }
-    IAsyncAction implementation::AppTab::show_dialog(
-        IInspectable const& title,
-        IInspectable const& content,
-        hstring const& close_button_text
+    IAsyncOperation<winrt::BiliUWP::SimpleContentDialogResult> implementation::AppTab::show_dialog(
+        winrt::BiliUWP::SimpleContentDialog dialog
     ) {
-        // TODO: Finish AppTab::show_dialog()
-        throw hresult_not_implemented();
+        auto cancellation_token = co_await winrt::get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        auto urgent_halt = m_urgent_halt;
+
+        if (m_show_dlg_op) {
+            throw hresult_error(E_FAIL, L"Cannot show more than one dialog in a single AppTab");
+        }
+
+        m_root_grid.Children().Append(dialog);
+        m_show_dlg_op = dialog.ShowAsync();
+        deferred([&] {
+            if (urgent_halt->load()) {
+                return;
+            }
+
+            m_root_grid.Children().RemoveAtEnd();
+            m_show_dlg_op = nullptr;
+        });
+        auto result = co_await m_show_dlg_op;
+        co_return result;
     }
 }
 

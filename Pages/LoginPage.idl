@@ -9,6 +9,10 @@ namespace BiliUWP {
         LoginPage();
 
         // NOTE: For unrecoverable errors, an exception will be thrown
+        // NOTE: The login operation is started once the page is added;
+        //       awaiting RequestLogin can tell you when the login has
+        //       completed. Cancelling the operation has no effect on
+        //       the login process.
         Windows.Foundation.IAsyncOperation<LoginPageResult> RequestLogin(void);
     }
 }

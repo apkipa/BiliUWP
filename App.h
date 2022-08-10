@@ -162,8 +162,28 @@ namespace BiliUWP {
         void clear_log(void) { m_app_logs.clear(); };
 
         // Authentication
+        bool is_logged_in(void);
         winrt::Windows::Foundation::IAsyncAction request_login(void);
+        winrt::Windows::Foundation::IAsyncAction request_login_blocking(AppTab tab);
         winrt::Windows::Foundation::IAsyncAction request_logout(void);
+        template<typename T>
+        winrt::event_token login_state_changed(T&& functor) {
+            return m_ev_login_state_changed.add(
+                [functor = std::move(functor)](winrt::Windows::Foundation::IInspectable const&, bool) {
+                    functor();
+                }
+            );
+        }
+        void login_state_changed(winrt::event_token et) {
+            m_ev_login_state_changed.remove(et);
+        }
+        void signal_login_state_changed(void) {
+            m_ev_login_state_changed(nullptr, false);
+        }
+
+        BiliClient* bili_client(void) {
+            return m_bili_client;
+        }
 
     private:
         friend winrt::BiliUWP::implementation::App;
@@ -200,6 +220,8 @@ namespace BiliUWP {
         bool m_cfg_app_use_tab_view;
 
         BiliClient* m_bili_client;
+
+        winrt::event<winrt::Windows::Foundation::EventHandler<bool>> m_ev_login_state_changed;
     };
 
     struct AppLoggingProvider final : util::debug::LoggingProvider {
@@ -296,6 +318,7 @@ namespace BiliUWP {
 
         winrt::Microsoft::UI::Xaml::Controls::IconSource get_icon();
         void set_icon(winrt::Microsoft::UI::Xaml::Controls::IconSource const& ico_src);
+        void set_icon(winrt::Windows::UI::Xaml::Controls::Symbol const& symbol);
         winrt::hstring get_title();
         void set_title(winrt::hstring const& title);
         winrt::Windows::Foundation::IInspectable get_content() { return m_page_frame.Content(); }
@@ -312,10 +335,8 @@ namespace BiliUWP {
         // NOTE: Cancel the returned async operation to close the dialog
         // NOTE: If the close button text is empty, the button will not be shown
         // TODO: Reuse ContentDialog?
-        winrt::Windows::Foundation::IAsyncAction show_dialog(
-            winrt::Windows::Foundation::IInspectable const& title,
-            winrt::Windows::Foundation::IInspectable const& content,
-            winrt::hstring const& close_button_text
+        winrt::Windows::Foundation::IAsyncOperation<winrt::BiliUWP::SimpleContentDialogResult> show_dialog(
+            winrt::BiliUWP::SimpleContentDialog dialog
         );
 
         // A shim for AppInst::activate_tab()
@@ -330,7 +351,21 @@ namespace BiliUWP {
         auto ui_context(void) {
             return winrt::resume_foreground(m_root_grid.Dispatcher());
         }
+
+        template<typename T>
+        winrt::event_token closed_by_user(T&& functor) {
+            return m_ev_closed_by_user.add(
+                [functor = std::move(functor)](winrt::Windows::Foundation::IInspectable const&, bool) {
+                    functor();
+                }
+            );
+        }
+        void closed_by_user(winrt::event_token et) {
+            m_ev_closed_by_user.remove(et);
+        }
+
     private:
+        friend winrt::BiliUWP::implementation::App;
         friend AppInst;
 
         // NOTE: AppInst should be unassociated as soon as it is removed from the instance
@@ -348,6 +383,9 @@ namespace BiliUWP {
             }
             return nullptr;
         }
+        void signal_closed_by_user(void) {
+            m_ev_closed_by_user(nullptr, false);
+        }
 
         static inline std::map<winrt::Windows::UI::Xaml::Controls::Frame, AppTab*> s_frame_tab_map;
 
@@ -357,6 +395,9 @@ namespace BiliUWP {
         winrt::Windows::UI::Xaml::Controls::Grid m_root_grid;
         winrt::Windows::UI::Xaml::Controls::Frame m_page_frame;
 
-        bool m_is_dialog_showing;
+        std::shared_ptr<std::atomic_bool> m_urgent_halt;
+        winrt::Windows::Foundation::IAsyncOperation<winrt::BiliUWP::SimpleContentDialogResult> m_show_dlg_op;
+
+        winrt::event<winrt::Windows::Foundation::EventHandler<bool>> m_ev_closed_by_user;
     };
 }

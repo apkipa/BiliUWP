@@ -15,7 +15,7 @@
     <ApplicationType>Windows Store</ApplicationType>
     <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
     <WindowsTargetPlatformVersion Condition=" '$(WindowsTargetPlatformVersion)' == '' ">10.0</WindowsTargetPlatformVersion>
-    <WindowsTargetPlatformMinVersion>10.0.17763.0</WindowsTargetPlatformMinVersion>
+    <WindowsTargetPlatformMinVersion>10.0.18362.0</WindowsTargetPlatformMinVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <ItemGroup Label="ProjectConfigurations">
@@ -78,7 +78,9 @@
   <ImportGroup Label="PropertySheets">
     <Import Project="PropertySheet.props" />
   </ImportGroup>
-  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Label="UserMacros">
+    <TargetPlatformMinVersion>10.0.18362.0</TargetPlatformMinVersion>
+  </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
       <PrecompiledHeader>Use</PrecompiledHeader>
@@ -97,10 +99,10 @@
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
     <ClCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(GeneratedFilesDir)Pages\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(GeneratedFilesDir)Pages\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(GeneratedFilesDir)Pages\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(GeneratedFilesDir)Pages\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(ProjectDir)Controls\;$(ProjectDir)Thirdparty\qrcodegen\;$(GeneratedFilesDir)Pages\;$(GeneratedFilesDir)Controls\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(ProjectDir)Controls\;$(ProjectDir)Thirdparty\qrcodegen\;$(GeneratedFilesDir)Pages\;$(GeneratedFilesDir)Controls\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(ProjectDir)Controls\;$(ProjectDir)Thirdparty\qrcodegen\;$(GeneratedFilesDir)Pages\;$(GeneratedFilesDir)Controls\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(ProjectDir)Controls\;$(ProjectDir)Thirdparty\qrcodegen\;$(GeneratedFilesDir)Pages\;$(GeneratedFilesDir)Controls\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">stdcpp20</LanguageStandard>
       <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">stdcpp20</LanguageStandard>
       <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdcpp20</LanguageStandard>
@@ -110,10 +112,10 @@
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
     <ClCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(GeneratedFilesDir)Pages\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(GeneratedFilesDir)Pages\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(GeneratedFilesDir)Pages\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(GeneratedFilesDir)Pages\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(ProjectDir)Controls\;$(ProjectDir)Thirdparty\qrcodegen\;$(GeneratedFilesDir)Pages\;$(GeneratedFilesDir)Controls\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(ProjectDir)Controls\;$(ProjectDir)Thirdparty\qrcodegen\;$(GeneratedFilesDir)Pages\;$(GeneratedFilesDir)Controls\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(ProjectDir)Controls\;$(ProjectDir)Thirdparty\qrcodegen\;$(GeneratedFilesDir)Pages\;$(GeneratedFilesDir)Controls\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(ProjectDir)Controls\;$(ProjectDir)Thirdparty\qrcodegen\;$(GeneratedFilesDir)Pages\;$(GeneratedFilesDir)Controls\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">stdcpp20</LanguageStandard>
       <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">stdcpp20</LanguageStandard>
       <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdcpp20</LanguageStandard>
@@ -130,6 +132,10 @@
     <ClInclude Include="Code\BiliClientManaged.h" />
     <ClInclude Include="Code\json.h" />
     <ClInclude Include="Code\util.hpp" />
+    <ClInclude Include="Controls\SimpleContentDialog.h">
+      <DependentUpon>Controls\SimpleContentDialog.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClInclude>
     <ClInclude Include="Pages\ContainerPage.h">
       <DependentUpon>Pages\ContainerPage.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -157,11 +163,15 @@
     <ClInclude Include="Pages\MainPage.h">
       <DependentUpon>Pages\MainPage.xaml</DependentUpon>
     </ClInclude>
+    <ClInclude Include="Thirdparty\qrcodegen\qrcodegen.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml">
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Page Include="Controls\SimpleContentDialog.xaml">
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="Pages\ContainerPage.xaml">
       <SubType>Designer</SubType>
     </Page>
@@ -201,6 +211,10 @@
     <ClCompile Include="Code\BiliClientManaged.cpp" />
     <ClCompile Include="Code\json.cpp" />
     <ClCompile Include="Code\util.cpp" />
+    <ClCompile Include="Controls\SimpleContentDialog.cpp">
+      <DependentUpon>Controls\SimpleContentDialog.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClCompile>
     <ClCompile Include="Pages\ContainerPage.cpp">
       <DependentUpon>Pages\ContainerPage.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -231,6 +245,16 @@
       <DependentUpon>Pages\MainPage.xaml</DependentUpon>
     </ClCompile>
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
+    <ClCompile Include="Thirdparty\qrcodegen\qrcodegen.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Midl Include="App.idl">
@@ -239,6 +263,10 @@
     <Midl Include="Code\AppCfgModel.idl" />
     <Midl Include="Code\BiliClientManaged.idl" />
     <Midl Include="Code\IBiliResource.idl" />
+    <Midl Include="Controls\SimpleContentDialog.idl">
+      <DependentUpon>Controls\SimpleContentDialog.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
     <Midl Include="Pages\ContainerPage.idl">
       <DependentUpon>Pages\ContainerPage.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -277,8 +305,8 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="packages\Microsoft.Windows.CppWinRT.2.0.220608.4\build\native\Microsoft.Windows.CppWinRT.targets" Condition="Exists('packages\Microsoft.Windows.CppWinRT.2.0.220608.4\build\native\Microsoft.Windows.CppWinRT.targets')" />
-    <Import Project="packages\Microsoft.Web.WebView2.1.0.1264.42\build\native\Microsoft.Web.WebView2.targets" Condition="Exists('packages\Microsoft.Web.WebView2.1.0.1264.42\build\native\Microsoft.Web.WebView2.targets')" />
     <Import Project="packages\Microsoft.UI.Xaml.2.8.0\build\native\Microsoft.UI.Xaml.targets" Condition="Exists('packages\Microsoft.UI.Xaml.2.8.0\build\native\Microsoft.UI.Xaml.targets')" />
+    <Import Project="packages\Microsoft.Web.WebView2.1.0.1293.44\build\native\Microsoft.Web.WebView2.targets" Condition="Exists('packages\Microsoft.Web.WebView2.1.0.1293.44\build\native\Microsoft.Web.WebView2.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
@@ -286,7 +314,7 @@
     </PropertyGroup>
     <Error Condition="!Exists('packages\Microsoft.Windows.CppWinRT.2.0.220608.4\build\native\Microsoft.Windows.CppWinRT.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Windows.CppWinRT.2.0.220608.4\build\native\Microsoft.Windows.CppWinRT.props'))" />
     <Error Condition="!Exists('packages\Microsoft.Windows.CppWinRT.2.0.220608.4\build\native\Microsoft.Windows.CppWinRT.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Windows.CppWinRT.2.0.220608.4\build\native\Microsoft.Windows.CppWinRT.targets'))" />
-    <Error Condition="!Exists('packages\Microsoft.Web.WebView2.1.0.1264.42\build\native\Microsoft.Web.WebView2.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Web.WebView2.1.0.1264.42\build\native\Microsoft.Web.WebView2.targets'))" />
     <Error Condition="!Exists('packages\Microsoft.UI.Xaml.2.8.0\build\native\Microsoft.UI.Xaml.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.UI.Xaml.2.8.0\build\native\Microsoft.UI.Xaml.targets'))" />
+    <Error Condition="!Exists('packages\Microsoft.Web.WebView2.1.0.1293.44\build\native\Microsoft.Web.WebView2.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Web.WebView2.1.0.1293.44\build\native\Microsoft.Web.WebView2.targets'))" />
   </Target>
 </Project>

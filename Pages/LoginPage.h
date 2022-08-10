@@ -1,11 +1,55 @@
 ﻿#pragma once
 #include "LoginPage.g.h"
+#include "util.hpp"
+#include "BiliClient.hpp"
 
 namespace winrt::BiliUWP::implementation {
     struct LoginPage : LoginPageT<LoginPage> {
         LoginPage();
 
+        void OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const&);
+
         Windows::Foundation::IAsyncOperation<BiliUWP::LoginPageResult> RequestLogin(void);
+
+        void LoginMethodsList_ItemClick(
+            Windows::Foundation::IInspectable const&,
+            Windows::UI::Xaml::Controls::ItemClickEventArgs const& e
+        );
+        void ButtonClick_ReturnToMethodsList(
+            Windows::Foundation::IInspectable const&,
+            Windows::UI::Xaml::RoutedEventArgs const&
+        );
+        void QRCodeReload_Click(
+            Windows::Foundation::IInspectable const&,
+            Windows::UI::Xaml::RoutedEventArgs const&
+        );
+        void TokenLogin_Click(
+            Windows::Foundation::IInspectable const&,
+            Windows::UI::Xaml::RoutedEventArgs const&
+        );
+
+        static void final_release(std::unique_ptr<LoginPage> ptr) noexcept {
+            // Page is closed; stop all pending tasks
+            auto cur_async_op = ptr->m_cur_async_op;
+            if (cur_async_op) {
+                cur_async_op.Cancel();
+                // Extend self lifetime
+                [&](auto ptr) -> fire_forget_except {
+                    try {
+                        co_await cur_async_op;
+                    }
+                    catch (hresult_canceled const&) {}
+                }(std::move(ptr));
+            }
+            ptr->m_finish_event.set();
+        }
+
+    private:
+        util::winrt::awaitable_event m_finish_event;
+
+        std::shared_ptr<LoginPageResult> m_result;
+        ::BiliUWP::RequestTvQrLoginResult m_qr_session;
+        Windows::Foundation::IAsyncAction m_cur_async_op;
     };
 }
 

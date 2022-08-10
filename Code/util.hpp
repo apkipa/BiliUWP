@@ -424,6 +424,19 @@ namespace util {
             int32_t idx = 0
         );
 
+        inline ::winrt::Windows::Foundation::IInspectable get_app_res_as_object(::winrt::hstring key) {
+            static auto cur_app_res = ::winrt::Windows::UI::Xaml::Application::Current().Resources();
+            return cur_app_res.Lookup(box_value(key));
+        }
+        template<typename T>
+        inline auto get_app_res(::winrt::hstring key) {
+            return get_app_res_as_object(key).as<T>();
+        }
+        template<typename T>
+        inline auto try_get_app_res(::winrt::hstring key) {
+            return get_app_res_as_object(key).try_as<T>();
+        }
+
         // Path must represent a folder; returns UINT64_MAX on failure
         ::winrt::Windows::Foundation::IAsyncOperation<uint64_t> calc_folder_size(::winrt::hstring path);
         ::winrt::Windows::Foundation::IAsyncOperation<bool> delete_all_inside_folder(::winrt::hstring path);

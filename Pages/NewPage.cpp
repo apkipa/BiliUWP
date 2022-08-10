@@ -12,6 +12,8 @@ using namespace Windows::UI::Xaml;
 using namespace Windows::UI::Xaml::Input;
 using namespace Windows::UI::Xaml::Controls;
 
+using namespace ::BiliUWP::App;
+
 namespace winrt::BiliUWP::implementation {
     NewPage::NewPage() {
         InitializeComponent();
@@ -19,9 +21,7 @@ namespace winrt::BiliUWP::implementation {
 
     void NewPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e) {
         auto tab = ::BiliUWP::App::get()->tab_from_page(*this);
-        auto ico_src = Microsoft::UI::Xaml::Controls::SymbolIconSource();
-        ico_src.Symbol(Symbol::Placeholder);
-        tab->set_icon(ico_src);
+        tab->set_icon(Symbol::Placeholder);
         tab->set_title(hstring{ std::format(L"NEW PAGE ({})", (void*)&*tab) });
     }
 
@@ -43,6 +43,24 @@ namespace winrt::BiliUWP::implementation {
 
     void NewPage::Button_MyFavourites_Click(IInspectable const&, RoutedEventArgs const&) {
         // TODO: Finish NewPage::Button_MyFavourites_Click
+        auto app = ::BiliUWP::App::get();
+        //auto tab = app->tab_from_page(*this);
+        /*
+        SimpleContentDialog dialog;
+        //dialog.Title(box_value(L"错误"));
+        dialog.Content(box_value(L"请登录后重试。"));
+        dialog.CloseButtonText(L"确定");
+        tab->show_dialog(dialog);
+        [](auto dialog) -> fire_forget_except {
+            using namespace std::chrono_literals;
+            co_await 3s;
+            dialog.Hide();
+        }(dialog);
+        */
+        if (!app->is_logged_in()) {
+            app->request_login_blocking(app->tab_from_page(*this));
+            return;
+        }
     }
     void NewPage::Button_Settings_Click(IInspectable const&, RoutedEventArgs const& e) {
         // TODO: Finish NewPage::Button_Settings_Click

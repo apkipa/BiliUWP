@@ -760,7 +760,7 @@ namespace BiliUWP {
     }
 
     BiliClient::BiliClient() :
-        m_bili_client(winrt::make<winrt::BiliUWP::implementation::BiliClientManaged>()),
+        m_bili_client(winrt::BiliUWP::BiliClientManaged()),
         m_refresh_token()
     {
         //m_bili_client.data_user_agent(L"...");

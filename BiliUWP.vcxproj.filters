@@ -34,6 +34,9 @@
     <ClCompile Include="Code\BiliClientManaged.cpp">
       <Filter>Code</Filter>
     </ClCompile>
+    <ClCompile Include="Thirdparty\qrcodegen\qrcodegen.cpp">
+      <Filter>Thirdparty\qrcodegen</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -51,6 +54,9 @@
     </ClInclude>
     <ClInclude Include="Code\BiliClientManaged.h">
       <Filter>Code</Filter>
+    </ClInclude>
+    <ClInclude Include="Thirdparty\qrcodegen\qrcodegen.hpp">
+      <Filter>Thirdparty\qrcodegen</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -92,8 +98,14 @@
     <Filter Include="Code">
       <UniqueIdentifier>{90189b69-af9b-43d4-a88d-1d40043c229e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="thirdparty">
+    <Filter Include="Controls">
+      <UniqueIdentifier>{9118a0ca-d77b-4916-bafe-09ec113cf7fa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Thirdparty">
       <UniqueIdentifier>{e761d649-704c-41df-bb82-f29f7962f93d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Thirdparty\qrcodegen">
+      <UniqueIdentifier>{c200d83b-cd4a-4c73-9d80-e9f1da178bc2}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -121,6 +133,9 @@
     </Page>
     <Page Include="Pages\LoginPage.xaml">
       <Filter>Pages</Filter>
+    </Page>
+    <Page Include="Controls\SimpleContentDialog.xaml">
+      <Filter>Controls</Filter>
     </Page>
   </ItemGroup>
   <ItemGroup>

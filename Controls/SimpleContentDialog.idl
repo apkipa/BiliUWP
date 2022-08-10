@@ -1,0 +1,36 @@
+namespace BiliUWP {
+    enum SimpleContentDialogResult {
+        None = 0,
+        Primary,
+        Secondary
+    };
+
+    [default_interface]
+    runtimeclass SimpleContentDialog : Windows.UI.Xaml.Controls.ContentControl {
+        SimpleContentDialog();
+
+        Windows.Foundation.IAsyncOperation<SimpleContentDialogResult> ShowAsync();
+        void Hide();
+
+        static Windows.UI.Xaml.DependencyProperty TitleProperty{ get; };
+        Object Title;
+        static Windows.UI.Xaml.DependencyProperty TitleTemplateProperty{ get; };
+        Windows.UI.Xaml.DataTemplate TitleTemplate;
+        static Windows.UI.Xaml.DependencyProperty PrimaryButtonTextProperty{ get; };
+        String PrimaryButtonText;
+        static Windows.UI.Xaml.DependencyProperty SecondaryButtonTextProperty{ get; };
+        String SecondaryButtonText;
+        static Windows.UI.Xaml.DependencyProperty CloseButtonTextProperty{ get; };
+        String CloseButtonText;
+        static Windows.UI.Xaml.DependencyProperty PrimaryButtonStyleProperty{ get; };
+        Windows.UI.Xaml.Style PrimaryButtonStyle;
+        static Windows.UI.Xaml.DependencyProperty SecondaryButtonStyleProperty{ get; };
+        Windows.UI.Xaml.Style SecondaryButtonStyle;
+        static Windows.UI.Xaml.DependencyProperty CloseButtonStyleProperty{ get; };
+        Windows.UI.Xaml.Style CloseButtonStyle;
+        static Windows.UI.Xaml.DependencyProperty IsPrimaryButtonEnabledProperty{ get; };
+        Boolean IsPrimaryButtonEnabled;
+        static Windows.UI.Xaml.DependencyProperty IsSecondaryButtonEnabledProperty{ get; };
+        Boolean IsSecondaryButtonEnabled;
+    }
+}

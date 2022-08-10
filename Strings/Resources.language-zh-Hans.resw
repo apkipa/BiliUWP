@@ -120,8 +120,23 @@
   <data name="App.Common.Back" xml:space="preserve">
     <value>后退</value>
   </data>
+  <data name="App.Common.Cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
   <data name="App.Common.Forward" xml:space="preserve">
     <value>前进</value>
+  </data>
+  <data name="App.Common.Login" xml:space="preserve">
+    <value>登录</value>
+  </data>
+  <data name="App.Common.Reload" xml:space="preserve">
+    <value>重新加载</value>
+  </data>
+  <data name="App.Common.Retry" xml:space="preserve">
+    <value>重试</value>
+  </data>
+  <data name="App.Dialog.FinishLogin.Content" xml:space="preserve">
+    <value>请在新开启的标签页中完成登录过程。</value>
   </data>
   <data name="App.MenuItem.CopyAlternativeResId" xml:space="preserve">
     <value>复制替代资源 ID</value>
@@ -135,8 +150,20 @@
   <data name="App.MenuItem.CopyResLink" xml:space="preserve">
     <value>复制资源链接</value>
   </data>
-  <data name="App.Pages.LoginPage.ScanQRCodeToLogin" xml:space="preserve">
-    <value>请使用手机客户端扫描屏幕上的二维码来登录</value>
+  <data name="App.Pages.LoginPage.ChooseLoginMethod.Text" xml:space="preserve">
+    <value>选择一种登录方式以继续...</value>
+  </data>
+  <data name="App.Pages.LoginPage.QRCodeLogin.Text" xml:space="preserve">
+    <value>二维码登录</value>
+  </data>
+  <data name="App.Pages.LoginPage.ScanQRCodeToLogin.Text" xml:space="preserve">
+    <value>请扫描屏幕上的二维码以登录</value>
+  </data>
+  <data name="App.Pages.LoginPage.TokenLogin.Text" xml:space="preserve">
+    <value>Token 登录</value>
+  </data>
+  <data name="App.Pages.LoginPage.TokenLoginWarn.Text" xml:space="preserve">
+    <value>警告: 如果你不知道这意味着什么，请不要继续操作。</value>
   </data>
   <data name="App.Pages.NewPage.Button_MyFavourites.Label" xml:space="preserve">
     <value>我的收藏</value>
@@ -146,5 +173,15 @@
   </data>
   <data name="App.Pages.NewPage.SearchBox.PlaceholderText" xml:space="preserve">
     <value>在此处键入搜索内容 / 稿件号 / 站内链接...</value>
+  </data>
+  <data name="App.XCommon.Cancel.Content" xml:space="preserve">
+    <value>取消</value>
+    <comment>X stands for XAML</comment>
+  </data>
+  <data name="App.XCommon.Login.Content" xml:space="preserve">
+    <value>登录</value>
+  </data>
+  <data name="App.XCommon.Reload.Content" xml:space="preserve">
+    <value>重新加载</value>
   </data>
 </root>
