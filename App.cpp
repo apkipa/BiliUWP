@@ -97,21 +97,23 @@ namespace BiliUWP {
         if (!new_tab) {
             return;
         }
+        auto tvi = new_tab->get_tab_view_item();
+        hack_tab_view_item(tvi);
         if (auto tv = this->parent_of_tab(insert_after)) {
             // Tab is in a window
             uint32_t idx;
             if (tv.TabItems().IndexOf(insert_after->get_tab_view_item(), idx)) {
-                tv.TabItems().InsertAt(idx + 1, new_tab->get_tab_view_item());
+                tv.TabItems().InsertAt(idx + 1, tvi);
             }
             else {
-                tv.TabItems().Append(new_tab->get_tab_view_item());
+                tv.TabItems().Append(tvi);
             }
         }
         else {
             // Tab is not in a window or is null; insert into default window
             // TODO: Maybe track view active state and insert into an active one?
             // TODO: Or store relationship of TabView and ApplicationView and use GetCurrentView
-            m_tv[0].TabItems().Append(new_tab->get_tab_view_item());
+            m_tv[0].TabItems().Append(tvi);
         }
         m_app_tabs.push_back(new_tab);
         new_tab->associate_app_inst(this);
@@ -124,7 +126,12 @@ namespace BiliUWP {
         if (!new_tab) {
             return;
         }
-        tab_view.TabItems().Append(new_tab->get_tab_view_item());
+        if (!tab_view) {
+            return;
+        }
+        auto tvi = new_tab->get_tab_view_item();
+        hack_tab_view_item(tvi);
+        tab_view.TabItems().Append(tvi);
         m_app_tabs.push_back(new_tab);
         new_tab->associate_app_inst(this);
     }
@@ -257,7 +264,7 @@ namespace BiliUWP {
         cancellation_token.enable_propagation();
 
         auto login_dlg = winrt::BiliUWP::SimpleContentDialog();
-        login_dlg.Title(box_value(App::res_str(L"App/Common/Login")));
+        login_dlg.Title(box_value(App::res_str(L"App/Dialog/FinishLogin/Title")));
         login_dlg.Content(box_value(App::res_str(L"App/Dialog/FinishLogin/Content")));
         login_dlg.CloseButtonText(App::res_str(L"App/Common/Cancel"));
 
@@ -298,6 +305,26 @@ namespace BiliUWP {
         }
         else {
             return nullptr;
+        }
+    }
+    void AppInst::hack_tab_view_item(Microsoft::UI::Xaml::Controls::TabViewItem const& tvi) {
+        using Microsoft::UI::Xaml::Controls::TabViewItem;
+        auto run_fn = [](TabViewItem const& tvi) {
+            auto elem = util::winrt::get_child_elem(tvi, L"LayoutRoot");
+            elem = util::winrt::get_child_elem(elem, L"TabContainer");
+            Windows::UI::Xaml::Controls::ToolTipService::SetToolTip(
+                util::winrt::get_child_elem(elem, L"CloseButton"),
+                box_value(App::res_str(L"App/Override/SR_TabViewCloseButtonTooltipWithKA"))
+            );
+        };
+        if (tvi.IsLoaded()) {
+            run_fn(tvi);
+        }
+        else {
+            auto et = std::make_shared_for_overwrite<event_token>();
+            *et = tvi.Loaded([=](IInspectable const& sender, RoutedEventArgs const&) {
+                run_fn(sender.as<TabViewItem>());
+            });
         }
     }
     void AppInst::init_current_window(void) {
@@ -367,8 +394,60 @@ namespace BiliUWP {
                 new_tab->activate();
             });
 
-            {   // TODO: Add keyboard accelerators for TabView
-                // ...
+            {   // Add keyboard accelerators for TabView
+                using namespace Windows::UI::Xaml::Input;
+                using namespace Windows::System;
+
+                auto key_acc_ctrl_t = KeyboardAccelerator();
+                key_acc_ctrl_t.Key(VirtualKey::T);
+                key_acc_ctrl_t.Modifiers(VirtualKeyModifiers::Control);
+                key_acc_ctrl_t.Invoked(
+                    [this, weak_tv = winrt::make_weak(tab_view)]
+                    (KeyboardAccelerator const&, KeyboardAcceleratorInvokedEventArgs const& e) {
+                        e.Handled(true);
+                        auto new_tab = ::BiliUWP::make<AppTab>();
+                        new_tab->navigate(xaml_typename<winrt::BiliUWP::NewPage>());
+                        this->add_tab(new_tab, weak_tv.get());
+                        new_tab->activate();
+                    }
+                );
+                tab_view.KeyboardAccelerators().Append(key_acc_ctrl_t);
+#if false
+                // WARN: This method does NOT respect tab request close, and should be avoided
+                auto key_acc_ctrl_w = KeyboardAccelerator();
+                key_acc_ctrl_w.Key(VirtualKey::W);
+                key_acc_ctrl_w.Modifiers(VirtualKeyModifiers::Control);
+                key_acc_ctrl_w.Invoked(
+                    [root_tabview](KeyboardAccelerator const&, KeyboardAcceleratorInvokedEventArgs const& e) {
+                        e.Handled(true);
+                        auto tab_items = root_tabview.TabItems();
+                        auto idx = root_tabview.SelectedIndex();
+                        if (tab_items.GetAt(idx).as<TabViewItem>().IsClosable()) {
+                            tab_items.RemoveAt(idx);
+                            // Hack: Update tab items layout
+                            root_tabview.TabWidthMode(root_tabview.TabWidthMode());
+                        }
+                    }
+                );
+                root_tabview.KeyboardAccelerators().Append(key_acc_ctrl_w);
+#else
+                {   // Hack keyboard accelerators that comes with TabView
+                    // NOTE: Close button text hacking is handled somewhere else
+                    auto ka = tab_view.KeyboardAccelerators();
+                    auto ka_cnt = ka.Size();
+                    for (decltype(ka_cnt) i = 0; i < ka_cnt; i++) {
+                        auto ka_item = ka.GetAt(i);
+                        if (ka_item.Key() == VirtualKey::F4) {
+                            // Transform Ctrl+F4 into Ctrl+W
+                            ka_item.Key(VirtualKey::W);
+                            ka_item.ScopeOwner(nullptr);
+                        }
+                        else if (ka_item.Key() == VirtualKey::Tab) {
+                            ka_item.ScopeOwner(nullptr);
+                        }
+                    }
+                }
+#endif
             }
 
             auto update_titlebar_fn = [=](bool is_active) {
@@ -409,11 +488,11 @@ namespace BiliUWP {
                 Button tv_ab{ nullptr };
 
                 bool succeeded = false;
-                /*deferred([&] {
+                deferred([&] {
                     if (!succeeded) {
-                        log_error(L"App: Unable to get elements from TabView for hacking");
+                        util::debug::log_error(L"App: Unable to get elements from TabView for hacking");
                     }
-                });*/
+                });
 
                 /*
                 * Element tree:
@@ -510,7 +589,7 @@ namespace BiliUWP {
 
     implementation::AppTab::AppTab(use_the_make_function) :
         m_app_inst(nullptr), m_tab_item(), m_root_grid(), m_page_frame(),
-        m_urgent_halt(std::make_shared<std::atomic_bool>(false)), m_show_dlg_op(nullptr)
+        m_show_dlg_op(nullptr)
     {
         using namespace Windows::UI::Xaml::Controls::Primitives;
 
@@ -568,8 +647,6 @@ namespace BiliUWP {
     implementation::AppTab::~AppTab() {
         s_frame_tab_map.erase(m_page_frame);
 
-        m_urgent_halt->store(true);
-
         if (m_show_dlg_op) {
             m_show_dlg_op.Cancel();
         }
@@ -615,21 +692,20 @@ namespace BiliUWP {
         auto cancellation_token = co_await winrt::get_cancellation_token();
         cancellation_token.enable_propagation();
 
-        auto urgent_halt = m_urgent_halt;
-
         if (m_show_dlg_op) {
             throw hresult_error(E_FAIL, L"Cannot show more than one dialog in a single AppTab");
         }
 
         m_root_grid.Children().Append(dialog);
         m_show_dlg_op = dialog.ShowAsync();
-        deferred([&] {
-            if (urgent_halt->load()) {
+        deferred([weak_this = this->weak_from_this()] {
+            auto strong_this = weak_this.lock();
+            if (!strong_this) {
                 return;
             }
 
-            m_root_grid.Children().RemoveAtEnd();
-            m_show_dlg_op = nullptr;
+            strong_this->m_root_grid.Children().RemoveAtEnd();
+            strong_this->m_show_dlg_op = nullptr;
         });
         auto result = co_await m_show_dlg_op;
         co_return result;

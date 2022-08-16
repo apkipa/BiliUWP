@@ -11,13 +11,14 @@ namespace util {
 #define CONCAT_3_IMPL(a, b, c) a ## b ## c
 #define CONCAT_3(a, b, c) CONCAT_3_IMPL(a, b, c)
 
+        // NOTE: Macro expects functors of type void(void)
 #define deferred(x) auto CONCAT_2(internal_deffered_, __COUNTER__) = ::util::misc::Defer(x)
-        struct Defer {
-            Defer(std::function<void(void)> pFunc) : func(std::move(pFunc)) {};
-            std::function<void(void)> func;
-            virtual ~Defer() {
-                func();
-            }
+        template<typename T>
+        struct Defer final {
+            Defer(T func) : m_func(std::move(func)) {}
+            ~Defer() { m_func(); }
+        private:
+            T m_func;
         };
 
         template<typename T, std::enable_if_t<std::is_enum_v<T>, int> = 0>
@@ -69,7 +70,7 @@ namespace util {
             };
         }
 
-        // NOTE: Due to some limitation, _v version is not provided, and callers
+        // NOTE: Due to some limitations, _v version is not provided, and callers
         //       must store the entire return value as constexpr
         template<size_t n1, size_t n2>
         constexpr auto concat_wstr_2(const wchar_t(&s1)[n1], const wchar_t(&s2)[n2]) {
@@ -565,7 +566,6 @@ namespace util {
                     m_tce.set(std::make_shared<ReturnType>(std::move(value)));
                 }
                 void unhandled_exception() {
-                    // TODO: Fix only std::exception is usable (?)
                     m_tce.set_exception(std::current_exception());
                 }
                 template <typename Expression>
@@ -607,7 +607,7 @@ namespace util {
             void enable_cancellation(::winrt::cancellable_promise* promise) {
                 promise->set_canceller([](void* context) {
                     auto that = static_cast<task*>(context);
-                    that->m_cts.cancel();
+                    that->cancel();
                 }, this);
             }
             void cancel(void) {
@@ -650,7 +650,6 @@ namespace util {
                     m_tce.set();
                 }
                 void unhandled_exception() {
-                    // TODO: Fix only std::exception is usable (?)
                     m_tce.set_exception(std::current_exception());
                 }
                 template <typename Expression>
@@ -692,8 +691,8 @@ namespace util {
             void enable_cancellation(::winrt::cancellable_promise* promise) {
                 promise->set_canceller([](void* context) {
                     auto that = static_cast<task*>(context);
-                    that->m_cts.cancel();
-                    }, this);
+                    that->cancel();
+                }, this);
             }
             void cancel(void) {
                 m_cancellable->cancel();
@@ -717,6 +716,12 @@ namespace util {
             concurrency::cancellation_token_source m_cts;
             std::shared_ptr<::winrt::cancellable_promise> m_cancellable;
         };
+        // Like winrt::resume_after, but calling contexts are preserved
+        inline ::winrt::Windows::Foundation::IAsyncAction resume_after(
+            ::winrt::Windows::Foundation::TimeSpan duration
+        ) {
+            co_await ::winrt::resume_after(duration);
+        }
     }
 }
 

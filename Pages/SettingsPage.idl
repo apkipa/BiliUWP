@@ -1,9 +1,6 @@
-namespace BiliUWP
-{
+namespace BiliUWP {
     [default_interface]
-    runtimeclass SettingsPage : Windows.UI.Xaml.Controls.Page
-    {
+    runtimeclass SettingsPage : Windows.UI.Xaml.Controls.Page {
         SettingsPage();
-        Int32 MyProperty;
     }
 }

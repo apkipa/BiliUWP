@@ -7,25 +7,12 @@
 using namespace winrt;
 using namespace Windows::UI::Xaml;
 
-namespace winrt::BiliUWP::implementation
-{
-    SettingsPage::SettingsPage()
-    {
+namespace winrt::BiliUWP::implementation {
+    SettingsPage::SettingsPage() {
         InitializeComponent();
     }
 
-    int32_t SettingsPage::MyProperty()
-    {
-        throw hresult_not_implemented();
-    }
-
-    void SettingsPage::MyProperty(int32_t /* value */)
-    {
-        throw hresult_not_implemented();
-    }
-
-    void SettingsPage::ClickHandler(IInspectable const&, RoutedEventArgs const&)
-    {
+    void SettingsPage::ClickHandler(IInspectable const&, RoutedEventArgs const&) {
         Button().Content(box_value(L"Clicked"));
     }
 }

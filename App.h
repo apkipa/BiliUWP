@@ -192,6 +192,7 @@ namespace BiliUWP {
         void add_tab(AppTab new_tab, winrt::Microsoft::UI::Xaml::Controls::TabView const& tab_view);
         void init_current_window(void);
         winrt::Microsoft::UI::Xaml::Controls::TabView parent_of_tab(AppTab tab);
+        static void hack_tab_view_item(winrt::Microsoft::UI::Xaml::Controls::TabViewItem const& tvi);
 
         // TODO: Manage resources here
         std::vector<AppTab> m_app_tabs;
@@ -395,7 +396,6 @@ namespace BiliUWP {
         winrt::Windows::UI::Xaml::Controls::Grid m_root_grid;
         winrt::Windows::UI::Xaml::Controls::Frame m_page_frame;
 
-        std::shared_ptr<std::atomic_bool> m_urgent_halt;
         winrt::Windows::Foundation::IAsyncOperation<winrt::BiliUWP::SimpleContentDialogResult> m_show_dlg_op;
 
         winrt::event<winrt::Windows::Foundation::EventHandler<bool>> m_ev_closed_by_user;

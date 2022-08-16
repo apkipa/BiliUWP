@@ -14,7 +14,7 @@
             <Image x:Name="QRImage"/>
             <ProgressRing x:Name="QRProgRing" Width="50" Height="50" Padding="10"/>
         </Grid>
-        <TextBlock x:Uid="App/Pages/LoginPage/ScanQRCodeToLogin"/>
+        <TextBlock x:Uid="App/Page/LoginPage/ScanQRCodeToLogin"/>
     </StackPanel>
     -->
     <Grid MaxWidth="300"
@@ -26,7 +26,7 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
-            <TextBlock x:Uid="App/Pages/LoginPage/ChooseLoginMethod"
+            <TextBlock x:Uid="App/Page/LoginPage/ChooseLoginMethod"
                    Grid.Row="0"
                    HorizontalAlignment="Center"
                    Margin="0,0,0,5"/>
@@ -49,7 +49,7 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock x:Uid="App/Pages/LoginPage/QRCodeLogin"
+                    <TextBlock x:Uid="App/Page/LoginPage/QRCodeLogin"
                            Grid.Column="0"
                            VerticalAlignment="Center"
                            TextLineBounds="Tight"/>
@@ -65,7 +65,7 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock x:Uid="App/Pages/LoginPage/TokenLogin"
+                    <TextBlock x:Uid="App/Page/LoginPage/TokenLogin"
                            Grid.Column="0"
                            VerticalAlignment="Center"
                            TextLineBounds="Tight"/>
@@ -95,7 +95,7 @@
                   VerticalAlignment="Stretch"
                   Visibility="Collapsed">
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock x:Uid="App/Pages/LoginPage/QRCodeExpired"
+                    <TextBlock x:Uid="App/Page/LoginPage/QRCodeExpired"
                                HorizontalAlignment="Center"
                                Padding="0,0,0,10"/>
                     <Button x:Uid="App/XCommon/Reload"
@@ -109,7 +109,7 @@
                   VerticalAlignment="Stretch"
                   Visibility="Collapsed">
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock x:Uid="App/Pages/LoginPage/QRCodeFailed"
+                    <TextBlock x:Uid="App/Page/LoginPage/QRCodeFailed"
                                HorizontalAlignment="Center"
                                Padding="0,0,0,10"/>
                     <Button x:Uid="App/XCommon/Reload"
@@ -117,7 +117,7 @@
                             Click="QRCodeReloadButton_Click"/>
                 </StackPanel>
             </Grid>
-            <TextBlock x:Uid="App/Pages/LoginPage/ScanQRCodeToLogin"
+            <TextBlock x:Uid="App/Page/LoginPage/ScanQRCodeToLogin"
                        Grid.Row="1"
                        HorizontalAlignment="Center"
                        Padding="0,10"/>
@@ -128,7 +128,7 @@
         </Grid>
         <StackPanel x:Name="TokenLoginPane" Visibility="Collapsed">
             <TextBlock Foreground="Red"
-                       x:Uid="App/Pages/LoginPage/TokenLoginWarn"
+                       x:Uid="App/Page/LoginPage/TokenLoginWarn"
                        TextWrapping="WrapWholeWords"/>
             <TextBox x:Name="TokenLogin_AccessToken"
                      Header="access_token"/>

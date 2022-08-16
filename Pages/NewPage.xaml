@@ -10,10 +10,10 @@
 
     <Grid>
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-            <AutoSuggestBox x:Uid="App/Pages/NewPage/SearchBox" x:Name="SearchBox" QueryIcon="Find" MinWidth="350"
+            <AutoSuggestBox x:Uid="App/Page/NewPage/SearchBox" x:Name="SearchBox" QueryIcon="Find" MinWidth="350"
                             PreviewKeyDown="SearchBox_PreviewKeyDown"
                             TextChanged="SearchBox_TextChanged" QuerySubmitted="SearchBox_QuerySubmitted"/>
-            <ItemsControl Margin="10" MaxWidth="400">
+            <ItemsControl x:Name="ButtonsPane" Margin="10" MaxWidth="400" IsTabStop="False">
                 <ItemsControl.ItemContainerStyle>
                     <Style TargetType="AppBarButton">
                         <Setter Property="Margin" Value="4"/>
@@ -24,8 +24,8 @@
                         <ItemsWrapGrid Orientation="Horizontal"/>
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
-                <AppBarButton x:Uid="App/Pages/NewPage/Button_MyFavourites" Icon="Favorite" Click="Button_MyFavourites_Click"/>
-                <AppBarButton x:Uid="App/Pages/NewPage/Button_Settings" Icon="Setting" Click="Button_Settings_Click"/>
+                <AppBarButton x:Uid="App/Page/NewPage/Button_MyFavourites" Icon="Favorite" Click="Button_MyFavourites_Click"/>
+                <AppBarButton x:Uid="App/Page/NewPage/Button_Settings" Icon="Setting" Click="Button_Settings_Click"/>
                 <!--
                 <AppBarButton Icon="Placeholder" Label="Placeholder"/>
                 <AppBarButton Icon="Placeholder" Label="Placeholder"/>

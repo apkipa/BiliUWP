@@ -59,9 +59,14 @@ namespace winrt::BiliUWP::implementation {
                         // Update QRCode
                         co_await that->UpdateQRCcodeImage();
                     }
+                    // Return early if the process has already failed
+                    if (that->QRCodeReload().Visibility() == Visibility::Visible ||
+                        that->QRCodeFailed().Visibility() == Visibility::Visible)
+                    {
+                        co_return;
+                    }
                     // Poll QRCode
-                    for (;;) {
-                        co_await 3s;
+                    for (;; co_await 3s) {
                         co_await that->Dispatcher();
                         switch (co_await that->PollQRCcodeStatus()) {
                         case QRCodePollResult::Expired:
@@ -72,8 +77,15 @@ namespace winrt::BiliUWP::implementation {
                             that->m_finish_event.set();
                             ::BiliUWP::App::get()->signal_login_state_changed();
                             co_return;
+                        case QRCodePollResult::Continue:
+                            break;
+                        default:
+                            throw hresult_error(E_FAIL, L"Unexpected QRCodePollResult");
                         }
                     }
+                }
+                catch (hresult_canceled const&) {
+                    co_return;
                 }
                 catch (hresult_error const& e) {
                     that->QRCodeFailed().Visibility(Visibility::Visible);
@@ -119,8 +131,7 @@ namespace winrt::BiliUWP::implementation {
             that->QRCodeReload().Visibility(Visibility::Collapsed);
             try {
                 co_await that->UpdateQRCcodeImage();
-                for (;;) {
-                    co_await 3s;
+                for (;; co_await 3s) {
                     co_await that->Dispatcher();
                     switch (co_await that->PollQRCcodeStatus()) {
                     case QRCodePollResult::Expired:
@@ -131,8 +142,15 @@ namespace winrt::BiliUWP::implementation {
                         that->m_finish_event.set();
                         ::BiliUWP::App::get()->signal_login_state_changed();
                         co_return;
+                    case QRCodePollResult::Continue:
+                        break;
+                    default:
+                        throw hresult_error(E_FAIL, L"Unexpected QRCodePollResult");
                     }
                 }
+            }
+            catch (hresult_canceled const&) {
+                co_return;
             }
             catch (hresult_error const& e) {
                 that->QRCodeFailed().Visibility(Visibility::Visible);
@@ -176,8 +194,12 @@ namespace winrt::BiliUWP::implementation {
         auto qrcode_image = this->QRCodeImage();
         qrcode_image.Source(nullptr);
         QRCodeProgRing().IsActive(true);
-        deferred([this] {
-            QRCodeProgRing().IsActive(false);
+        deferred([weak_this = this->get_weak()] {
+            auto strong_this = weak_this.get();
+            if (!strong_this) {
+                return;
+            }
+            strong_this->QRCodeProgRing().IsActive(false);
         });
 
         auto client = ::BiliUWP::App::get()->bili_client();
@@ -193,10 +215,10 @@ namespace winrt::BiliUWP::implementation {
         );
         mem_stream.Seek(0);
 
-        co_await Dispatcher();
         auto svg_img_src = Windows::UI::Xaml::Media::Imaging::SvgImageSource();
         qrcode_image.Width(qrcode_size / zoom_factor);
         qrcode_image.Height(qrcode_size / zoom_factor);
+        // TODO: Check if image is actually opened
         /*qrcode_image.ImageOpened([this](IInspectable const&, RoutedEventArgs const&) {
             QRCodeProgRing().IsActive(false);
         });*/

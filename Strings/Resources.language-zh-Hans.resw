@@ -136,7 +136,10 @@
     <value>重试</value>
   </data>
   <data name="App.Dialog.FinishLogin.Content" xml:space="preserve">
-    <value>请在新开启的标签页中完成登录过程。</value>
+    <value>请在新开启的标签页中进行操作。</value>
+  </data>
+  <data name="App.Dialog.FinishLogin.Title" xml:space="preserve">
+    <value>正在等待登录...</value>
   </data>
   <data name="App.MenuItem.CopyAlternativeResId" xml:space="preserve">
     <value>复制替代资源 ID</value>
@@ -150,35 +153,41 @@
   <data name="App.MenuItem.CopyResLink" xml:space="preserve">
     <value>复制资源链接</value>
   </data>
-  <data name="App.Pages.LoginPage.ChooseLoginMethod.Text" xml:space="preserve">
+  <data name="App.Override.SR_TabViewCloseButtonTooltipWithKA" xml:space="preserve">
+    <value>关闭选项卡(Ctrl+W)</value>
+  </data>
+  <data name="App.Page.LoginPage.ChooseLoginMethod.Text" xml:space="preserve">
     <value>选择一种登录方式以继续...</value>
   </data>
-  <data name="App.Pages.LoginPage.QRCodeExpired.Text" xml:space="preserve">
+  <data name="App.Page.LoginPage.QRCodeExpired.Text" xml:space="preserve">
     <value>二维码已过期</value>
   </data>
-  <data name="App.Pages.LoginPage.QRCodeFailed.Text" xml:space="preserve">
+  <data name="App.Page.LoginPage.QRCodeFailed.Text" xml:space="preserve">
     <value>处理二维码时出现了问题</value>
   </data>
-  <data name="App.Pages.LoginPage.QRCodeLogin.Text" xml:space="preserve">
+  <data name="App.Page.LoginPage.QRCodeLogin.Text" xml:space="preserve">
     <value>二维码登录</value>
   </data>
-  <data name="App.Pages.LoginPage.ScanQRCodeToLogin.Text" xml:space="preserve">
+  <data name="App.Page.LoginPage.ScanQRCodeToLogin.Text" xml:space="preserve">
     <value>请扫描屏幕上的二维码以登录</value>
   </data>
-  <data name="App.Pages.LoginPage.TokenLogin.Text" xml:space="preserve">
+  <data name="App.Page.LoginPage.TokenLogin.Text" xml:space="preserve">
     <value>Token 登录</value>
   </data>
-  <data name="App.Pages.LoginPage.TokenLoginWarn.Text" xml:space="preserve">
+  <data name="App.Page.LoginPage.TokenLoginWarn.Text" xml:space="preserve">
     <value>警告: 如果你不知道这意味着什么，请不要继续操作。</value>
   </data>
-  <data name="App.Pages.NewPage.Button_MyFavourites.Label" xml:space="preserve">
+  <data name="App.Page.NewPage.Button_MyFavourites.Label" xml:space="preserve">
     <value>我的收藏</value>
   </data>
-  <data name="App.Pages.NewPage.Button_Settings.Label" xml:space="preserve">
+  <data name="App.Page.NewPage.Button_Settings.Label" xml:space="preserve">
     <value>设置</value>
   </data>
-  <data name="App.Pages.NewPage.SearchBox.PlaceholderText" xml:space="preserve">
+  <data name="App.Page.NewPage.SearchBox.PlaceholderText" xml:space="preserve">
     <value>在此处键入搜索内容 / 稿件号 / 站内链接...</value>
+  </data>
+  <data name="App.Page.NewPage.Title" xml:space="preserve">
+    <value>新页</value>
   </data>
   <data name="App.XCommon.Cancel.Content" xml:space="preserve">
     <value>取消</value>

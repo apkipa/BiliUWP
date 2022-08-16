@@ -34,13 +34,6 @@ namespace winrt::BiliUWP::implementation {
             ptr->m_finish_event.set();
             if (cur_async_op) {
                 cur_async_op.Cancel();
-                // Extend self lifetime
-                [&](auto ptr) -> fire_forget_except {
-                    try {
-                        co_await cur_async_op;
-                    }
-                    catch (hresult_canceled const&) {}
-                }(std::move(ptr));
             }
         }
 
