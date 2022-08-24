@@ -8,9 +8,7 @@ using namespace winrt;
 using namespace Windows::UI::Xaml;
 
 namespace winrt::BiliUWP::implementation {
-    ContainerPage::ContainerPage() {
-        InitializeComponent();
-    }
+    ContainerPage::ContainerPage() {}
     void ContainerPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e) {
         this->ContentPresenter().Content(e.Parameter());
     }

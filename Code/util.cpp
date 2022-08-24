@@ -65,10 +65,6 @@ namespace util {
             auto res = std::chrono::duration_cast<std::chrono::seconds>(cur_t.time_since_epoch()).count();
             return static_cast<uint64_t>(res);
         }
-
-        /*std::wstring get_secs_since_epoch_str(void) {
-            return std::to_wstring(get_secs_since_epoch());
-        }*/
     }
 
     namespace debug {

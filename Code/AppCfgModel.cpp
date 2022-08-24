@@ -66,21 +66,6 @@ namespace winrt::BiliUWP::implementation {
         m_PropertyChanged(*this, PropertyChangedEventArgs{ L"" #key });         \
     }
 
-    /*using ConfigVersion_type = decltype(std::declval<winrt::BiliUWP::AppCfgModel>().ConfigVersion());
-    ConfigVersion_type AppCfgModel::ConfigVersion() {
-        if (auto v = this->TryGetItemBoxed(L"ConfigVersion").try_as<ConfigVersion_type>()) {
-            return *v;
-        }
-        else {
-            this->SetItemBoxed(L"ConfigVersion", box_value(L"0.1.0"));
-            return L"0.1.0";
-        }
-    }
-    void AppCfgModel::ConfigVersion(ParamT<ConfigVersion_type> value) {
-        this->SetItemBoxed(L"ConfigVersion", box_value(value));
-        m_PropertyChanged(*this, PropertyChangedEventArgs{ L"ConfigVersion" });
-    }*/
-
     apply_props_list(gen_prop_getsetter);
 
     template<typename T>

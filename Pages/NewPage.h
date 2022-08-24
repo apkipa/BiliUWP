@@ -5,6 +5,7 @@
 namespace winrt::BiliUWP::implementation {
     struct NewPage : NewPageT<NewPage> {
         NewPage();
+        void InitializeComponent();
 
         void OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e);
 

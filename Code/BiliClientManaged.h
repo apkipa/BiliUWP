@@ -58,6 +58,9 @@ namespace winrt::BiliUWP::implementation {
         );
 
         // Audio information
+        AsyncJsonObjectResult api_www_audio_music_service_c_web_song_info(
+            uint64_t auid
+        );
         AsyncJsonObjectResult api_api_audio_music_service_c_url(
             uint64_t auid,
             uint32_t quality

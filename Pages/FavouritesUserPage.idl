@@ -1,0 +1,10 @@
+namespace BiliUWP {
+    struct FavouritesUserPageNavParam {
+        UInt64 uid;
+    };
+
+    [default_interface]
+    runtimeclass FavouritesUserPage : Windows.UI.Xaml.Controls.Page {
+        FavouritesUserPage();
+    }
+}

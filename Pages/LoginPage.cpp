@@ -17,9 +17,7 @@ namespace winrt::BiliUWP::implementation {
     LoginPage::LoginPage() :
         m_result(std::make_shared<LoginPageResult>(LoginPageResult::UserCanceled)),
         m_qr_session()
-    {
-        InitializeComponent();
-    }
+    {}
 
     void LoginPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const&) {
         auto tab = ::BiliUWP::App::get()->tab_from_page(*this);

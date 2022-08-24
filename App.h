@@ -129,35 +129,35 @@ namespace BiliUWP {
             if (this_level < m_cur_log_level) {
                 return;
             }
-            m_app_logs.emplace_back(std::chrono::system_clock::now(), this_level, std::move(str));
+            this->append_log_entry({ std::chrono::system_clock::now(), this_level, std::move(str) });
         }
         void log_debug(winrt::hstring str) {
             constexpr auto this_level = util::debug::LogLevel::Debug;
             if (this_level < m_cur_log_level) {
                 return;
             }
-            m_app_logs.emplace_back(std::chrono::system_clock::now(), this_level, std::move(str));
+            this->append_log_entry({ std::chrono::system_clock::now(), this_level, std::move(str) });
         }
         void log_info(winrt::hstring str) {
             constexpr auto this_level = util::debug::LogLevel::Info;
             if (this_level < m_cur_log_level) {
                 return;
             }
-            m_app_logs.emplace_back(std::chrono::system_clock::now(), this_level, std::move(str));
+            this->append_log_entry({ std::chrono::system_clock::now(), this_level, std::move(str) });
         }
         void log_warn(winrt::hstring str) {
             constexpr auto this_level = util::debug::LogLevel::Warn;
             if (this_level < m_cur_log_level) {
                 return;
             }
-            m_app_logs.emplace_back(std::chrono::system_clock::now(), this_level, std::move(str));
+            this->append_log_entry({ std::chrono::system_clock::now(), this_level, std::move(str) });
         }
         void log_error(winrt::hstring str) {
             constexpr auto this_level = util::debug::LogLevel::Error;
             if (this_level < m_cur_log_level) {
                 return;
             }
-            m_app_logs.emplace_back(std::chrono::system_clock::now(), this_level, std::move(str));
+            this->append_log_entry({ std::chrono::system_clock::now(), this_level, std::move(str) });
         }
         void clear_log(void) { m_app_logs.clear(); };
 
@@ -193,6 +193,7 @@ namespace BiliUWP {
         void init_current_window(void);
         winrt::Microsoft::UI::Xaml::Controls::TabView parent_of_tab(AppTab tab);
         static void hack_tab_view_item(winrt::Microsoft::UI::Xaml::Controls::TabViewItem const& tvi);
+        void append_log_entry(LogDesc log_desc);
 
         // TODO: Manage resources here
         std::vector<AppTab> m_app_tabs;
@@ -206,6 +207,7 @@ namespace BiliUWP {
         util::debug::LogLevel m_cur_log_level;
         std::vector<LogDesc> m_app_logs;
         AppLoggingProvider* m_logging_provider;
+        winrt::Windows::Storage::StorageFile m_cur_log_file;
         winrt::Windows::ApplicationModel::Resources::ResourceLoader m_res_ldr;
 
         // TODO: We should still handle config in separate RTClass in `AppCfgModel.cpp`.
@@ -237,23 +239,33 @@ namespace BiliUWP {
         }
         void log_trace(std::wstring_view str, std::source_location loc) {
             // TODO: Use std::source_location
-            m_app_inst->log_trace(winrt::hstring{ std::format(L"[{}]{}", loc.line(), str)});
+            m_app_inst->log_trace(winrt::to_hstring(std::format("[{}:{}:{}] ",
+                loc.file_name(), loc.function_name(), loc.line()
+            )) + str);
         }
         void log_debug(std::wstring_view str, std::source_location loc) {
             // TODO: Use std::source_location
-            m_app_inst->log_debug(winrt::hstring{ std::format(L"[{}]{}", loc.line(), str) });
+            m_app_inst->log_debug(winrt::to_hstring(std::format("[{}:{}:{}] ",
+                loc.file_name(), loc.function_name(), loc.line()
+            )) + str);
         }
         void log_info(std::wstring_view str, std::source_location loc) {
             // TODO: Use std::source_location
-            m_app_inst->log_info(winrt::hstring{ std::format(L"[{}]{}", loc.line(), str) });
+            m_app_inst->log_info(winrt::to_hstring(std::format("[{}:{}:{}] ",
+                loc.file_name(), loc.function_name(), loc.line()
+            )) + str);
         }
         void log_warn(std::wstring_view str, std::source_location loc) {
             // TODO: Use std::source_location
-            m_app_inst->log_warn(winrt::hstring{ std::format(L"[{}]{}", loc.line(), str) });
+            m_app_inst->log_warn(winrt::to_hstring(std::format("[{}:{}:{}] ",
+                loc.file_name(), loc.function_name(), loc.line()
+            )) + str);
         }
         void log_error(std::wstring_view str, std::source_location loc) {
             // TODO: Use std::source_location
-            m_app_inst->log_error(winrt::hstring{ std::format(L"[{}]{}", loc.line(), str) });
+            m_app_inst->log_error(winrt::to_hstring(std::format("[{}:{}:{}] ",
+                loc.file_name(), loc.function_name(), loc.line()
+            )) + str);
         }
     private:
         AppInst* m_app_inst;

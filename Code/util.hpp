@@ -138,12 +138,33 @@ namespace util {
     namespace time {
         std::wstring pretty_time(void);
         uint64_t get_secs_since_epoch(void);
-        //std::wstring get_secs_since_epoch_str(void);
     }
 
     namespace num {
-        constexpr uint32_t rotate_left(uint32_t v, unsigned int offset) {
+        inline constexpr uint32_t rotate_left(uint32_t v, unsigned int offset) {
             return (v << offset) | (v >> ((CHAR_BIT * sizeof v) - offset));
+        }
+        inline std::optional<double> try_parse_f64(std::string_view sv) {
+            auto begin = &*sv.begin();
+            auto end = &*sv.end();
+            double val;
+            auto result = std::from_chars(begin, end, val);
+            if (!static_cast<bool>(result.ec) && result.ptr == end) {
+                return val;
+            }
+            else {
+                return std::nullopt;
+            }
+        }
+        inline std::optional<double> try_parse_f64(std::wstring_view sv) {
+            // TODO: Optimize performance by not creating std::wstring
+            size_t count;
+            try {
+                return std::stod(std::wstring{ sv }, &count);
+            }
+            catch (...) {
+                return std::nullopt;
+            }
         }
     }
 
@@ -414,6 +435,11 @@ namespace util {
                 }
             };
         };
+
+        template<typename T>
+        inline auto try_unbox_value(::winrt::Windows::Foundation::IInspectable const& value) {
+            return value.try_as<T>();
+        }
 
         ::winrt::Windows::UI::Xaml::UIElement get_child_elem(
             ::winrt::Windows::UI::Xaml::UIElement const& elem,

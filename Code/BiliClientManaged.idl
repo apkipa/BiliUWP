@@ -107,7 +107,11 @@ namespace BiliUWP {
         );
 
         // Audio information
-        //   https://api.bilibili.com/audio/music-service-c/url | access_token
+        //   https://www.bilibili.com/audio/music-service-c/web/song/info | cookies
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_www_audio_music_service_c_web_song_info(
+            UInt64 auid
+        );
+        //   https://api.bilibili.com/audio/music-service-c/url | access_token + cookies
         Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_audio_music_service_c_url(
             UInt64 auid,
             UInt32 quality  // 0 => 128k; 1 => 192k; 2 => 320k; 3 => lossless

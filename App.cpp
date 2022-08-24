@@ -4,6 +4,7 @@
 #include "MainPage.h"
 #include "SimpleContentDialog.h"
 #include <shared_mutex>
+#include <queue>
 
 using namespace winrt;
 using namespace Windows::ApplicationModel;
@@ -23,7 +24,7 @@ namespace BiliUWP {
     // TODO: AppTab logic overhaul
     AppInst::AppInst() :
         m_app_tabs(), m_tv(), m_glob_frame(nullptr), m_cur_log_level(util::debug::LogLevel::Info),
-        m_app_logs(), m_logging_provider(new AppLoggingProvider(this)),
+        m_app_logs(), m_logging_provider(new AppLoggingProvider(this)), m_cur_log_file(nullptr),
         m_res_ldr(Windows::ApplicationModel::Resources::ResourceLoader::GetForViewIndependentUse()),
         m_cfg_model(winrt::BiliUWP::AppCfgModel()),
         m_cfg_app_use_tab_view(m_cfg_model.App_UseTabView()),
@@ -33,7 +34,17 @@ namespace BiliUWP {
         // TODO: Pre-init
         // TODO: Check if mode is tab or single-view
         // TODO: Initialize absent setting items with default value
+        // TODO: Improve log files logic
         util::debug::set_log_provider(m_logging_provider);
+        [](AppInst* that) -> fire_forget_except {
+            auto local_folder = Windows::Storage::ApplicationData::Current().LocalFolder();
+            auto logs_folder = co_await local_folder.CreateFolderAsync(
+                L"logs", Windows::Storage::CreationCollisionOption::OpenIfExists
+            );
+            that->m_cur_log_file = co_await logs_folder.CreateFileAsync(
+                L"latest.log", Windows::Storage::CreationCollisionOption::ReplaceExisting
+            );
+        }(this);
 
         // TODO: Remove this
         m_cur_log_level = util::debug::LogLevel::Trace;
@@ -49,7 +60,7 @@ namespace BiliUWP {
             user_cookies.sid = m_cfg_model.User_Cookies_sid();
             m_bili_client->set_cookies(user_cookies);
         };
-        // TODO: Better listen to broadcast events
+        // TODO: Better listen to broadcast events ?
         m_cfg_model.PropertyChanged([=](IInspectable const& sender, PropertyChangedEventArgs const& e) {
             // TODO: Reduce update cost according to the property name
             auto prop_name = e.PropertyName();
@@ -77,7 +88,6 @@ namespace BiliUWP {
         update_bili_client_fn();
     }
     AppInst::~AppInst() {
-        // TODO: Release resources
         util::debug::set_log_provider(nullptr);
         delete m_logging_provider;
         delete m_bili_client;
@@ -177,6 +187,7 @@ namespace BiliUWP {
     }
     bool AppInst::activate_tab(AppTab tab) {
         // TODO: mutex lock or helper member function
+        // TODO: Perform perfect scrolling when tab is activated
         if (!m_cfg_app_use_tab_view) {
             throw hresult_not_implemented();
         }
@@ -326,6 +337,82 @@ namespace BiliUWP {
                 run_fn(sender.as<TabViewItem>());
             });
         }
+    }
+    void AppInst::append_log_entry(LogDesc log_desc) {
+        static auto str_from_logdesc_fn = [](LogDesc const& ld) {
+            wchar_t level_char;
+            switch (ld.level) {
+            case util::debug::LogLevel::Trace:  level_char = 'T';   break;
+            case util::debug::LogLevel::Debug:  level_char = 'D';   break;
+            case util::debug::LogLevel::Info:   level_char = 'I';   break;
+            case util::debug::LogLevel::Warn:   level_char = 'W';   break;
+            case util::debug::LogLevel::Error:  level_char = 'E';   break;
+            default:                            level_char = 'U';   break;
+            }
+            return hstring{ std::format(
+                L"[{}] {} {}",
+                std::chrono::zoned_time{ std::chrono::current_zone(), ld.time },
+                level_char,
+                ld.content
+            ) };
+        };
+        [](AppInst* that, hstring str) -> fire_forget_except {
+            using namespace std::chrono_literals;
+            using Windows::Storage::FileIO;
+            static std::queue<hstring> s_str_bufs{};
+            static std::atomic_flag s_lock;
+            // TODO: Maybe optimize & correct the logic
+            s_str_bufs.push(std::move(str));
+            while (s_lock.test_and_set()) {
+                co_await resume_background();
+                s_lock.wait(true);
+            }
+            deferred([] {
+                s_lock.clear();
+                s_lock.notify_one();
+            });
+            while (!that->m_cur_log_file) {
+                co_await 100ms;
+            }
+            for (; !s_str_bufs.empty(); s_str_bufs.pop()) {
+                co_await FileIO::AppendLinesAsync(that->m_cur_log_file, { s_str_bufs.front() });
+            }
+        }(this, str_from_logdesc_fn(log_desc));
+        m_app_logs.push_back(std::move(log_desc));
+        /*
+        static std::mutex s_rw_mutex;
+        {
+            std::scoped_lock guard{ s_rw_mutex };
+            m_app_logs.push_back(log_desc);
+        }
+        //buf_strs.GetMany()
+        [](AppInst* that) -> fire_forget_except {
+            using Windows::Storage::FileIO;
+            static std::mutex s_write_mutex;
+            std::scoped_lock guard{ s_write_mutex };
+            while (!that->m_cur_log_file) {
+                //co_await
+            }
+            if ((co_await that->m_cur_log_file.GetBasicPropertiesAsync()).Size() == 0) {
+                auto str_vec = winrt::single_threaded_vector<hstring>();
+                {
+                    std::scoped_lock guard{ s_rw_mutex };
+                    for (auto const& i : that->m_app_logs) {
+                        str_vec.Append(str_from_logdesc_fn(i));
+                    }
+                }
+                co_await FileIO::WriteLinesAsync(that->m_cur_log_file, str_vec);
+            }
+            else {
+                hstring str;
+                {
+                    std::scoped_lock guard{ s_rw_mutex };
+                    str = str_from_logdesc_fn(that->m_app_logs.back());
+                }
+                co_await FileIO::AppendLinesAsync(that->m_cur_log_file, { str });
+            }
+        }(this);
+        */
     }
     void AppInst::init_current_window(void) {
         using namespace Windows::UI;
@@ -723,14 +810,25 @@ winrt::BiliUWP::implementation::App::App() :
     InitializeComponent();
     Suspending({ this, &App::OnSuspending });
 
+    UnhandledException([this](IInspectable const&, UnhandledExceptionEventArgs const& e) {
+        auto error_message = e.Message();
+        util::debug::log_error(error_message);
+        if (IsDebuggerPresent()) {
+            __debugbreak();
+        }
+        e.Handled(true);
+    });
+
+    /*
 #if defined _DEBUG && !defined DISABLE_XAML_GENERATED_BREAK_ON_UNHANDLED_EXCEPTION
     UnhandledException([this](IInspectable const&, UnhandledExceptionEventArgs const& e) {
+        auto errorMessage = e.Message();
         if (IsDebuggerPresent()) {
-            auto errorMessage = e.Message();
             __debugbreak();
         }
     });
 #endif
+    */
 }
 
 winrt::BiliUWP::implementation::App::~App() {
@@ -806,7 +904,7 @@ void winrt::BiliUWP::implementation::App::OnLaunched(LaunchActivatedEventArgs co
         if (!cur_window.Content()) {
             m_app_inst->init_current_window();
         }
-        // TODO: Register logging provider
+        // TODO: Remove this
         util::debug::RAIIObserver observer;
         util::debug::RAIIObserver xxx = observer;
 

@@ -1,0 +1,55 @@
+﻿<Page
+    x:Class="BiliUWP.FavouritesUserPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:BiliUWP"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="{ThemeResource SystemControlBackgroundAltHighBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+        <Grid x:Name="TopInfoPane"
+              Grid.Row="0"
+              Background="{ThemeResource SystemControlBackgroundAltHighBrush}">
+            <Grid x:Name="TopTextInfoPane"
+                  HorizontalAlignment="Left"
+                  Padding="15,5">
+                <Grid.RowDefinitions>
+                    <RowDefinition/>
+                    <RowDefinition/>
+                </Grid.RowDefinitions>
+                <TextBlock x:Name="TopTextInfoTitle" Grid.Row="0"/>
+                <TextBlock x:Name="TopTextInfoDesc" Grid.Row="1"/>
+            </Grid>
+            <CommandBar Background="Transparent"
+                        Padding="5,0"
+                        OverflowButtonVisibility="Collapsed"
+                        VerticalAlignment="Center">
+                <CommandBar.Resources>
+                    <Style TargetType="AppBarButton">
+                        <Setter Property="Width" Value="42"/>
+                        <Setter Property="Margin" Value="2,0"/>
+                    </Style>
+                </CommandBar.Resources>
+                <AppBarButton x:Name="RefreshItem" Icon="Refresh" Click="RefreshItem_Click">
+                    <ToolTipService.ToolTip>
+                        <TextBlock x:Uid="App/Page/FavouritesUserPage/RefreshItem/Tooltip"/>
+                    </ToolTipService.ToolTip>
+                </AppBarButton>
+            </CommandBar>
+        </Grid>
+        <!--SymbolThemeFontFamily-->
+        <Grid x:Name="ItemsPane" Grid.Row="1">
+            <local:AdaptiveGridView x:Name="ItemsGridView"
+                                    Background="{ThemeResource SystemControlBackgroundListLowBrush}"
+                                    DesiredWidth="300">
+                
+            </local:AdaptiveGridView>
+        </Grid>
+    </Grid>
+</Page>

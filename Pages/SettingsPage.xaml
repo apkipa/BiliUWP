@@ -8,7 +8,75 @@
     mc:Ignorable="d"
     Background="{ThemeResource SystemControlBackgroundAltHighBrush}">
 
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-        <Button x:Name="Button" Click="ClickHandler">Click Me</Button>
-    </StackPanel>
+    <!--
+        NOTE: Layout: Region - Group - Item
+    -->
+    <Page.Resources>
+        <Style TargetType="TextBlock" x:Key="RegionHeaderTextBlockStyle" BasedOn="{StaticResource SubtitleTextBlockStyle}">
+            <Setter Property="Margin" Value="0,10,0,4"/>
+        </Style>
+        <Style TargetType="TextBlock" x:Key="GroupHeaderTextBlockStyle" BasedOn="{StaticResource BodyTextBlockStyle}">
+            <Setter Property="Margin" Value="0,4,0,4"/>
+        </Style>
+        <Style TargetType="TextBlock" x:Key="ItemTextBlockStyle" BasedOn="{StaticResource BodyTextBlockStyle}"/>
+        <Style TargetType="Button" x:Key="ItemButtonStyle" BasedOn="{StaticResource DefaultButtonStyle}">
+            <Setter Property="Margin" Value="0,2"/>
+        </Style>
+        <Style TargetType="ToggleSwitch" x:Key="ItemToggleSwitchStyle" BasedOn="{StaticResource DefaultToggleSwitchStyle}">
+            <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+        <Style TargetType="HyperlinkButton" x:Key="TightHyperlinkButtonStyle">
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+    </Page.Resources>
+    <Grid Padding="12,0,0,0">
+        <ScrollViewer IsScrollInertiaEnabled="True"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Style="{StaticResource RegionHeaderTextBlockStyle}">选项区域</TextBlock>
+                <TextBlock Style="{StaticResource GroupHeaderTextBlockStyle}">选项组</TextBlock>
+                <TextBlock Style="{StaticResource ItemTextBlockStyle}">选项内容</TextBlock>
+                <TextBlock x:Uid="App/Page/SettingsPage/Misc" Style="{StaticResource RegionHeaderTextBlockStyle}"/>
+                <ToggleSwitch x:Uid="App/Page/SettingsPage/App_PersistClipboardAfterExit" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_PersistClipboardAfterExit,Mode=TwoWay}"/>
+                <TextBlock x:Uid="App/Page/SettingsPage/Dev" Style="{StaticResource RegionHeaderTextBlockStyle}"/>
+                <TextBlock x:Uid="App/Page/SettingsPage/Dev_Storage" Style="{StaticResource GroupHeaderTextBlockStyle}"/>
+                <Button x:Uid="App/Page/SettingsPage/OpenStorageFolderButton" x:Name="OpenStorageFolderButton" Click="OpenStorageFolderButton_Click" Style="{StaticResource ItemButtonStyle}"/>
+                <TextBlock x:Uid="App/Page/SettingsPage/About" Style="{StaticResource RegionHeaderTextBlockStyle}"/>
+                <TextBlock x:Name="AppNameVerText" Text="BiliUWP (Dev) v0.1.0" Style="{StaticResource ItemTextBlockStyle}"
+                           Padding="0,4"/>
+                <TextBlock x:Uid="App/Page/SettingsPage/About_DetailsLegal" Style="{StaticResource ItemTextBlockStyle}"
+                           FontWeight="Bold" Foreground="Red"/>
+                <TextBlock x:Uid="App/Page/SettingsPage/About_Details1" Style="{StaticResource ItemTextBlockStyle}"/>
+                <HyperlinkButton Style="{StaticResource TightHyperlinkButtonStyle}"
+                                 NavigateUri="https://www.nayuki.io/page/qr-code-generator-library">
+                    QR Code generator library (C++) © Project Nayuki. (MIT License)
+                </HyperlinkButton>
+                <HyperlinkButton Style="{StaticResource TightHyperlinkButtonStyle}"
+                                 NavigateUri="https://github.com/microsoft/microsoft-ui-xaml">
+                    Microsoft.UI.Xaml © Microsoft Corporation. (MIT License)
+                </HyperlinkButton>
+                <HyperlinkButton Style="{StaticResource TightHyperlinkButtonStyle}"
+                                 NavigateUri="https://github.com/microsoft/cppwinrt">
+                    Microsoft.Windows.CppWinRT © Microsoft Corporation. (MIT License)
+                </HyperlinkButton>
+                <HyperlinkButton Style="{StaticResource TightHyperlinkButtonStyle}"
+                                 NavigateUri="https://github.com/CommunityToolkit/WindowsCommunityToolkit">
+                    Windows Community Toolkit © Microsoft Corporation. (MIT License)
+                </HyperlinkButton>
+                <TextBlock x:Uid="App/Page/SettingsPage/About_Details2" Style="{StaticResource ItemTextBlockStyle}"/>
+                <HyperlinkButton Style="{StaticResource TightHyperlinkButtonStyle}"
+                                 NavigateUri="https://github.com/SocialSisterYi/bilibili-API-collect">
+                    bilibili-API-collect © SocialSisterYi. (CC BY-NC 4.0 License)
+                </HyperlinkButton>
+                <HyperlinkButton Style="{StaticResource TightHyperlinkButtonStyle}"
+                                 NavigateUri="https://github.com/Richasy/Bili.Uwp">
+                    哔哩 © Richasy. (MIT License)
+                </HyperlinkButton>
+                <HyperlinkButton Style="{StaticResource TightHyperlinkButtonStyle}"
+                                 NavigateUri="https://github.com/xiaoyaocz/biliuwp-lite">
+                    哔哩哔哩 Lite © xiaoyaocz. (No License)
+                </HyperlinkButton>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
 </Page>

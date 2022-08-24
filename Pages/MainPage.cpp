@@ -6,9 +6,7 @@ using namespace winrt;
 using namespace Windows::UI::Xaml;
 
 namespace winrt::BiliUWP::implementation {
-    MainPage::MainPage() {
-        InitializeComponent();
-    }
+    MainPage::MainPage() {}
 
     int32_t MainPage::MyProperty() {
         throw hresult_not_implemented();

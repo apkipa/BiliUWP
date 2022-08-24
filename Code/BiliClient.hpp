@@ -323,7 +323,7 @@ namespace BiliUWP {
         winrt::hstring from;
         winrt::hstring part_title;
         uint64_t duration;
-        uint64_t external_vid;
+        winrt::hstring external_vid;
         winrt::hstring external_weblink;
         VideoViewInfo_Dimension dimension;
     };
@@ -374,9 +374,9 @@ namespace BiliUWP {
         std::vector<VideoViewInfo_DescV2> desc_v2;
         uint32_t state;
         uint32_t duration;
-        uint64_t forward_avid;
-        uint64_t mission_id;
-        winrt::hstring pgc_redirect_url;
+        std::optional<uint64_t> forward_avid;
+        std::optional<uint64_t> mission_id;
+        std::optional<winrt::hstring> pgc_redirect_url;
         struct {
             bool elec;
             bool download;
@@ -417,7 +417,7 @@ namespace BiliUWP {
             bool allow_submit;
             std::vector<VideoViewInfo_Subtitle> list;
         } subtitle;
-        std::vector<VideoViewInfo_Staff> staff;
+        std::optional<std::vector<VideoViewInfo_Staff>> staff;
         struct {
             winrt::hstring url_image_ani_cut;
         } user_garb;
@@ -464,7 +464,7 @@ namespace BiliUWP {
         winrt::hstring new_description;
         winrt::hstring display_desc;
         winrt::hstring superscript;
-        std::vector<winrt::hstring> codecs;
+        std::optional<std::vector<winrt::hstring>> codecs;
     };
     struct VideoPlayUrlResult {
         winrt::hstring from;
@@ -475,11 +475,11 @@ namespace BiliUWP {
         uint64_t timelength;    // Unit: ms
         winrt::hstring accept_format;
         std::vector<winrt::hstring> accept_description;
-        std::vector<winrt::hstring> accept_quality;
+        std::vector<uint32_t> accept_quality;
         uint32_t video_codecid;
         winrt::hstring seek_param;
         winrt::hstring seek_type;
-        std::vector<VideoPlayUrl_DurlPart> durl;
+        std::optional<std::vector<VideoPlayUrl_DurlPart>> durl;
         std::optional<VideoPlayUrl_Dash> dash;
         std::vector<VideoPlayUrl_SupportFormat> support_formats;
     };
@@ -528,8 +528,13 @@ namespace BiliUWP {
         );
 
         // Audio information
+        // TODO: audio_basic_info
+        // TODO: audio_play_url
 
         // Favourites information
+        // TODO: user_fav_folders_list
+        // TODO: user_fav_folders_list_all
+        // TODO: fav_folder_res_list
 
     private:
         winrt::BiliUWP::BiliClientManaged m_bili_client;

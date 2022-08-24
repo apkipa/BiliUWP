@@ -16,10 +16,8 @@ using namespace Windows::UI::Xaml::Controls;
 
 namespace winrt::BiliUWP::implementation {
     SimpleContentDialog::SimpleContentDialog() :
-        m_dialog_showing(false), m_finish_event(), m_self(nullptr)
+        m_dialog_showing(false), m_finish_event()
     {
-        InitializeComponent();
-
         Loaded([this](IInspectable const&, RoutedEventArgs const&) {
             auto dlg = GetTemplateChild(L"BackgroundElement").as<UIElement>();
             if (auto ts = dlg.Shadow().try_as<ThemeShadow>()) {
@@ -176,25 +174,29 @@ namespace winrt::BiliUWP::implementation {
         SetValue(m_IsSecondaryButtonEnabledProperty, winrt::box_value(value));
     }
 
-#define gen_dp_instantiation(prop_name)                                                             \
-    DependencyProperty SimpleContentDialog::m_ ## prop_name ## Property =                           \
-        DependencyProperty::Register(                                                               \
-            L"" #prop_name,                                                                         \
-            winrt::xaml_typename<decltype(std::declval<SimpleContentDialog>().prop_name())>(),      \
-            winrt::xaml_typename<winrt::BiliUWP::SimpleContentDialog>(),                            \
-            Windows::UI::Xaml::PropertyMetadata{ nullptr }                                          \
+#define gen_dp_instantiation_self_type SimpleContentDialog
+#define gen_dp_instantiation(prop_name, ...)                                                \
+    DependencyProperty gen_dp_instantiation_self_type::m_ ## prop_name ## Property =        \
+        DependencyProperty::Register(                                                       \
+            L"" #prop_name,                                                                 \
+            winrt::xaml_typename<                                                           \
+                decltype(std::declval<gen_dp_instantiation_self_type>().prop_name())        \
+            >(),                                                                            \
+            winrt::xaml_typename<winrt::BiliUWP::gen_dp_instantiation_self_type>(),         \
+            Windows::UI::Xaml::PropertyMetadata{ __VA_ARGS__ }                              \
     )
 
-    gen_dp_instantiation(Title);
-    gen_dp_instantiation(TitleTemplate);
-    gen_dp_instantiation(PrimaryButtonText);
-    gen_dp_instantiation(SecondaryButtonText);
-    gen_dp_instantiation(CloseButtonText);
-    gen_dp_instantiation(PrimaryButtonStyle);
-    gen_dp_instantiation(SecondaryButtonStyle);
-    gen_dp_instantiation(CloseButtonStyle);
-    gen_dp_instantiation(IsPrimaryButtonEnabled);
-    gen_dp_instantiation(IsSecondaryButtonEnabled);
+    gen_dp_instantiation(Title, nullptr);
+    gen_dp_instantiation(TitleTemplate, nullptr);
+    gen_dp_instantiation(PrimaryButtonText, nullptr);
+    gen_dp_instantiation(SecondaryButtonText, nullptr);
+    gen_dp_instantiation(CloseButtonText, nullptr);
+    gen_dp_instantiation(PrimaryButtonStyle, nullptr);
+    gen_dp_instantiation(SecondaryButtonStyle, nullptr);
+    gen_dp_instantiation(CloseButtonStyle, nullptr);
+    gen_dp_instantiation(IsPrimaryButtonEnabled, nullptr);
+    gen_dp_instantiation(IsSecondaryButtonEnabled, nullptr);
 
 #undef gen_dp_instantiation
+#undef gen_dp_instantiation_self_type
 }

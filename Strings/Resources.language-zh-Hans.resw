@@ -156,6 +156,21 @@
   <data name="App.Override.SR_TabViewCloseButtonTooltipWithKA" xml:space="preserve">
     <value>关闭选项卡(Ctrl+W)</value>
   </data>
+  <data name="App.Page.FavouritesUserPage.MyTitle" xml:space="preserve">
+    <value>我的收藏</value>
+  </data>
+  <data name="App.Page.FavouritesUserPage.RefreshItem.Tooltip.Text" xml:space="preserve">
+    <value>刷新</value>
+  </data>
+  <data name="App.Page.FavouritesUserPage.Title" xml:space="preserve">
+    <value>用户收藏</value>
+  </data>
+  <data name="App.Page.FavouritesUserPage.TopTextInfoDesc" xml:space="preserve">
+    <value>共 {0} 项</value>
+  </data>
+  <data name="App.Page.FavouritesUserPage.TopTextInfoTitle" xml:space="preserve">
+    <value>{0} 的收藏</value>
+  </data>
   <data name="App.Page.LoginPage.ChooseLoginMethod.Text" xml:space="preserve">
     <value>选择一种登录方式以继续...</value>
   </data>
@@ -177,6 +192,18 @@
   <data name="App.Page.LoginPage.TokenLoginWarn.Text" xml:space="preserve">
     <value>警告: 如果你不知道这意味着什么，请不要继续操作。</value>
   </data>
+  <data name="App.Page.MediaPlayPage.Error.IllegalNavParam" xml:space="preserve">
+    <value>错误: 页面导航参数非法</value>
+  </data>
+  <data name="App.Page.MediaPlayPage.Error.ServerAPIFailed" xml:space="preserve">
+    <value>错误: 服务器 API 调用失败，视频可能不存在或程序出现了 BUG</value>
+  </data>
+  <data name="App.Page.MediaPlayPage.Error.Unknown" xml:space="preserve">
+    <value>发生了未知错误</value>
+  </data>
+  <data name="App.Page.MediaPlayPage.Title" xml:space="preserve">
+    <value>媒体播放页</value>
+  </data>
   <data name="App.Page.NewPage.Button_MyFavourites.Label" xml:space="preserve">
     <value>我的收藏</value>
   </data>
@@ -188,6 +215,40 @@
   </data>
   <data name="App.Page.NewPage.Title" xml:space="preserve">
     <value>新页</value>
+  </data>
+  <data name="App.Page.SettingsPage.About.Text" xml:space="preserve">
+    <value>关于</value>
+  </data>
+  <data name="App.Page.SettingsPage.About_Details1.Text" xml:space="preserve">
+    <value>作者: apkipa (apkipa1@gmail.com)
+使用的依赖库:</value>
+  </data>
+  <data name="App.Page.SettingsPage.About_Details2.Text" xml:space="preserve">
+    <value>感谢以下资源提供的帮助:</value>
+  </data>
+  <data name="App.Page.SettingsPage.About_DetailsLegal.Text" xml:space="preserve">
+    <value>此软件为哔哩哔哩的一个第三方客户端，与官方没有任何关联。该软件仅供学习与交流用途，不得用于侵犯合法权益。</value>
+  </data>
+  <data name="App.Page.SettingsPage.Appearance.Text" xml:space="preserve">
+    <value>外观</value>
+  </data>
+  <data name="App.Page.SettingsPage.App_PersistClipboardAfterExit.Header" xml:space="preserve">
+    <value>应用关闭后保留剪切板内的易失性内容(不包括敏感信息)</value>
+  </data>
+  <data name="App.Page.SettingsPage.Dev.Text" xml:space="preserve">
+    <value>开发者选项</value>
+  </data>
+  <data name="App.Page.SettingsPage.Dev_Storage.Text" xml:space="preserve">
+    <value>存储</value>
+  </data>
+  <data name="App.Page.SettingsPage.Misc.Text" xml:space="preserve">
+    <value>杂项</value>
+  </data>
+  <data name="App.Page.SettingsPage.OpenStorageFolderButton.Content" xml:space="preserve">
+    <value>打开应用存储文件夹</value>
+  </data>
+  <data name="App.Page.SettingsPage.Title" xml:space="preserve">
+    <value>设置</value>
   </data>
   <data name="App.XCommon.Cancel.Content" xml:space="preserve">
     <value>取消</value>

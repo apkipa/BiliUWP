@@ -1,0 +1,20 @@
+namespace BiliUWP {
+    // Microsoft.Toolkit.Uwp.UI.Controls.AdaptiveGridView
+    [default_interface]
+    runtimeclass AdaptiveGridView : Windows.UI.Xaml.Controls.GridView {
+        AdaptiveGridView();
+
+        static Windows.UI.Xaml.DependencyProperty ItemClickCommandProperty{ get; };
+        Windows.UI.Xaml.Input.ICommand ItemClickCommand;
+        static Windows.UI.Xaml.DependencyProperty ItemHeightProperty{ get; };
+        Double ItemHeight;
+        static Windows.UI.Xaml.DependencyProperty OneRowModeEnabledProperty{ get; };
+        Boolean OneRowModeEnabled;
+        static Windows.UI.Xaml.DependencyProperty ItemWidthProperty{ get; };
+        Double ItemWidth;
+        static Windows.UI.Xaml.DependencyProperty DesiredWidthProperty{ get; };
+        Double DesiredWidth;
+        static Windows.UI.Xaml.DependencyProperty StretchContentForSingleRowProperty{ get; };
+        Boolean StretchContentForSingleRow;
+    }
+}

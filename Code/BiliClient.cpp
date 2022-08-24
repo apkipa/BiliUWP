@@ -5,7 +5,7 @@
 
 namespace BiliUWP {
     bool try_check_api_code(ApiCode code) {
-        return code >= ApiCode::Success;
+        return code == ApiCode::Success;
     }
     bool try_check_api_code(int32_t code) {
         return try_check_api_code(static_cast<ApiCode>(code));
@@ -75,6 +75,13 @@ namespace BiliUWP {
 
         JsonPropsWalkTree& get_props_walk_tree(void) { return m_props_walk; }
 
+        bool is_null(void) {
+            return m_jv.ValueType() == winrt::Windows::Data::Json::JsonValueType::Null;
+        }
+        void expect_null(void) {
+            expect_jv_type(m_jv, winrt::Windows::Data::Json::JsonValueType::Null);
+        }
+
         template<typename T>
         std::optional<T> try_as(void) = delete;
         template<>
@@ -134,13 +141,6 @@ namespace BiliUWP {
             return static_cast<int64_t>(m_jv.GetNumber());
         }
         template<>
-        std::optional<std::nullptr_t> try_as(void) {
-            if (m_jv.ValueType() != winrt::Windows::Data::Json::JsonValueType::Null) {
-                return std::nullopt;
-            }
-            return nullptr;
-        }
-        template<>
         std::optional<JsonObjectVisitor> try_as(void);
         template<>
         std::optional<JsonArrayVisitor> try_as(void);
@@ -182,11 +182,6 @@ namespace BiliUWP {
         template<>
         int64_t as(void) {
             return static_cast<int64_t>(this->as<double>());
-        }
-        template<>
-        std::nullptr_t as(void) {
-            expect_jv_type(m_jv, winrt::Windows::Data::Json::JsonValueType::Null);
-            return nullptr;
         }
         template<>
         JsonObjectVisitor as(void);
@@ -279,6 +274,7 @@ namespace BiliUWP {
             });
             populate_inner(dst, { expect_jo_lookup(m_jo, key), m_props_walk });
         }
+        // NOTE: std::nullopt will be stored only when the property does not exist
         template<typename T>
         void populate(std::optional<T>& dst, std::string_view key) {
             if (auto jv = m_jo.TryLookup(winrt::to_hstring(key))) {
@@ -365,7 +361,7 @@ namespace BiliUWP {
             container.clear();
             container.resize(size);
             for (decltype(size) i = 0; i < size; i++) {
-                this->scope(std::bind(func, container[i], std::placeholders::_1), i);
+                this->scope(std::bind(func, std::ref(container[i]), std::placeholders::_1), i);
             }
         }
         template<typename Functor>
@@ -514,6 +510,40 @@ namespace BiliUWP {
         private:
             std::vector<T>& m_vec;
         };
+        // NOTE: Same as assign_vec, except that null is interpected as an empty array
+        template<typename T>
+        struct assign_vec_or_null_as_empty {
+            assign_vec_or_null_as_empty(std::vector<T>& vec) : m_vec(vec) {}
+            void operator()(JsonValueVisitor jav) {
+                if (jav.is_null()) {
+                    m_vec.clear();
+                }
+                else {
+                    jav.as<JsonArrayVisitor>().scope_populate([&](T& dst, JsonValueVisitor jvv) {
+                        dst = jvv.as<T>();
+                    }, m_vec);
+                }
+            }
+        private:
+            std::vector<T>& m_vec;
+        };
+        // NOTE: It always expects that property exists
+        template<typename T>
+        struct assign_value_or_null_to_optional {
+            assign_value_or_null_to_optional(std::optional<T>& opt) : m_opt(opt) {}
+            void operator()(JsonValueVisitor jav) {
+                if (jav.is_null()) {
+                    m_opt = std::nullopt;
+                }
+                else {
+                    T temp;
+                    jav.populate(temp);
+                    m_opt = std::move(temp);
+                }
+            }
+        private:
+            std::optional<T>& m_opt;
+        };
     }
 
     // User-defined as / try_as conversions
@@ -599,7 +629,7 @@ namespace BiliUWP {
         jov.populate(result.ahead, "ahead");
         jov.populate(result.vhead, "vhead");
         jov.populate(result.url, "url");
-        jov.populate(result.backup_url, "backup_url");
+        jov.scope(adapter::assign_vec_or_null_as_empty{ result.backup_url }, "backup_url");
         return result;
     }
     template<>
@@ -608,7 +638,7 @@ namespace BiliUWP {
         auto jov = this->as<JsonObjectVisitor>();
         jov.populate(result.id, "id");
         jov.populate(result.base_url, "base_url");
-        jov.populate(result.backup_url, "backup_url");
+        jov.scope(adapter::assign_vec_or_null_as_empty{ result.backup_url }, "backup_url");
         jov.populate(result.bandwidth, "bandwidth");
         jov.populate(result.mime_type, "mime_type");
         jov.populate(result.codecs, "codecs");
@@ -643,7 +673,7 @@ namespace BiliUWP {
         jov.populate(result.new_description, "new_description");
         jov.populate(result.display_desc, "display_desc");
         jov.populate(result.superscript, "superscript");
-        jov.populate(result.codecs, "codecs");
+        jov.scope(adapter::assign_value_or_null_to_optional{ result.codecs }, "codecs");
         return result;
     }
 
@@ -698,7 +728,7 @@ namespace BiliUWP {
         winrt::hstring auth_code,
         winrt::guid local_id
     ) {
-        PollTvQrLoginResult result;
+        PollTvQrLoginResult result{};
 
         auto cancellation_token = co_await winrt::get_cancellation_token();
         cancellation_token.enable_propagation();
@@ -711,8 +741,15 @@ namespace BiliUWP {
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
         double code;
         jov.populate(code, "code");
-        check_api_code(code);
         result.code = static_cast<ApiCode>(code);
+        switch (result.code) {
+        case ApiCode::TvQrLogin_QrExpired:
+        case ApiCode::TvQrLogin_QrNotConfirmed:
+            // These codes should not be treated as errors
+            break;
+        default:
+            check_api_code(result.code);
+        }
         if (result.code == ApiCode::Success) {
             jov.scope([&](JsonObjectVisitor jov) {
                 jov.populate(result.mid, "mid");
@@ -825,16 +862,6 @@ namespace BiliUWP {
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
         jov.scope([&](JsonObjectVisitor jov) {
             jov.populate(result.logged_in, "isLogin");
-            /*jov.scope([&](JsonValueVisitor jvv) {
-                switch (jvv.as<int64_t>()) {
-                case 0:     result.email_verified = false;  break;
-                case 1:     result.email_verified = true;   break;
-                default:
-                    throw BiliApiParseException(BiliApiParseException::json_parse_user_defined,
-                        json_props_walk, "Only 0 and 1 are expected values"
-                    );
-                }
-            }, "email_verified");*/
             jov.scope(adapter::assign_num_0_1_to_bool{ result.email_verified }, "email_verified");
             //jov.populate(result.email_verified, "email_verified");
             jov.populate(result.face_url, "face");
@@ -955,16 +982,16 @@ namespace BiliUWP {
             jov.populate(result.mission_id, "mission_id");
             jov.populate(result.pgc_redirect_url, "redirect_url");
             jov.scope([&](JsonObjectVisitor jov) {
-                jov.populate(result.rights.elec, "elec");
-                jov.populate(result.rights.download, "download");
-                jov.populate(result.rights.movie, "movie");
-                jov.populate(result.rights.pay, "pay");
-                jov.populate(result.rights.hd5, "hd5");
-                jov.populate(result.rights.no_reprint, "no_reprint");
-                jov.populate(result.rights.autoplay, "autoplay");
-                jov.populate(result.rights.ugc_pay, "ugc_pay");
-                jov.populate(result.rights.is_stein_gate, "is_stein_gate");
-                jov.populate(result.rights.is_cooperation, "is_cooperation");
+                jov.scope(adapter::assign_num_0_1_to_bool{ result.rights.elec }, "elec");
+                jov.scope(adapter::assign_num_0_1_to_bool{ result.rights.download }, "download");
+                jov.scope(adapter::assign_num_0_1_to_bool{ result.rights.movie }, "movie");
+                jov.scope(adapter::assign_num_0_1_to_bool{ result.rights.pay }, "pay");
+                jov.scope(adapter::assign_num_0_1_to_bool{ result.rights.hd5 }, "hd5");
+                jov.scope(adapter::assign_num_0_1_to_bool{ result.rights.no_reprint }, "no_reprint");
+                jov.scope(adapter::assign_num_0_1_to_bool{ result.rights.autoplay }, "autoplay");
+                jov.scope(adapter::assign_num_0_1_to_bool{ result.rights.ugc_pay }, "ugc_pay");
+                jov.scope(adapter::assign_num_0_1_to_bool{ result.rights.is_stein_gate }, "is_stein_gate");
+                jov.scope(adapter::assign_num_0_1_to_bool{ result.rights.is_cooperation }, "is_cooperation");
             }, "rights");
             jov.scope([&](JsonObjectVisitor jov) {
                 jov.populate(result.owner.mid, "mid");

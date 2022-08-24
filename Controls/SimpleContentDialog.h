@@ -54,8 +54,6 @@ namespace winrt::BiliUWP::implementation {
         std::atomic_bool m_dialog_showing;
         util::winrt::awaitable_event m_finish_event;
 
-        std::unique_ptr<SimpleContentDialog> m_self;
-
         static Windows::UI::Xaml::DependencyProperty m_TitleProperty;
         static Windows::UI::Xaml::DependencyProperty m_TitleTemplateProperty;
         static Windows::UI::Xaml::DependencyProperty m_PrimaryButtonTextProperty;

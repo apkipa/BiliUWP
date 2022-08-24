@@ -118,6 +118,7 @@ namespace winrt::BiliUWP::implementation {
     using AsyncJsonObjectResult = BiliClientManaged::AsyncJsonObjectResult;
 
     BiliClientManaged::BiliClientManaged() :
+        // TODO: Can m_http_client be initialized with m_http_filter here?
         m_http_filter(HttpBaseProtocolFilter()), m_http_client(nullptr),
         m_access_token(L"")
     {
@@ -368,7 +369,7 @@ namespace winrt::BiliUWP::implementation {
             param_maker.add_param(L"bvid", bvid);
         }
         else {
-            param_maker.add_param(L"aid", to_hstring(avid));
+            param_maker.add_param(L"avid", to_hstring(avid));
         }
         param_maker.add_param(L"cid", to_hstring(cid));
         if (prefers.prefer_dash) {
@@ -396,6 +397,22 @@ namespace winrt::BiliUWP::implementation {
     }
 
     // Audio information
+    AsyncJsonObjectResult BiliClientManaged::api_www_audio_music_service_c_web_song_info(
+        uint64_t auid
+    ) {
+        ApiParamMaker param_maker;
+
+        auto cancellation_token = co_await get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        param_maker.add_param(L"sid", to_hstring(auid));
+        auto uri = make_uri(
+            L"https://www.bilibili.com",
+            L"/audio/music-service-c/web/song/info",
+            param_maker.get_as_str()
+        );
+        co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
+    }
     AsyncJsonObjectResult BiliClientManaged::api_api_audio_music_service_c_url(
         uint64_t auid,
         uint32_t quality
@@ -405,7 +422,7 @@ namespace winrt::BiliUWP::implementation {
         auto cancellation_token = co_await get_cancellation_token();
         cancellation_token.enable_propagation();
 
-        param_maker.add_param(L"access_key", m_access_token);
+        //param_maker.add_param(L"access_key", m_access_token);
         param_maker.add_param(L"songid", to_hstring(auid));
         param_maker.add_param(L"quality", to_hstring(quality));
         param_maker.add_param(L"privilege", L"2");

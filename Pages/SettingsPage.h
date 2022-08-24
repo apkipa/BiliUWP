@@ -5,8 +5,17 @@
 namespace winrt::BiliUWP::implementation {
     struct SettingsPage : SettingsPageT<SettingsPage> {
         SettingsPage();
+        void InitializeComponent();
 
-        void ClickHandler(Windows::Foundation::IInspectable const& sender, Windows::UI::Xaml::RoutedEventArgs const& args);
+        void OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e);
+        void OpenStorageFolderButton_Click(
+            Windows::Foundation::IInspectable const&,
+            Windows::UI::Xaml::RoutedEventArgs const&
+        );
+
+        BiliUWP::AppCfgModel CfgModel() { return m_cfg_model; }
+    private:
+        BiliUWP::AppCfgModel m_cfg_model;
     };
 }
 

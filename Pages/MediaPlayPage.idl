@@ -1,9 +1,17 @@
-namespace BiliUWP
-{
+namespace BiliUWP {
+    enum MediaPlayPage_MediaType {
+        Video,
+        Audio,
+    };
+    // NOTE: sid is preferred if applicable (nid will be used only when sid is null)
+    struct MediaPlayPageNavParam {
+        MediaPlayPage_MediaType type;
+        UInt64 nid;
+        String sid;
+    };
+
     [default_interface]
-    runtimeclass MediaPlayPage : Windows.UI.Xaml.Controls.Page
-    {
+    runtimeclass MediaPlayPage : Windows.UI.Xaml.Controls.Page {
         MediaPlayPage();
-        Int32 MyProperty;
     }
 }
