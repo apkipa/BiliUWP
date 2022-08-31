@@ -40,34 +40,52 @@ namespace winrt::BiliUWP::implementation {
             VisualStateManager::GoToState(*this, L"DialogHidden", false);
         });
 
-        if (!VisualTreeHelper::GetParent(*this)) {
+        // We comment this because there are scenarios where XAML tree is not yet
+        // built, and VisualTreeHelper::GetParent() won't return anything
+        /*if (!VisualTreeHelper::GetParent(*this)) {
             throw hresult_invalid_argument(L"SimpleContentDialog requires a parent to display");
-        }
+        }*/
         if (m_dialog_showing.exchange(true)) {
             throw hresult_error(E_FAIL, L"Dialog is already being shown");
         }
 
-        Button::Click_revoker close_btn_click_revoker;
+        Button::Click_revoker primary_btn_click_revoker, secondary_btn_click_revoker, close_btn_click_revoker;
         SimpleContentDialog::Loaded_revoker loaded_revoker;
         SimpleContentDialog::KeyDown_revoker key_down_revoker;
 
         SimpleContentDialogResult result = SimpleContentDialogResult::None;
 
         auto run_fn = [&] {
-            if (CloseButtonText() != L"") {
-                VisualStateManager::GoToState(*this, L"CloseVisible", true);
-            }
-            else {
-                VisualStateManager::GoToState(*this, L"NoneVisible", true);
+            unsigned show_primary = PrimaryButtonText() != L"";
+            unsigned show_secondary = SecondaryButtonText() != L"";
+            unsigned show_close = CloseButtonText() != L"";
+            switch (show_close | (show_primary << 1) | (show_secondary << 2)) {
+            case 0x0:   VisualStateManager::GoToState(*this, L"NoneVisible", true);                 break;
+            case 0x1:   VisualStateManager::GoToState(*this, L"CloseVisible", true);                break;
+            case 0x2:   VisualStateManager::GoToState(*this, L"PrimaryVisible", true);              break;
+            case 0x3:   VisualStateManager::GoToState(*this, L"PrimaryAndCloseVisible", true);      break;
+            case 0x4:   VisualStateManager::GoToState(*this, L"SecondaryVisible", true);            break;
+            case 0x5:   VisualStateManager::GoToState(*this, L"SecondaryAndCloseVisible", true);    break;
+            case 0x6:   VisualStateManager::GoToState(*this, L"PrimaryAndSecondaryVisible", true);  break;
+            case 0x7:   VisualStateManager::GoToState(*this, L"AllVisible", true);                  break;
+            default:    throw hresult_error(E_FAIL, L"Unreachable");
             }
             VisualStateManager::GoToState(*this, L"DialogShowing", true);
 
-            auto close_btn = GetTemplateChild(L"CloseButton").as<Button>();
-            close_btn_click_revoker = close_btn.Click(auto_revoke,
-                [&](IInspectable const&, RoutedEventArgs const&) {
-                    result = SimpleContentDialogResult::None;
+            auto gen_btn_click_handler_fn = [&](SimpleContentDialogResult value) {
+                return [&, value](IInspectable const&, RoutedEventArgs const&) {
+                    result = value;
                     m_finish_event.set();
-                }
+                };
+            };
+            primary_btn_click_revoker = GetTemplateChild(L"PrimaryButton").as<Button>().Click(
+                auto_revoke, gen_btn_click_handler_fn(SimpleContentDialogResult::Primary)
+            );
+            secondary_btn_click_revoker = GetTemplateChild(L"SecondaryButton").as<Button>().Click(
+                auto_revoke, gen_btn_click_handler_fn(SimpleContentDialogResult::Secondary)
+            );
+            close_btn_click_revoker = GetTemplateChild(L"CloseButton").as<Button>().Click(
+                auto_revoke, gen_btn_click_handler_fn(SimpleContentDialogResult::None)
             );
             key_down_revoker = KeyDown(auto_revoke,
                 [&](IInspectable const&, KeyRoutedEventArgs const& e) {
@@ -126,13 +144,13 @@ namespace winrt::BiliUWP::implementation {
         SetValue(m_TitleTemplateProperty, winrt::box_value(value));
     }
     hstring SimpleContentDialog::PrimaryButtonText() {
-        return winrt::unbox_value<hstring>(GetValue(m_PrimaryButtonTextProperty));
+        return winrt::unbox_value_or<hstring>(GetValue(m_PrimaryButtonTextProperty), L"");
     }
     void SimpleContentDialog::PrimaryButtonText(hstring const& value) {
         SetValue(m_PrimaryButtonTextProperty, winrt::box_value(value));
     }
     hstring SimpleContentDialog::SecondaryButtonText() {
-        return winrt::unbox_value<hstring>(GetValue(m_SecondaryButtonTextProperty));
+        return winrt::unbox_value_or<hstring>(GetValue(m_SecondaryButtonTextProperty), L"");
     }
     void SimpleContentDialog::SecondaryButtonText(hstring const& value) {
         SetValue(m_SecondaryButtonTextProperty, winrt::box_value(value));
@@ -194,8 +212,8 @@ namespace winrt::BiliUWP::implementation {
     gen_dp_instantiation(PrimaryButtonStyle, nullptr);
     gen_dp_instantiation(SecondaryButtonStyle, nullptr);
     gen_dp_instantiation(CloseButtonStyle, nullptr);
-    gen_dp_instantiation(IsPrimaryButtonEnabled, nullptr);
-    gen_dp_instantiation(IsSecondaryButtonEnabled, nullptr);
+    gen_dp_instantiation(IsPrimaryButtonEnabled, box_value(true));
+    gen_dp_instantiation(IsSecondaryButtonEnabled, box_value(true));
 
 #undef gen_dp_instantiation
 #undef gen_dp_instantiation_self_type

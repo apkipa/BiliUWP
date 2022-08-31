@@ -247,9 +247,6 @@ namespace winrt::BiliUWP::implementation {
         {
             using namespace std::chrono_literals;
             util::debug::log_error(L"Not implemented");
-            // TODO: Maybe fix dialog not showing if immediately called
-            co_await 100ms;
-            co_await Dispatcher();
             BiliUWP::SimpleContentDialog cd;
             cd.Title(box_value(L"Not Implemented"));
             cd.CloseButtonText(L"Close");

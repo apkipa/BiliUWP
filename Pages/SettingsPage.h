@@ -16,6 +16,8 @@ namespace winrt::BiliUWP::implementation {
         BiliUWP::AppCfgModel CfgModel() { return m_cfg_model; }
     private:
         BiliUWP::AppCfgModel m_cfg_model;
+
+        unsigned m_app_name_ver_text_click_times;
     };
 }
 

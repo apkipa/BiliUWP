@@ -24,6 +24,8 @@ namespace winrt::BiliUWP::implementation {
         void App_PersistClipboardAfterExit(bool value);
         double App_SimplifyVisualsLevel();
         void App_SimplifyVisualsLevel(double value);
+        bool App_IsDeveloper();
+        void App_IsDeveloper(bool value);
         bool App_ShowDebugConsole();
         void App_ShowDebugConsole(bool value);
         guid App_LocalId();

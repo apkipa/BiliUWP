@@ -17,7 +17,7 @@ namespace BiliUWP {
         Unknown,
         Video = 2,
         Audio = 12,
-        VideoCollection = 21,
+        VideosCollection = 21,
     };
 
     // API parameter types
@@ -114,7 +114,7 @@ namespace BiliUWP {
         //   https://api.bilibili.com/audio/music-service-c/url | access_token + cookies
         Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_audio_music_service_c_url(
             UInt64 auid,
-            UInt32 quality  // 0 => 128k; 1 => 192k; 2 => 320k; 3 => lossless
+            Int32 quality  // 0 => 128k; 1 => 192k; 2 => 320k; 3 => lossless
         );
 
         // Favourites information
@@ -122,6 +122,11 @@ namespace BiliUWP {
         Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_v3_fav_folder_created_list(
             UInt64 mid,
             ApiParam_Page page,
+            Windows.Foundation.IReference<ApiParam_FavItemLookup> item_to_find
+        );
+        //   https://api.bilibili.com/x/v3/fav/folder/created/list-all | cookies
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_v3_fav_folder_created_list_all(
+            UInt64 mid,
             Windows.Foundation.IReference<ApiParam_FavItemLookup> item_to_find
         );
         //   https://api.bilibili.com/x/v3/fav/resource/list | cookies

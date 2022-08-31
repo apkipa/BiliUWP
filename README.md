@@ -1,6 +1,6 @@
 # BiliUWP
 
-个人用于练手的简陋 UWP 应用，随时可能弃坑。
+个人用于练手的简陋 UWP 应用，功能可能存在严重缺失，并随时可能弃坑。
 
 主要灵感来源于[逍遥橙子的哔哩哔哩 UWP](https://github.com/xiaoyaocz/biliuwp-lite)。
 

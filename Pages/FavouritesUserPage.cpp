@@ -18,4 +18,14 @@ namespace winrt::BiliUWP::implementation {
         tab->set_title(::BiliUWP::App::res_str(L"App/Page/FavouritesUserPage/Title"));
         // TODO: Use App.Page.FavouritesUserPage.MyTitle if page opens self
     }
+    void FavouritesUserPage::RefreshItem_Click(
+        Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&
+    ) {
+        util::debug::log_error(L"Not implemented");
+        BiliUWP::SimpleContentDialog cd;
+        cd.Title(box_value(L"Not Implemented"));
+        cd.CloseButtonText(L"Close");
+        auto app = ::BiliUWP::App::get();
+        app->tab_from_page(*this)->show_dialog(cd);
+    }
 }

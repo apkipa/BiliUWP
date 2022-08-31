@@ -38,12 +38,16 @@
                 <TextBlock Style="{StaticResource ItemTextBlockStyle}">选项内容</TextBlock>
                 <TextBlock x:Uid="App/Page/SettingsPage/Misc" Style="{StaticResource RegionHeaderTextBlockStyle}"/>
                 <ToggleSwitch x:Uid="App/Page/SettingsPage/App_PersistClipboardAfterExit" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_PersistClipboardAfterExit,Mode=TwoWay}"/>
-                <TextBlock x:Uid="App/Page/SettingsPage/Dev" Style="{StaticResource RegionHeaderTextBlockStyle}"/>
-                <TextBlock x:Uid="App/Page/SettingsPage/Dev_Storage" Style="{StaticResource GroupHeaderTextBlockStyle}"/>
-                <Button x:Uid="App/Page/SettingsPage/OpenStorageFolderButton" x:Name="OpenStorageFolderButton" Click="OpenStorageFolderButton_Click" Style="{StaticResource ItemButtonStyle}"/>
+                <StackPanel x:Name="DeveloperPane" x:Load="{x:Bind CfgModel.App_IsDeveloper,Mode=OneWay}">
+                    <TextBlock x:Uid="App/Page/SettingsPage/Dev" Style="{StaticResource RegionHeaderTextBlockStyle}"/>
+                    <ToggleSwitch x:Uid="App/Page/SettingsPage/Dev_IsDeveloper" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_IsDeveloper,Mode=TwoWay}"/>
+                    <TextBlock x:Uid="App/Page/SettingsPage/Dev_Storage" Style="{StaticResource GroupHeaderTextBlockStyle}"/>
+                    <Button x:Uid="App/Page/SettingsPage/OpenStorageFolderButton" x:Name="OpenStorageFolderButton" Click="OpenStorageFolderButton_Click" Style="{StaticResource ItemButtonStyle}"/>
+                </StackPanel>
                 <TextBlock x:Uid="App/Page/SettingsPage/About" Style="{StaticResource RegionHeaderTextBlockStyle}"/>
                 <TextBlock x:Name="AppNameVerText" Text="BiliUWP (Dev) v0.1.0" Style="{StaticResource ItemTextBlockStyle}"
-                           Padding="0,4"/>
+                           HorizontalAlignment="Left" Padding="0,4"
+                           IsTapEnabled="True"/>
                 <TextBlock x:Uid="App/Page/SettingsPage/About_DetailsLegal" Style="{StaticResource ItemTextBlockStyle}"
                            FontWeight="Bold" Foreground="Red"/>
                 <TextBlock x:Uid="App/Page/SettingsPage/About_Details1" Style="{StaticResource ItemTextBlockStyle}"/>

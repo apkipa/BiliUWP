@@ -129,11 +129,23 @@
   <data name="App.Common.Login" xml:space="preserve">
     <value>登录</value>
   </data>
+  <data name="App.Common.No" xml:space="preserve">
+    <value>否</value>
+  </data>
   <data name="App.Common.Reload" xml:space="preserve">
     <value>重新加载</value>
   </data>
   <data name="App.Common.Retry" xml:space="preserve">
     <value>重试</value>
+  </data>
+  <data name="App.Common.Yes" xml:space="preserve">
+    <value>是</value>
+  </data>
+  <data name="App.Dialog.AskEnableDevMode.Content" xml:space="preserve">
+    <value>此操作将启用部分面向开发者与高级用户的功能。如果不知道这意味着什么或是误操作，请点击“否”。</value>
+  </data>
+  <data name="App.Dialog.AskEnableDevMode.Title" xml:space="preserve">
+    <value>是否要启用开发者模式?</value>
   </data>
   <data name="App.Dialog.FinishLogin.Content" xml:space="preserve">
     <value>请在新开启的标签页中进行操作。</value>
@@ -237,6 +249,9 @@
   </data>
   <data name="App.Page.SettingsPage.Dev.Text" xml:space="preserve">
     <value>开发者选项</value>
+  </data>
+  <data name="App.Page.SettingsPage.Dev_IsDeveloper.Header" xml:space="preserve">
+    <value>启用开发者模式</value>
   </data>
   <data name="App.Page.SettingsPage.Dev_Storage.Text" xml:space="preserve">
     <value>存储</value>

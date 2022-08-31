@@ -8,6 +8,7 @@
     functor(App_UseTabView, true);                              \
     functor(App_PersistClipboardAfterExit, false);              \
     functor(App_SimplifyVisualsLevel, 0);                       \
+    functor(App_IsDeveloper, false);                            \
     functor(App_ShowDebugConsole, false);                       \
     functor(App_LocalId, util::winrt::gen_random_guid());       \
     functor(User_AccessToken, L"");                             \

@@ -235,6 +235,21 @@ namespace BiliUWP {
         };
     }
 
+    // Public types
+    enum class ResItemType : uint32_t {
+        Video = 2,
+        Audio = 12,
+        VideosCollection = 21,
+    };
+    enum class AudioQuality : int32_t {
+        TrialClip = -1,
+        BitRate128k = 0,
+        BitRate192k,
+        BitRate320k,
+        Lossless,
+    };
+
+    // Result types (and their children types)
     struct RequestTvQrLoginResult {
         winrt::hstring url;
         winrt::hstring auth_code;
@@ -423,7 +438,7 @@ namespace BiliUWP {
         } user_garb;
     };
     struct VideoFullInfoResult {
-        // TODO...
+        // TODO: Finish VideoFullInfoResult
     };
     struct VideoPlayUrl_DurlPart {
         uint64_t order;
@@ -483,15 +498,168 @@ namespace BiliUWP {
         std::optional<VideoPlayUrl_Dash> dash;
         std::vector<VideoPlayUrl_SupportFormat> support_formats;
     };
+    struct AudioBasicInfoResult {
+        uint64_t uid;
+        winrt::hstring uname;
+        winrt::hstring author;
+        winrt::hstring audio_title;
+        winrt::hstring cover_url;
+        winrt::hstring audio_intro;
+        winrt::hstring audio_lyric;
+        uint32_t duration;
+        uint64_t pubtime;
+        uint64_t cur_query_time;
+        uint64_t linked_avid;           // 0 if does not exist
+        winrt::hstring linked_bvid;     // L"" if does not exist
+        uint64_t linked_cid;            // 0 if does not exist
+        struct {
+            uint64_t auid;
+            uint64_t play_count;
+            uint64_t favourite_count;
+            uint64_t comment_count;
+            uint64_t share_count;
+        } statistic;
+        struct {
+            int32_t vip_type;
+            bool is_vip;
+            uint64_t vip_due_date;
+        } vip_info;
+        std::vector<uint64_t> favs_with_collected;
+        uint64_t coin_count;
+    };
+    struct AudioPlayUrl_Quality {
+        AudioQuality type;
+        winrt::hstring desc;
+        uint64_t size;
+        winrt::hstring bps;
+        winrt::hstring tag;
+        bool require_membership;
+        winrt::hstring require_membership_desc;
+    };
+    struct AudioPlayUrlResult {
+        uint64_t auid;
+        AudioQuality type;
+        uint64_t expires_in;    // Unit: seconds
+        uint64_t stream_size;
+        std::vector<winrt::hstring> urls;
+        std::vector<AudioPlayUrl_Quality> qualities;
+        winrt::hstring audio_title;
+        winrt::hstring cover_url;
+    };
+    struct UserFavFoldersList_Folder {
+        uint64_t id;
+        uint64_t fid;
+        uint64_t mid;
+        uint32_t attr;
+        winrt::hstring title;
+        winrt::hstring cover_url;
+        uint32_t cover_type;
+        winrt::hstring intro;
+        uint64_t ctime;
+        uint64_t mtime;
+        bool fav_has_item;
+        uint64_t media_count;
+    };
+    struct UserFavFoldersListResult {
+        uint64_t count;
+        std::vector<UserFavFoldersList_Folder> list;
+        bool has_more;
+    };
+    struct UserFavFoldersListAll_Folder {
+        uint64_t id;
+        uint64_t fid;
+        uint64_t mid;
+        uint32_t attr;
+        winrt::hstring title;
+        bool fav_has_item;
+        uint64_t media_count;
+    };
+    struct UserFavFoldersListAllResult {
+        uint64_t count;
+        std::vector<UserFavFoldersListAll_Folder> list;
+    };
+    struct FavFolderResList_Media {
+        uint64_t nid;
+        ResItemType type;
+        winrt::hstring title;
+        winrt::hstring cover_url;
+        winrt::hstring intro;
+        uint64_t page_count;
+        uint64_t duration;
+        struct {
+            uint64_t mid;
+            winrt::hstring name;
+            winrt::hstring face_url;
+        } upper;
+        uint32_t attr;
+        struct {
+            uint64_t favourite_count;
+            uint64_t play_count;
+            uint64_t danmaku_count;
+        } cnt_info;
+        winrt::hstring res_link;
+        uint64_t ctime;
+        uint64_t pubtime;
+        uint64_t fav_time;
+        winrt::hstring bvid;
+    };
+    struct FavFolderResListResult {
+        struct {
+            uint64_t id;
+            uint64_t fid;
+            uint64_t mid;
+            uint32_t attr;
+            winrt::hstring title;
+            winrt::hstring cover_url;
+            struct {
+                uint64_t mid;
+                winrt::hstring name;
+                winrt::hstring face_url;
+                bool followed;
+                int32_t vip_type;
+                bool is_vip;
+            } upper;
+            uint32_t cover_type;
+            struct {
+                uint64_t favourite_count;
+                uint64_t play_count;
+                uint64_t like_count;
+                uint64_t share_count;
+            } cnt_info;
+            uint32_t type;
+            winrt::hstring intro;
+            uint64_t ctime;
+            uint64_t mtime;
+            uint32_t state;
+            bool fav_has_item;
+            bool is_liked;
+            uint64_t media_count;
+        } info;
+        std::vector<FavFolderResList_Media> media_list;
+    };
 
+    // Parameter types
     struct VideoPlayUrlPreferenceParam {
         bool prefer_dash;
         bool prefer_4k;
         bool prefer_hdr;
         bool prefer_av1;
     };
+    using AudioQualityParam = AudioQuality;
+    struct PageParam {
+        uint32_t n;     // Starts from 1
+        uint32_t size;  // Recommended value is 20
+    };
+    struct FavItemLookupParam {
+        uint64_t nid;
+        ResItemType type;
+    };
+    enum class FavResSortOrderParam {
+        ByFavouriteTime,
+        ByViewCount,
+        ByPublishTime,
+    };
 
-    // TODO: Complete BiliClient
     struct BiliClient {
         BiliClient();
 
@@ -528,13 +696,19 @@ namespace BiliUWP {
         );
 
         // Audio information
-        // TODO: audio_basic_info
-        // TODO: audio_play_url
+        util::winrt::task<AudioBasicInfoResult> audio_basic_info(uint64_t auid);
+        util::winrt::task<AudioPlayUrlResult> audio_play_url(uint64_t auid, AudioQualityParam quality);
 
         // Favourites information
-        // TODO: user_fav_folders_list
-        // TODO: user_fav_folders_list_all
-        // TODO: fav_folder_res_list
+        util::winrt::task<UserFavFoldersListResult> user_fav_folders_list(
+            uint64_t mid, PageParam page, std::optional<FavItemLookupParam> item_to_find
+        );
+        util::winrt::task<UserFavFoldersListAllResult> user_fav_folders_list_all(
+            uint64_t mid, std::optional<FavItemLookupParam> item_to_find
+        );
+        util::winrt::task<FavFolderResListResult> fav_folder_res_list(
+            uint64_t folder_id, PageParam page, winrt::hstring search_keyword, FavResSortOrderParam order
+        );
 
     private:
         winrt::BiliUWP::BiliClientManaged m_bili_client;

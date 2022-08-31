@@ -544,6 +544,22 @@ namespace BiliUWP {
         private:
             std::optional<T>& m_opt;
         };
+        template<typename T, std::enable_if_t<std::is_enum_v<T>, int> = 0>
+        struct assign_num_to_enum {
+            assign_num_to_enum(T& dst) : m_dst(dst) {}
+            void operator()(JsonValueVisitor jvv) {
+                auto value = jvv.as<double>();
+                if (std::trunc(value) != value) {
+                    throw BiliApiParseException(BiliApiParseException::json_parse_user_defined,
+                        jvv.get_props_walk_tree(), "Only integers are expected values"
+                    );
+                }
+                // TODO: Maybe check for overflow?
+                m_dst = static_cast<T>(value);
+            }
+        private:
+            T& m_dst;
+        };
     }
 
     // User-defined as / try_as conversions
@@ -674,6 +690,50 @@ namespace BiliUWP {
         jov.populate(result.display_desc, "display_desc");
         jov.populate(result.superscript, "superscript");
         jov.scope(adapter::assign_value_or_null_to_optional{ result.codecs }, "codecs");
+        return result;
+    }
+    template<>
+    AudioPlayUrl_Quality JsonValueVisitor::as(void) {
+        AudioPlayUrl_Quality result;
+        auto jov = this->as<JsonObjectVisitor>();
+        jov.scope(adapter::assign_num_to_enum{ result.type }, "type");
+        jov.populate(result.desc, "desc");
+        jov.populate(result.size, "size");
+        jov.populate(result.bps, "bps");
+        jov.populate(result.tag, "tag");
+        jov.populate(result.require_membership, "require");
+        jov.populate(result.require_membership_desc, "requiredesc");
+        return result;
+    }
+    template<>
+    UserFavFoldersList_Folder JsonValueVisitor::as(void) {
+        UserFavFoldersList_Folder result;
+        auto jov = this->as<JsonObjectVisitor>();
+        jov.populate(result.id, "id");
+        jov.populate(result.fid, "fid");
+        jov.populate(result.mid, "mid");
+        jov.populate(result.attr, "attr");
+        jov.populate(result.title, "title");
+        jov.populate(result.cover_url, "cover");
+        jov.populate(result.cover_type, "cover_type");
+        jov.populate(result.intro, "intro");
+        jov.populate(result.ctime, "ctime");
+        jov.populate(result.mtime, "mtime");
+        jov.scope(adapter::assign_num_0_1_to_bool{ result.fav_has_item }, "fav_state");
+        jov.populate(result.media_count, "media_count");
+        return result;
+    }
+    template<>
+    UserFavFoldersListAll_Folder JsonValueVisitor::as(void) {
+        UserFavFoldersListAll_Folder result;
+        auto jov = this->as<JsonObjectVisitor>();
+        jov.populate(result.id, "id");
+        jov.populate(result.fid, "fid");
+        jov.populate(result.mid, "mid");
+        jov.populate(result.attr, "attr");
+        jov.populate(result.title, "title");
+        jov.scope(adapter::assign_num_0_1_to_bool{ result.fav_has_item }, "fav_state");
+        jov.populate(result.media_count, "media_count");
         return result;
     }
 
@@ -1090,6 +1150,168 @@ namespace BiliUWP {
     }
 
     // Audio information
+    util::winrt::task<AudioBasicInfoResult> BiliClient::audio_basic_info(uint64_t auid) {
+        AudioBasicInfoResult result;
+
+        auto cancellation_token = co_await winrt::get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        auto jo = co_await m_bili_client.api_www_audio_music_service_c_web_song_info(auid);
+        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
+        check_json_code(jo);
+        JsonPropsWalkTree json_props_walk;
+        JsonObjectVisitor jov{ std::move(jo), json_props_walk };
+        jov.scope([&](JsonObjectVisitor jov) {
+            jov.populate(result.uid, "uid");
+            jov.populate(result.uname, "uname");
+            jov.populate(result.author, "author");
+            jov.populate(result.audio_title, "title");
+            jov.populate(result.cover_url, "cover");
+            jov.populate(result.audio_intro, "intro");
+            jov.populate(result.audio_lyric, "lyric");
+            jov.populate(result.duration, "duration");
+            jov.populate(result.pubtime, "passtime");
+            jov.populate(result.cur_query_time, "curtime");
+            jov.populate(result.linked_avid, "aid");
+            jov.populate(result.linked_bvid, "bvid");
+            jov.populate(result.linked_cid, "cid");
+            jov.scope([&](JsonObjectVisitor jov) {
+                jov.populate(result.statistic.auid, "sid");
+                jov.populate(result.statistic.play_count, "play");
+                jov.populate(result.statistic.favourite_count, "collect");
+                jov.populate(result.statistic.comment_count, "comment");
+                jov.populate(result.statistic.share_count, "share");
+            }, "statistic");
+            jov.scope([&](JsonObjectVisitor jov) {
+                jov.populate(result.vip_info.vip_type, "type");
+                jov.scope(adapter::assign_num_0_1_to_bool{ result.vip_info.is_vip }, "status");
+                jov.populate(result.vip_info.vip_due_date, "due_date");
+            }, "vipInfo");
+            jov.populate(result.favs_with_collected, "collectIds");
+            jov.populate(result.coin_count, "coin_num");
+        }, "data");
+
+        co_return result;
+    }
+    util::winrt::task<AudioPlayUrlResult> BiliClient::audio_play_url(
+        uint64_t auid, AudioQualityParam quality
+    ) {
+        AudioPlayUrlResult result;
+
+        auto cancellation_token = co_await winrt::get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        auto jo = co_await m_bili_client.api_api_audio_music_service_c_url(
+            auid, static_cast<uint32_t>(quality)
+        );
+        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
+        check_json_code(jo);
+        JsonPropsWalkTree json_props_walk;
+        JsonObjectVisitor jov{ std::move(jo), json_props_walk };
+        jov.scope([&](JsonObjectVisitor jov) {
+            jov.populate(result.auid, "sid");
+            jov.scope(adapter::assign_num_to_enum{ result.type }, "type");
+            jov.populate(result.expires_in, "timeout");
+            jov.populate(result.stream_size, "size");
+            jov.populate(result.urls, "cdns");
+            jov.populate(result.qualities, "qualities");
+            jov.populate(result.audio_title, "title");
+            jov.populate(result.cover_url, "cover");
+        }, "data");
+
+        co_return result;
+    }
 
     // Favourites information
+    util::winrt::task<UserFavFoldersListResult> BiliClient::user_fav_folders_list(
+        uint64_t mid, PageParam page, std::optional<FavItemLookupParam> item_to_find
+    ) {
+        UserFavFoldersListResult result;
+
+        auto cancellation_token = co_await winrt::get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        auto jo = co_await m_bili_client.api_api_x_v3_fav_folder_created_list(
+            mid, winrt::BiliUWP::ApiParam_Page{ page.n, page.size },
+            util::misc::map_optional(std::move(item_to_find), [](FavItemLookupParam v) {
+                return winrt::BiliUWP::ApiParam_FavItemLookup{
+                    v.nid, static_cast<winrt::BiliUWP::ApiData_ResType>(v.type)
+                };
+            })
+        );
+        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
+        check_json_code(jo);
+        JsonPropsWalkTree json_props_walk;
+        JsonObjectVisitor jov{ std::move(jo), json_props_walk };
+        jov.scope([&](JsonObjectVisitor jov) {
+            jov.populate(result.count, "count");
+            jov.populate(result.list, "list");
+            jov.populate(result.has_more, "has_more");
+        }, "data");
+
+        co_return result;
+    }
+    util::winrt::task<UserFavFoldersListAllResult> BiliClient::user_fav_folders_list_all(
+        uint64_t mid, std::optional<FavItemLookupParam> item_to_find
+    ) {
+        UserFavFoldersListAllResult result;
+
+        auto cancellation_token = co_await winrt::get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        auto jo = co_await m_bili_client.api_api_x_v3_fav_folder_created_list_all(
+            mid, util::misc::map_optional(std::move(item_to_find), [](FavItemLookupParam v) {
+                return winrt::BiliUWP::ApiParam_FavItemLookup{
+                    v.nid, static_cast<winrt::BiliUWP::ApiData_ResType>(v.type)
+                };
+            })
+        );
+        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
+        check_json_code(jo);
+        JsonPropsWalkTree json_props_walk;
+        JsonObjectVisitor jov{ std::move(jo), json_props_walk };
+        jov.scope([&](JsonObjectVisitor jov) {
+            jov.populate(result.count, "count");
+            jov.populate(result.list, "list");
+        }, "data");
+
+        co_return result;
+    }
+    util::winrt::task<FavFolderResListResult> BiliClient::fav_folder_res_list(
+        uint64_t folder_id, PageParam page, winrt::hstring search_keyword, FavResSortOrderParam order
+    ) {
+        using winrt::BiliUWP::ApiParam_FavResSortOrder;
+
+        FavFolderResListResult result;
+
+        auto cancellation_token = co_await winrt::get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        ApiParam_FavResSortOrder param_order;
+        switch (order) {
+        case FavResSortOrderParam::ByFavouriteTime:
+            param_order = ApiParam_FavResSortOrder::ByFavouriteTime;
+            break;
+        case FavResSortOrderParam::ByViewCount:
+            param_order = ApiParam_FavResSortOrder::ByViewCount;
+            break;
+        case FavResSortOrderParam::ByPublishTime:
+            param_order = ApiParam_FavResSortOrder::ByPublishTime;
+            break;
+        default:
+            throw winrt::hresult_invalid_argument();
+        }
+        auto jo = co_await m_bili_client.api_api_x_v3_fav_resource_list(
+            folder_id, winrt::BiliUWP::ApiParam_Page{ page.n, page.size }, search_keyword, param_order
+        );
+        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
+        check_json_code(jo);
+        JsonPropsWalkTree json_props_walk;
+        JsonObjectVisitor jov{ std::move(jo), json_props_walk };
+        jov.scope([&](JsonObjectVisitor jov) {
+            // TODO: Finish BiliClient::fav_folder_res_list()
+        }, "data");
+
+        co_return result;
+    }
 }

@@ -43,10 +43,10 @@
                 </AppBarButton>
             </CommandBar>
         </Grid>
-        <!--SymbolThemeFontFamily-->
+        <!--TODO: Use SymbolThemeFontFamily-->
         <Grid x:Name="ItemsPane" Grid.Row="1">
             <local:AdaptiveGridView x:Name="ItemsGridView"
-                                    Background="{ThemeResource SystemControlBackgroundListLowBrush}"
+                                    Background="{ThemeResource SystemControlBackgroundChromeMediumLowBrush}"
                                     DesiredWidth="300">
                 
             </local:AdaptiveGridView>

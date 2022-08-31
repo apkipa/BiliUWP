@@ -72,6 +72,10 @@ namespace winrt::BiliUWP::implementation {
             BiliUWP::ApiParam_Page page,
             Windows::Foundation::IReference<BiliUWP::ApiParam_FavItemLookup> const& item_to_find
         );
+        AsyncJsonObjectResult api_api_x_v3_fav_folder_created_list_all(
+            uint64_t mid,
+            Windows::Foundation::IReference<BiliUWP::ApiParam_FavItemLookup> const& item_to_find
+        );
         AsyncJsonObjectResult api_api_x_v3_fav_resource_list(
             uint64_t folder_id,
             BiliUWP::ApiParam_Page page,

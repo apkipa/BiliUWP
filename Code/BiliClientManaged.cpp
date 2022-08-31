@@ -462,6 +462,28 @@ namespace winrt::BiliUWP::implementation {
         );
         co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
     }
+    AsyncJsonObjectResult BiliClientManaged::api_api_x_v3_fav_folder_created_list_all(
+        uint64_t mid,
+        Windows::Foundation::IReference<BiliUWP::ApiParam_FavItemLookup> const& item_to_find
+    ) {
+        ApiParamMaker param_maker;
+
+        auto cancellation_token = co_await get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        param_maker.add_param(L"up_mid", to_hstring(mid));
+        if (item_to_find) {
+            auto lookup_value = item_to_find.Value();
+            param_maker.add_param(L"rid", to_hstring(lookup_value.res_id));
+            param_maker.add_param(L"type", to_hstring(util::misc::enum_to_int(lookup_value.res_type)));
+        }
+        auto uri = make_uri(
+            L"https://api.bilibili.com",
+            L"/x/v3/fav/folder/created/list-all",
+            param_maker.get_as_str()
+        );
+        co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
+    }
     AsyncJsonObjectResult BiliClientManaged::api_api_x_v3_fav_resource_list(
         uint64_t folder_id,
         BiliUWP::ApiParam_Page page,

@@ -9,6 +9,8 @@ namespace BiliUWP {
     runtimeclass SimpleContentDialog : Windows.UI.Xaml.Controls.ContentControl {
         SimpleContentDialog();
 
+        // WARN: You must attach dialogs to the XAML tree, or the user won't be able
+        //       to interact with them, causing the operation to hang
         Windows.Foundation.IAsyncOperation<SimpleContentDialogResult> ShowAsync();
         void Hide();
 

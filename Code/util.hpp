@@ -31,6 +31,12 @@ namespace util {
 
         template<typename, typename U>
         using discard_first_type = U;
+
+        template<typename T, typename Functor>
+        auto map_optional(std::optional<T> opt, Functor&& functor) {
+            using RetType = std::decay_t<decltype(functor(*opt))>;
+            return opt ? std::optional{ functor(std::move(*opt)) } : std::optional<RetType>{ std::nullopt };
+        }
     }
 
     namespace str {

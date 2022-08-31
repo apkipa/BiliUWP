@@ -5,6 +5,8 @@ namespace BiliUWP {
     runtimeclass SettingsPage : Windows.UI.Xaml.Controls.Page {
         SettingsPage();
 
+        void UnloadObject(Windows.UI.Xaml.DependencyObject object);
+
         AppCfgModel CfgModel{ get; };
     }
 }
