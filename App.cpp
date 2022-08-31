@@ -5,6 +5,7 @@
 #include "SimpleContentDialog.h"
 #include <shared_mutex>
 #include <queue>
+#include <regex>
 
 using namespace winrt;
 using namespace Windows::ApplicationModel;
@@ -356,6 +357,16 @@ namespace BiliUWP {
                 ld.content
             ) };
         };
+        if (m_cfg_model.App_RedactLogs()) {
+            // TODO: Maybe optimize redaction regexes
+            std::wstring result{ log_desc.content };
+            // Url query params redaction
+            static std::wregex url_query_re{ L"((access|refresh)_(key|token)=)\\w+" };
+            result = std::regex_replace(result, url_query_re, L"$1<REDACTED>");
+            // TODO: Redact token_info
+            // TODO: Redact cookie_info
+            log_desc.content = result;
+        }
         [](AppInst* that, hstring str) -> fire_forget_except {
             using namespace std::chrono_literals;
             using Windows::Storage::FileIO;
@@ -379,40 +390,6 @@ namespace BiliUWP {
             }
         }(this, str_from_logdesc_fn(log_desc));
         m_app_logs.push_back(std::move(log_desc));
-        /*
-        static std::mutex s_rw_mutex;
-        {
-            std::scoped_lock guard{ s_rw_mutex };
-            m_app_logs.push_back(log_desc);
-        }
-        //buf_strs.GetMany()
-        [](AppInst* that) -> fire_forget_except {
-            using Windows::Storage::FileIO;
-            static std::mutex s_write_mutex;
-            std::scoped_lock guard{ s_write_mutex };
-            while (!that->m_cur_log_file) {
-                //co_await
-            }
-            if ((co_await that->m_cur_log_file.GetBasicPropertiesAsync()).Size() == 0) {
-                auto str_vec = winrt::single_threaded_vector<hstring>();
-                {
-                    std::scoped_lock guard{ s_rw_mutex };
-                    for (auto const& i : that->m_app_logs) {
-                        str_vec.Append(str_from_logdesc_fn(i));
-                    }
-                }
-                co_await FileIO::WriteLinesAsync(that->m_cur_log_file, str_vec);
-            }
-            else {
-                hstring str;
-                {
-                    std::scoped_lock guard{ s_rw_mutex };
-                    str = str_from_logdesc_fn(that->m_app_logs.back());
-                }
-                co_await FileIO::AppendLinesAsync(that->m_cur_log_file, { str });
-            }
-        }(this);
-        */
     }
     void AppInst::init_current_window(void) {
         using namespace Windows::UI;

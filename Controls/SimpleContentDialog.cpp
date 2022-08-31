@@ -116,9 +116,10 @@ namespace winrt::BiliUWP::implementation {
 
         co_await Dispatcher();
         if (IsLoaded()) {
+            // TODO: Reusing m_finish_event may not be reliable enough here
+            m_finish_event.reset();
             VisualStateManager::GoToState(*this, L"DialogHidden", true);
-            // NOTE: Transition time in XAML is 0.5s, and we wait for it to complete
-            co_await 500ms;
+            co_await m_finish_event;
         }
         else {
             VisualStateManager::GoToState(*this, L"DialogHidden", false);
@@ -129,6 +130,9 @@ namespace winrt::BiliUWP::implementation {
         co_return result;
     }
     void SimpleContentDialog::Hide() {
+        m_finish_event.set();
+    }
+    void SimpleContentDialog::OnHidden(IInspectable const&, IInspectable const&) {
         m_finish_event.set();
     }
     IInspectable SimpleContentDialog::Title() {

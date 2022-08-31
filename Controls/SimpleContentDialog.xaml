@@ -28,7 +28,7 @@
                     <VisualStateGroup x:Name="DialogShowingStates">
                         <VisualStateGroup.Transitions>
                             <VisualTransition To="DialogHidden">
-                                <Storyboard>
+                                <Storyboard Completed="OnHidden">
                                     <ObjectAnimationUsingKeyFrames Storyboard.TargetName="LayoutRoot" Storyboard.TargetProperty="Visibility">
                                         <DiscreteObjectKeyFrame KeyTime="0:0:0" Value="Visible"/>
                                     </ObjectAnimationUsingKeyFrames>

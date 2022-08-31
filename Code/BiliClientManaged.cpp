@@ -203,6 +203,7 @@ namespace winrt::BiliUWP::implementation {
             L"/x/passport-tv-login/qrcode/auth_code",
             param_maker.get_as_str()
         );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         auto http_resp = co_await m_http_client.PostAsync(uri, nullptr);
         co_return JsonObject::Parse(co_await http_resp.Content().ReadAsStringAsync());
     }
@@ -225,6 +226,7 @@ namespace winrt::BiliUWP::implementation {
             L"/x/passport-tv-login/qrcode/poll",
             param_maker.get_as_str()
         );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         auto http_resp = co_await m_http_client.PostAsync(uri, nullptr);
         co_return JsonObject::Parse(co_await http_resp.Content().ReadAsStringAsync());
     }
@@ -245,6 +247,7 @@ namespace winrt::BiliUWP::implementation {
             L"/api/v2/oauth2/refresh_token",
             param_maker.get_as_str()
         );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         auto http_resp = co_await m_http_client.PostAsync(uri, nullptr);
         co_return JsonObject::Parse(co_await http_resp.Content().ReadAsStringAsync());
     }
@@ -266,6 +269,7 @@ namespace winrt::BiliUWP::implementation {
             L"/x/passport-login/revoke",
             param_maker.get_as_str()
         );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         auto http_resp = co_await m_http_client.PostAsync(uri, nullptr);
         co_return JsonObject::Parse(co_await http_resp.Content().ReadAsStringAsync());
     }
@@ -287,6 +291,7 @@ namespace winrt::BiliUWP::implementation {
             L"/x/v2/account/myinfo",
             param_maker.get_as_str()
         );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
     }
     AsyncJsonObjectResult BiliClientManaged::api_app_x_web_interface_nav() {
@@ -297,6 +302,7 @@ namespace winrt::BiliUWP::implementation {
             L"https://app.bilibili.com",
             L"/x/web-interface/nav"
         );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
     }
     AsyncJsonObjectResult BiliClientManaged::api_app_x_web_interface_nav_stat() {
@@ -307,6 +313,7 @@ namespace winrt::BiliUWP::implementation {
             L"https://app.bilibili.com",
             L"/x/web-interface/nav/stat"
         );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
     }
 
@@ -330,6 +337,7 @@ namespace winrt::BiliUWP::implementation {
             L"/x/web-interface/view",
             param_maker.get_as_str()
         );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
     }
     AsyncJsonObjectResult BiliClientManaged::api_api_x_web_interface_view_detail(
@@ -351,6 +359,7 @@ namespace winrt::BiliUWP::implementation {
             L"/x/web-interface/view",
             param_maker.get_as_str()
         );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
     }
     AsyncJsonObjectResult BiliClientManaged::api_api_x_player_playurl(
@@ -393,6 +402,7 @@ namespace winrt::BiliUWP::implementation {
             L"/x/player/playurl",
             param_maker.get_as_str()
         );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
     }
 
@@ -411,6 +421,7 @@ namespace winrt::BiliUWP::implementation {
             L"/audio/music-service-c/web/song/info",
             param_maker.get_as_str()
         );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
     }
     AsyncJsonObjectResult BiliClientManaged::api_api_audio_music_service_c_url(
@@ -433,6 +444,7 @@ namespace winrt::BiliUWP::implementation {
             L"/audio/music-service-c/url",
             param_maker.get_as_str()
         );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
     }
 
@@ -460,6 +472,7 @@ namespace winrt::BiliUWP::implementation {
             L"/x/v3/fav/folder/created/list",
             param_maker.get_as_str()
         );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
     }
     AsyncJsonObjectResult BiliClientManaged::api_api_x_v3_fav_folder_created_list_all(
@@ -482,6 +495,7 @@ namespace winrt::BiliUWP::implementation {
             L"/x/v3/fav/folder/created/list-all",
             param_maker.get_as_str()
         );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
     }
     AsyncJsonObjectResult BiliClientManaged::api_api_x_v3_fav_resource_list(
@@ -516,6 +530,7 @@ namespace winrt::BiliUWP::implementation {
             L"/x/v3/fav/resource/list",
             param_maker.get_as_str()
         );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
     }
 }

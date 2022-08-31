@@ -50,6 +50,8 @@ namespace winrt::BiliUWP::implementation {
             ptr->m_finish_event.set();
         }
 
+        void OnHidden(IInspectable const&, IInspectable const&);
+
     private:
         std::atomic_bool m_dialog_showing;
         util::winrt::awaitable_event m_finish_event;
