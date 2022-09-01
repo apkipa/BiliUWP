@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "App.xaml.g.h"
+#include "Converters.h"
 #include "util.hpp"
 #include "AppCfgModel.h"
 #include "BiliClient.hpp"
@@ -221,6 +222,7 @@ namespace BiliUWP {
 
         // Configuration cache (for settings that can't be changed at run time)
         bool m_cfg_app_use_tab_view;
+        bool m_cfg_app_store_logs;
 
         BiliClient* m_bili_client;
 

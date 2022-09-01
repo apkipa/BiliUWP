@@ -38,6 +38,16 @@ namespace winrt::BiliUWP::implementation {
         user_agent.ParseAdd(L"Mozilla/5.0 BiliDroid/6.4.0 (bbcallen@gmail.com)");
         http_client_drh.Referer(Uri(L"https://www.bilibili.com"));
     }
+    fire_and_forget MediaPlayPage::final_release(std::unique_ptr<MediaPlayPage> ptr) noexcept {
+        util::winrt::cancel_async(ptr->m_cur_async_op);
+        // Perform time-consuming destruction of media player in background;
+        // prevents UI from freezing
+        co_await ptr->Dispatcher();
+        ptr->MediaPlayerElem().AreTransportControlsEnabled(false);
+        auto player = ptr->MediaPlayerElem().MediaPlayer();
+        ptr->MediaPlayerElem().SetMediaPlayer(nullptr);
+        co_await resume_background();
+    }
     void MediaPlayPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e) {
         auto tab = ::BiliUWP::App::get()->tab_from_page(*this);
         tab->set_icon(Symbol::Play);

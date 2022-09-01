@@ -164,6 +164,7 @@
     <ClInclude Include="Code\AppCfgModel.h" />
     <ClInclude Include="Code\BiliClient.hpp" />
     <ClInclude Include="Code\BiliClientManaged.h" />
+    <ClInclude Include="Code\Converters.h" />
     <ClInclude Include="Code\json.h" />
     <ClInclude Include="Code\util.hpp" />
     <ClInclude Include="Controls\AdaptiveGridView.h" />
@@ -242,6 +243,7 @@
     <ClCompile Include="Code\AppCfgModel.cpp" />
     <ClCompile Include="Code\BiliClient.cpp" />
     <ClCompile Include="Code\BiliClientManaged.cpp" />
+    <ClCompile Include="Code\Converters.cpp" />
     <ClCompile Include="Code\json.cpp" />
     <ClCompile Include="Code\util.cpp" />
     <ClCompile Include="Controls\AdaptiveGridView.cpp" />
@@ -300,6 +302,7 @@
     </Midl>
     <Midl Include="Code\AppCfgModel.idl" />
     <Midl Include="Code\BiliClientManaged.idl" />
+    <Midl Include="Code\Converters.idl" />
     <Midl Include="Code\IBiliResource.idl" />
     <Midl Include="Controls\AdaptiveGridView.idl" />
     <Midl Include="Controls\SimpleContentDialog.idl">

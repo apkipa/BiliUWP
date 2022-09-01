@@ -1,0 +1,15 @@
+namespace BiliUWP {
+    [default_interface]
+    runtimeclass StringToBitmapImageConverter : Windows.UI.Xaml.Data.IValueConverter {
+        StringToBitmapImageConverter();
+    };
+    [default_interface]
+    runtimeclass StringToUriImageConverter : Windows.UI.Xaml.Data.IValueConverter {
+        StringToUriImageConverter();
+    };
+
+    [default_interface]
+    runtimeclass UInt32ToSelectedIndexConverter : Windows.UI.Xaml.Data.IValueConverter{
+        UInt32ToSelectedIndexConverter();
+    }
+}

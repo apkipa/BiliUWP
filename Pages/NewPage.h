@@ -30,6 +30,7 @@ namespace winrt::BiliUWP::implementation {
             Windows::Foundation::IInspectable const& sender,
             Windows::UI::Xaml::RoutedEventArgs const& e
         );
+
     private:
     };
 }

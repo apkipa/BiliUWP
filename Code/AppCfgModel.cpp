@@ -3,21 +3,23 @@
 #include "AppCfgModel.h"
 #include "AppCfgModel.g.cpp"
 
-#define apply_props_list(functor)                               \
-    functor(ConfigVersion, L"0.1.0");                           \
-    functor(App_UseTabView, true);                              \
-    functor(App_PersistClipboardAfterExit, false);              \
-    functor(App_SimplifyVisualsLevel, 0);                       \
-    functor(App_IsDeveloper, false);                            \
-    functor(App_RedactLogs, true);                              \
-    functor(App_ShowDebugConsole, false);                       \
-    functor(App_LocalId, util::winrt::gen_random_guid());       \
-    functor(User_AccessToken, L"");                             \
-    functor(User_RefreshToken, L"");                            \
-    functor(User_Cookies_SESSDATA, L"");                        \
-    functor(User_Cookies_bili_jct, L"");                        \
-    functor(User_Cookies_DedeUserID, L"");                      \
-    functor(User_Cookies_DedeUserID__ckMd5, L"");               \
+#define apply_props_list(functor)                                                   \
+    functor(ConfigVersion, L"0.1.0");                                               \
+    functor(App_UseTabView, true);                                                  \
+    functor(App_PersistClipboardAfterExit, false);                                  \
+    functor(App_SimplifyVisualsLevel, 0);                                           \
+    functor(App_IsDeveloper, false);                                                \
+    functor(App_RedactLogs, true);                                                  \
+    functor(App_StoreLogs, false);                                                  \
+    functor(App_LogLevel, static_cast<uint32_t>(util::debug::LogLevel::Error));     \
+    functor(App_ShowDebugConsole, false);                                           \
+    functor(App_LocalId, util::winrt::gen_random_guid());                           \
+    functor(User_AccessToken, L"");                                                 \
+    functor(User_RefreshToken, L"");                                                \
+    functor(User_Cookies_SESSDATA, L"");                                            \
+    functor(User_Cookies_bili_jct, L"");                                            \
+    functor(User_Cookies_DedeUserID, L"");                                          \
+    functor(User_Cookies_DedeUserID__ckMd5, L"");                                   \
     functor(User_Cookies_sid, L"")
 
 namespace winrt::BiliUWP::implementation {
@@ -90,7 +92,7 @@ namespace winrt::BiliUWP::implementation {
     }
     template<>
     JsonValue value_as_json<guid>(ParamT<guid> value) {
-        return JsonValue::CreateStringValue(to_hstring(value));
+        return JsonValue::CreateStringValue(util::winrt::to_hstring(value));
     }
 
     template<typename T>

@@ -22,34 +22,28 @@ namespace BiliUWP::App {
 }
 
 namespace BiliUWP {
-    // TODO: AppTab logic overhaul
     AppInst::AppInst() :
         m_app_tabs(), m_tv(), m_glob_frame(nullptr), m_cur_log_level(util::debug::LogLevel::Info),
         m_app_logs(), m_logging_provider(new AppLoggingProvider(this)), m_cur_log_file(nullptr),
         m_res_ldr(Windows::ApplicationModel::Resources::ResourceLoader::GetForViewIndependentUse()),
         m_cfg_model(winrt::BiliUWP::AppCfgModel()),
         m_cfg_app_use_tab_view(m_cfg_model.App_UseTabView()),
+        m_cfg_app_store_logs(m_cfg_model.App_StoreLogs()),
         m_bili_client(new BiliClient())
     {
         using namespace Windows::UI::Xaml::Data;
         // TODO: Pre-init
         // TODO: Check if mode is tab or single-view
         // TODO: Initialize absent setting items with default value
-        // TODO: Improve log files logic
         util::debug::set_log_provider(m_logging_provider);
-        [](AppInst* that) -> fire_forget_except {
-            auto local_folder = Windows::Storage::ApplicationData::Current().LocalFolder();
-            auto logs_folder = co_await local_folder.CreateFolderAsync(
-                L"logs", Windows::Storage::CreationCollisionOption::OpenIfExists
-            );
-            that->m_cur_log_file = co_await logs_folder.CreateFileAsync(
-                L"latest.log", Windows::Storage::CreationCollisionOption::ReplaceExisting
-            );
-        }(this);
 
-        // TODO: Remove this
-        m_cur_log_level = util::debug::LogLevel::Trace;
-
+        auto update_log_level_fn = [this] {
+            m_cur_log_level = static_cast<util::debug::LogLevel>(m_cfg_model.App_LogLevel());
+            if (m_cur_log_level > util::debug::LogLevel::Error) {
+                m_cur_log_level = util::debug::LogLevel::Error;
+            }
+        };
+        update_log_level_fn();
         auto update_bili_client_fn = [this] {
             m_bili_client->set_access_token(m_cfg_model.User_AccessToken());
             m_bili_client->set_refresh_token(m_cfg_model.User_RefreshToken());
@@ -84,6 +78,9 @@ namespace BiliUWP {
                 user_cookies.DedeUserID__ckMd5 = m_cfg_model.User_Cookies_DedeUserID__ckMd5();
                 user_cookies.sid = m_cfg_model.User_Cookies_sid();
                 m_bili_client->set_cookies(user_cookies);
+            }
+            else if (prop_name == L"App_LogLevel") {
+                update_log_level_fn();
             }
         });
         update_bili_client_fn();
@@ -367,28 +364,49 @@ namespace BiliUWP {
             // TODO: Redact cookie_info
             log_desc.content = result;
         }
-        [](AppInst* that, hstring str) -> fire_forget_except {
-            using namespace std::chrono_literals;
-            using Windows::Storage::FileIO;
-            static std::queue<hstring> s_str_bufs{};
-            static std::atomic_flag s_lock;
-            // TODO: Maybe optimize & correct the logic
-            s_str_bufs.push(std::move(str));
-            while (s_lock.test_and_set()) {
-                co_await resume_background();
-                s_lock.wait(true);
-            }
-            deferred([] {
-                s_lock.clear();
-                s_lock.notify_one();
-            });
-            while (!that->m_cur_log_file) {
-                co_await 100ms;
-            }
-            for (; !s_str_bufs.empty(); s_str_bufs.pop()) {
-                co_await FileIO::AppendLinesAsync(that->m_cur_log_file, { s_str_bufs.front() });
-            }
-        }(this, str_from_logdesc_fn(log_desc));
+        if (m_cfg_app_store_logs) {
+            [](AppInst* that, hstring str) -> fire_forget_except {
+                using namespace Windows::Storage;
+                static std::queue<hstring> s_str_bufs{};
+                static std::atomic_flag s_lock;
+                // TODO: Maybe optimize & correct the logic
+                s_str_bufs.push(std::move(str));
+                while (s_lock.test_and_set()) {
+                    co_await resume_background();
+                    s_lock.wait(true);
+                }
+                deferred([] {
+                    s_lock.clear();
+                    s_lock.notify_one();
+                });
+                if (!that->m_cur_log_file) {
+                    // Open the file
+                    auto local_folder = ApplicationData::Current().LocalFolder();
+                    auto logs_folder = co_await local_folder.CreateFolderAsync(
+                        L"logs", CreationCollisionOption::OpenIfExists
+                    );
+                    try {
+                        // Rename old log if it exists
+                        auto old_log = co_await logs_folder.GetFileAsync(L"latest.log");
+                        auto props = co_await old_log.GetBasicPropertiesAsync();
+                        co_await old_log.RenameAsync(std::format(
+                            L"{:%F}.log",
+                            std::chrono::zoned_time{
+                                std::chrono::current_zone(),
+                                winrt::clock::to_sys(props.DateModified())
+                            }
+                        ), NameCollisionOption::GenerateUniqueName);
+                    }
+                    catch (hresult_error const&) {}
+                    that->m_cur_log_file = co_await logs_folder.CreateFileAsync(
+                        L"latest.log", CreationCollisionOption::ReplaceExisting
+                    );
+                }
+                for (; !s_str_bufs.empty(); s_str_bufs.pop()) {
+                    co_await FileIO::AppendLinesAsync(that->m_cur_log_file, { s_str_bufs.front() });
+                }
+            }(this, str_from_logdesc_fn(log_desc));
+        }
         m_app_logs.push_back(std::move(log_desc));
     }
     void AppInst::init_current_window(void) {
@@ -406,17 +424,23 @@ namespace BiliUWP {
         auto av_title_bar = ApplicationView::GetForCurrentView().TitleBar();
         auto cav_title_bar = CoreApplication::GetCurrentView().TitleBar();
 
-        //auto bg_normal_clr = Colors::Transparent();
-        //auto bg_hover_clr = Windows::UI::ColorHelper::FromArgb(0x19, 0, 0, 0);
-        //auto bg_pressed_clr = Windows::UI::ColorHelper::FromArgb(0x33, 0, 0, 0);
-        auto bg_normal_clr = Colors::SkyBlue();
-        auto bg_hover_clr = blend_colors_2(color_from_argb(0x19, 0, 0, 0), bg_normal_clr);
-        auto bg_pressed_clr = blend_colors_2(color_from_argb(0x33, 0, 0, 0), bg_normal_clr);
+        Color bg_normal_clr, bg_hover_clr, bg_pressed_clr;
+        if (m_cfg_app_use_tab_view) {
+            bg_normal_clr = Colors::Transparent();
+            bg_hover_clr = Windows::UI::ColorHelper::FromArgb(0x19, 0, 0, 0);
+            bg_pressed_clr = Windows::UI::ColorHelper::FromArgb(0x33, 0, 0, 0);
+        }
+        else {
+            bg_normal_clr = Colors::SkyBlue();
+            bg_hover_clr = blend_colors_2(color_from_argb(0x19, 0, 0, 0), bg_normal_clr);
+            bg_pressed_clr = blend_colors_2(color_from_argb(0x33, 0, 0, 0), bg_normal_clr);
+        }
         av_title_bar.ButtonBackgroundColor(bg_normal_clr);
         av_title_bar.ButtonInactiveBackgroundColor(bg_normal_clr);
         av_title_bar.ButtonHoverBackgroundColor(bg_hover_clr);
         av_title_bar.ButtonPressedBackgroundColor(bg_pressed_clr);
         // TODO: Change with system theme
+        bg_normal_clr = Colors::SkyBlue();
         av_title_bar.InactiveBackgroundColor(bg_normal_clr);
         av_title_bar.BackgroundColor(bg_normal_clr);
 

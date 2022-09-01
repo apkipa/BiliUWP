@@ -28,6 +28,10 @@ namespace winrt::BiliUWP::implementation {
         void App_IsDeveloper(bool value);
         bool App_RedactLogs();
         void App_RedactLogs(bool value);
+        bool App_StoreLogs();
+        void App_StoreLogs(bool value);
+        uint32_t App_LogLevel();
+        void App_LogLevel(uint32_t value);
         bool App_ShowDebugConsole();
         void App_ShowDebugConsole(bool value);
         guid App_LocalId();

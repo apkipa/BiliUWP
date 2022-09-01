@@ -22,9 +22,10 @@
                 <Setter Property="IsTabStop" Value="false"/>
             </Style>
             <!-- TODO: Add converters in XAML?
-            <local:String2BitmapImageConverter x:Key="Str2Bmp"/>
-            <local:String2UriImageConverter x:Key="Str2Uri"/>
+            <local:StringToBitmapImageConverter x:Key="StrToBmpImg"/>
+            <local:StringToUriImageConverter x:Key="StrToUri"/>
             -->
+            <local:UInt32ToSelectedIndexConverter x:Key="UInt32ToSelectedIndexConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

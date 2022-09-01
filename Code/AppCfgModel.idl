@@ -20,6 +20,8 @@ namespace BiliUWP {
         // Developer options
         Boolean App_IsDeveloper;
         Boolean App_RedactLogs;
+        Boolean App_StoreLogs;
+        UInt32 App_LogLevel;
         Boolean App_ShowDebugConsole;
         Guid App_LocalId;
 

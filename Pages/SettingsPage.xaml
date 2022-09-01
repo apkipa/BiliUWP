@@ -12,6 +12,7 @@
         NOTE: Layout: Region - Group - Item
     -->
     <Page.Resources>
+        <Thickness x:Key="InlineItemMargin">0,0,20,0</Thickness>
         <Style TargetType="TextBlock" x:Key="RegionHeaderTextBlockStyle" BasedOn="{StaticResource SubtitleTextBlockStyle}">
             <Setter Property="Margin" Value="0,10,0,4"/>
         </Style>
@@ -19,20 +20,45 @@
             <Setter Property="Margin" Value="0,4,0,4"/>
         </Style>
         <Style TargetType="TextBlock" x:Key="ItemTextBlockStyle" BasedOn="{StaticResource BodyTextBlockStyle}"/>
+        <Style TargetType="TextBlock" x:Key="InlineTextBlockStyle" BasedOn="{StaticResource BodyTextBlockStyle}">
+            <Setter Property="Margin" Value="{StaticResource InlineItemMargin}"/>
+            <Setter Property="TextLineBounds" Value="Tight"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
         <Style TargetType="Button" x:Key="ItemButtonStyle" BasedOn="{StaticResource DefaultButtonStyle}">
-            <Setter Property="Margin" Value="0,2"/>
+            <Setter Property="Margin" Value="0,2,8,2"/>
         </Style>
         <Style TargetType="ToggleSwitch" x:Key="ItemToggleSwitchStyle" BasedOn="{StaticResource DefaultToggleSwitchStyle}">
             <Setter Property="Margin" Value="0,4,0,0"/>
         </Style>
+        <Style TargetType="ComboBox" x:Key="ItemComboBoxStyle" BasedOn="{StaticResource DefaultComboBoxStyle}">
+            <Setter Target="MinWidth" Value="150"/>
+            <Setter Property="Margin" Value="0,2"/>
+        </Style>
         <Style TargetType="HyperlinkButton" x:Key="TightHyperlinkButtonStyle">
             <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style TargetType="TextBlock" x:Key="InlineCheckMarkTextBoxStyle">
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Setter Property="Text" Value="&#xE0E7;"/>
+            <Setter Property="FontFamily" Value="{ThemeResource SymbolThemeFontFamily}"/>
+            <Setter Property="Margin" Value="{StaticResource InlineItemMargin}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextLineBounds" Value="Tight"/>
+        </Style>
+        <Style TargetType="ProgressRing" x:Key="InlineProgressRingStyle">
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Setter Property="Width" Value="20"/>
+            <Setter Property="Height" Value="20"/>
+            <Setter Property="IsActive" Value="False"/>
+            <Setter Property="Margin" Value="{StaticResource InlineItemMargin}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
     </Page.Resources>
     <Grid Padding="12,0,0,0">
         <ScrollViewer IsScrollInertiaEnabled="True"
                       VerticalScrollBarVisibility="Auto">
-            <StackPanel>
+            <StackPanel Padding="0,0,0,6">
                 <TextBlock Style="{StaticResource RegionHeaderTextBlockStyle}">选项区域</TextBlock>
                 <TextBlock Style="{StaticResource GroupHeaderTextBlockStyle}">选项组</TextBlock>
                 <TextBlock Style="{StaticResource ItemTextBlockStyle}">选项内容</TextBlock>
@@ -41,14 +67,39 @@
                 <StackPanel x:Name="DeveloperPane" Visibility="{x:Bind CfgModel.App_IsDeveloper,Mode=OneWay}">
                     <TextBlock x:Uid="App/Page/SettingsPage/Dev" Style="{StaticResource RegionHeaderTextBlockStyle}"/>
                     <ToggleSwitch x:Uid="App/Page/SettingsPage/App_IsDeveloper" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_IsDeveloper,Mode=TwoWay}"/>
+                    <TextBlock x:Uid="App/Page/SettingsPage/Config" Style="{StaticResource GroupHeaderTextBlockStyle}"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Uid="App/Page/SettingsPage/ExportConfigToClipboard" x:Name="ExportConfigToClipboardButton" Click="ExportConfigToClipboardButton_Click" Style="{StaticResource ItemButtonStyle}"/>
+                        <TextBlock x:Name="ExportConfigToClipboardSuccessMark" Style="{StaticResource InlineCheckMarkTextBoxStyle}"/>
+                        <Button x:Uid="App/Page/SettingsPage/ImportConfigFromClipboard" x:Name="ImportConfigFromClipboardButton" Click="ImportConfigFromClipboardButton_Click" Style="{StaticResource ItemButtonStyle}"/>
+                        <ProgressRing x:Name="ImportConfigFromClipboardProgRing" Style="{StaticResource InlineProgressRingStyle}"/>
+                        <TextBlock x:Name="ImportConfigFromClipboardSuccessMark" Style="{StaticResource InlineCheckMarkTextBoxStyle}"/>
+                    </StackPanel>
+                    <TextBlock x:Uid="App/Page/SettingsPage/Storage" Style="{StaticResource GroupHeaderTextBlockStyle}"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Uid="App/Page/SettingsPage/OpenStorageFolderButton" x:Name="OpenStorageFolderButton" Click="OpenStorageFolderButton_Click" Style="{StaticResource ItemButtonStyle}"/>
+                        <Button x:Name="CalculateCacheButton" x:Uid="App/Page/SettingsPage/CalculateCacheButton" Click="CalculateCacheButton_Click" Style="{StaticResource ItemButtonStyle}"/>
+                        <ProgressRing x:Name="CalculateCacheProgRing" Style="{StaticResource InlineProgressRingStyle}"/>
+                        <TextBlock x:Name="CalculateCacheResultText" Style="{StaticResource InlineTextBlockStyle}" Visibility="Collapsed"/>
+                        <Button x:Name="ClearCacheButton" x:Uid="App/Page/SettingsPage/ClearCacheButton" Click="ClearCacheButton_Click" Style="{StaticResource ItemButtonStyle}"/>
+                        <ProgressRing x:Name="ClearCacheProgRing" Style="{StaticResource InlineProgressRingStyle}"/>
+                        <TextBlock x:Name="ClearCacheSuccessMark" Style="{StaticResource InlineCheckMarkTextBoxStyle}"/>
+                    </StackPanel>
+                    <TextBlock x:Uid="App/Page/SettingsPage/Log" Style="{StaticResource GroupHeaderTextBlockStyle}"/>
+                    <ToggleSwitch x:Uid="App/Page/SettingsPage/App_StoreLogs" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_StoreLogs,Mode=TwoWay}"/>
                     <ToggleSwitch x:Uid="App/Page/SettingsPage/App_RedactLogs" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_RedactLogs,Mode=TwoWay}"/>
-                    <TextBlock x:Uid="App/Page/SettingsPage/App_Storage" Style="{StaticResource GroupHeaderTextBlockStyle}"/>
-                    <Button x:Uid="App/Page/SettingsPage/OpenStorageFolderButton" x:Name="OpenStorageFolderButton" Click="OpenStorageFolderButton_Click" Style="{StaticResource ItemButtonStyle}"/>
+                    <ComboBox x:Name="LogLevelComboBox" x:Uid="App/Page/SettingsPage/App_LogLevel" Style="{StaticResource ItemComboBoxStyle}" SelectedIndex="{x:Bind CfgModel.App_LogLevel,Mode=TwoWay,Converter={StaticResource UInt32ToSelectedIndexConverter}}">
+                        <x:String>Trace</x:String>
+                        <x:String>Debug</x:String>
+                        <x:String>Info</x:String>
+                        <x:String>Warn</x:String>
+                        <x:String>Error</x:String>
+                    </ComboBox>
                 </StackPanel>
                 <TextBlock x:Uid="App/Page/SettingsPage/About" Style="{StaticResource RegionHeaderTextBlockStyle}"/>
                 <TextBlock x:Name="AppNameVerText" Text="BiliUWP (Dev) v0.1.0" Style="{StaticResource ItemTextBlockStyle}"
                            HorizontalAlignment="Left" Padding="0,4"
-                           IsTapEnabled="True"/>
+                           IsTapEnabled="True" IsDoubleTapEnabled="False"/>
                 <TextBlock x:Uid="App/Page/SettingsPage/About_DetailsLegal" Style="{StaticResource ItemTextBlockStyle}"
                            FontWeight="Bold" Foreground="Red"/>
                 <TextBlock x:Uid="App/Page/SettingsPage/About_Details1" Style="{StaticResource ItemTextBlockStyle}"/>

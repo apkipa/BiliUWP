@@ -754,6 +754,25 @@ namespace util {
         ) {
             co_await ::winrt::resume_after(duration);
         }
+
+        inline void set_clipboard_text(::winrt::hstring const& text, bool flush) {
+            using namespace ::winrt::Windows::ApplicationModel::DataTransfer;
+            auto data_package = DataPackage();
+            data_package.RequestedOperation(DataPackageOperation::Copy);
+            data_package.SetText(text);
+            Clipboard::SetContent(data_package);
+            if (flush) {
+                Clipboard::Flush();
+            }
+        }
+
+        inline void cancel_async(::winrt::Windows::Foundation::IAsyncInfo async) {
+            if (async) { async.Cancel(); }
+        }
+
+        inline bool is_async_running(::winrt::Windows::Foundation::IAsyncInfo async) {
+            return async && async.Status() == ::winrt::Windows::Foundation::AsyncStatus::Started;
+        }
     }
 }
 

@@ -43,7 +43,8 @@ namespace winrt::BiliUWP::implementation {
         co_return *result;
     }
     void LoginPage::LoginMethodsList_ItemClick(IInspectable const&, ItemClickEventArgs const& e) {
-        if (e.ClickedItem() == QRLoginItem()) {
+        auto clicked_item = e.ClickedItem();
+        if (clicked_item == QRLoginItem()) {
             LoginMethodSelectionPane().Visibility(Visibility::Collapsed);
             QRCodeLoginPane().Visibility(Visibility::Visible);
             TokenLoginPane().Visibility(Visibility::Collapsed);
@@ -99,7 +100,7 @@ namespace winrt::BiliUWP::implementation {
                 }
             }(this);
         }
-        else if (e.ClickedItem() == TokenLoginItem()) {
+        else if (clicked_item == TokenLoginItem()) {
             LoginMethodSelectionPane().Visibility(Visibility::Collapsed);
             QRCodeLoginPane().Visibility(Visibility::Collapsed);
             TokenLoginPane().Visibility(Visibility::Visible);
