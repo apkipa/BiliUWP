@@ -20,7 +20,10 @@ using namespace Windows::Security::Cryptography;
 using ::BiliUWP::App::res_str;
 
 namespace winrt::BiliUWP::implementation {
-    MediaPlayPage::MediaPlayPage() : m_http_client(nullptr), m_cur_async_op(nullptr) {
+    MediaPlayPage::MediaPlayPage() :
+        m_http_client(nullptr), m_cur_async_op(nullptr),
+        m_bili_res_is_ready(false), m_bili_res_id_a(), m_bili_res_id_b()
+    {
         using namespace Windows::Web::Http;
         using namespace Windows::Web::Http::Filters;
 
@@ -38,14 +41,21 @@ namespace winrt::BiliUWP::implementation {
         user_agent.ParseAdd(L"Mozilla/5.0 BiliDroid/6.4.0 (bbcallen@gmail.com)");
         http_client_drh.Referer(Uri(L"https://www.bilibili.com"));
     }
-    fire_and_forget MediaPlayPage::final_release(std::unique_ptr<MediaPlayPage> ptr) noexcept {
+    fire_forget_except MediaPlayPage::final_release(std::unique_ptr<MediaPlayPage> ptr) noexcept {
         util::winrt::cancel_async(ptr->m_cur_async_op);
         // Perform time-consuming destruction of media player in background;
         // prevents UI from freezing
+        util::debug::log_trace(L"Final release");
         co_await ptr->Dispatcher();
         ptr->MediaPlayerElem().AreTransportControlsEnabled(false);
         auto player = ptr->MediaPlayerElem().MediaPlayer();
         ptr->MediaPlayerElem().SetMediaPlayer(nullptr);
+        if (player && player.Source()) {
+            auto session = player.PlaybackSession();
+            if (session && session.CanPause()) {
+                player.Pause();
+            }
+        }
         co_await resume_background();
     }
     void MediaPlayPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e) {
@@ -81,6 +91,12 @@ namespace winrt::BiliUWP::implementation {
         auto cancellation_token = co_await get_cancellation_token();
         cancellation_token.enable_propagation();
 
+        deferred([weak_this = get_weak()] {
+            auto strong_this = weak_this.get();
+            if (!strong_this) { return; }
+            strong_this->m_bili_res_is_ready = true;
+        });
+
         try {
             auto client = ::BiliUWP::App::get()->bili_client();
             ::BiliUWP::VideoViewInfoResult video_vinfo{};
@@ -92,6 +108,10 @@ namespace winrt::BiliUWP::implementation {
                 util::debug::log_trace(std::format(L"Parsing video av{}...", avid));
                 video_vinfo = std::move(co_await client->video_view_info(avid));
             }
+            m_bili_res_id_a = L"av" + to_hstring(video_vinfo.avid);
+            m_bili_res_id_b = video_vinfo.bvid;
+            m_bili_res_is_ready = true;
+
             ::BiliUWP::VideoPlayUrlPreferenceParam param;
             param.prefer_4k = true;
             param.prefer_av1 = false;

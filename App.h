@@ -48,11 +48,26 @@ namespace BiliUWP {
         struct use_the_make_function {
             explicit use_the_make_function() = default;
         };
+        template<typename T>
+        class has_initializer {
+            template<typename U, typename = decltype(std::declval<U>().post_init(use_the_make_function{}))>
+            static constexpr bool get_value(int) { return true; }
+            template<typename>
+            static constexpr bool get_value(...) { return false; }
+        public:
+            static constexpr bool value = get_value<T>(0);
+        };
         template<typename... Args>
         static auto create(Args&&... args) {
             static_assert(std::is_convertible_v<T*, require_make_shared*>,
                 "Must derive publicly from require_make_shared");
-            return std::make_shared<T>(use_the_make_function{}, std::forward<Args>(args)...);
+            auto ptr = std::make_shared<T>(use_the_make_function{}, std::forward<Args>(args)...);
+            if constexpr (has_initializer<T>::value) {
+                // We introduce post_init() to allow the retrieval of self
+                // weak reference during construction
+                ptr->post_init(use_the_make_function{});
+            }
+            return ptr;
         }
     public:
         require_make_shared() = default;
@@ -327,6 +342,7 @@ namespace BiliUWP {
 
     struct implementation::AppTab : require_make_shared<AppTab> {
         AppTab(use_the_make_function);
+        void post_init(use_the_make_function);
         ~AppTab();
         AppTab(AppTab const&) = delete;
         AppTab& operator=(AppTab const&) = delete;
@@ -411,6 +427,7 @@ namespace BiliUWP {
         winrt::Windows::UI::Xaml::Controls::Frame m_page_frame;
 
         winrt::Windows::Foundation::IAsyncOperation<winrt::BiliUWP::SimpleContentDialogResult> m_show_dlg_op;
+        winrt::Windows::Foundation::IAsyncAction m_cur_op;
 
         winrt::event<winrt::Windows::Foundation::EventHandler<bool>> m_ev_closed_by_user;
     };

@@ -1,3 +1,5 @@
+import "IBiliResource.idl";
+
 namespace BiliUWP {
     enum MediaPlayPage_MediaType {
         Video,
@@ -11,7 +13,9 @@ namespace BiliUWP {
     };
 
     [default_interface]
-    runtimeclass MediaPlayPage : Windows.UI.Xaml.Controls.Page {
+    runtimeclass MediaPlayPage : Windows.UI.Xaml.Controls.Page, IBiliResource {
         MediaPlayPage();
+
+        Windows.UI.Xaml.Controls.MediaPlayerElement MediaPlayerElem{ get; };
     }
 }

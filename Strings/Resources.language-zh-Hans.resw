@@ -153,17 +153,29 @@
   <data name="App.Dialog.FinishLogin.Title" xml:space="preserve">
     <value>正在等待登录...</value>
   </data>
-  <data name="App.MenuItem.CopyAlternativeResId" xml:space="preserve">
+  <data name="App.Menu.AppTab.CopyAlternativeResId.Text" xml:space="preserve">
     <value>复制替代资源 ID</value>
   </data>
-  <data name="App.MenuItem.CopyAlternativeResLink" xml:space="preserve">
+  <data name="App.Menu.AppTab.CopyAlternativeResLink.Text" xml:space="preserve">
     <value>复制替代资源链接</value>
   </data>
-  <data name="App.MenuItem.CopyResId" xml:space="preserve">
+  <data name="App.Menu.AppTab.CopyResId.Text" xml:space="preserve">
     <value>复制资源 ID</value>
   </data>
-  <data name="App.MenuItem.CopyResLink" xml:space="preserve">
+  <data name="App.Menu.AppTab.CopyResLink.Text" xml:space="preserve">
     <value>复制资源链接</value>
+  </data>
+  <data name="App.Menu.AppTab.NoInfoFromRes.Text" xml:space="preserve">
+    <value>未从此资源中获取到任何信息</value>
+  </data>
+  <data name="App.Menu.AppTab.WaitForResTimeout.Text" xml:space="preserve">
+    <value>资源加载超时</value>
+  </data>
+  <data name="App.Menu.AppTab.WaitingForRes.Text" xml:space="preserve">
+    <value>正在等待资源加载...</value>
+  </data>
+  <data name="App.Menu.MediaPlayer.UseSystemControls.Text" xml:space="preserve">
+    <value>使用系统媒体控件</value>
   </data>
   <data name="App.Override.SR_TabViewCloseButtonTooltipWithKA" xml:space="preserve">
     <value>关闭选项卡(Ctrl+W)</value>

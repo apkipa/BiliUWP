@@ -677,15 +677,21 @@ namespace BiliUWP {
 
     implementation::AppTab::AppTab(use_the_make_function) :
         m_app_inst(nullptr), m_tab_item(), m_root_grid(), m_page_frame(),
-        m_show_dlg_op(nullptr)
+        m_show_dlg_op(nullptr), m_cur_op(nullptr)
     {
-        using namespace Windows::UI::Xaml::Controls::Primitives;
-
         m_tab_item.Content(m_root_grid);
-        // TODO: Add context menu for TabViewItem
+        m_root_grid.Children().Append(m_page_frame);
+
+        // SAFETY: Destructors don't throw
+        s_frame_tab_map.emplace(m_page_frame, this);
+    }
+    void implementation::AppTab::post_init(use_the_make_function) {
+        using namespace Windows::UI::Xaml::Controls::Primitives;
+        using Microsoft::UI::Xaml::Controls::CommandBarFlyout;
+
         auto str_back = App::res_str(L"App/Common/Back");
         auto str_forward = App::res_str(L"App/Common/Forward");
-        auto cmd_bar_fo = Microsoft::UI::Xaml::Controls::CommandBarFlyout();
+        auto cmd_bar_fo = CommandBarFlyout();
         auto btn_back = AppBarButton();
         btn_back.Icon(SymbolIcon(Symbol::Back));
         btn_back.Label(str_back);
@@ -696,48 +702,108 @@ namespace BiliUWP {
         btn_forward.Label(str_forward);
         ToolTipService::SetToolTip(btn_forward, box_value(str_forward));
         cmd_bar_fo.PrimaryCommands().Append(btn_forward);
-        auto update_menu_fn = [this,
-            btn_back = weak_ref(btn_back), btn_forward = weak_ref(btn_forward)
-        ]() {
-            // TODO: back & forward button should call this function to update
-            //       the entire menu (as the Page instance has changed)
+        auto update_menu_fn = [weak_cmd_bar_fo = weak_ref(cmd_bar_fo),
+            weak_btn_back = weak_ref(btn_back), weak_btn_forward = weak_ref(btn_forward)
+        ](::BiliUWP::AppTab that) {
+            util::winrt::cancel_async(that->m_cur_op);
             // TODO: Maybe we should support stuff like IIntraNavigation for
             //       things like `in-app WebView` Page instances
-            btn_back.get().IsEnabled(this->can_go_back());
-            btn_forward.get().IsEnabled(this->can_go_forward());
+            // Primary commands
+            weak_btn_back.get().IsEnabled(that->can_go_back());
+            weak_btn_forward.get().IsEnabled(that->can_go_forward());
+            // Secondary commands
+            // TODO: Maybe optimize performance by avoiding recreation of secondary commands
+            that->m_cur_op = [](CommandBarFlyout cmd_bar_fo, AppTab* that) -> IAsyncAction {
+                auto cancellation_token = co_await get_cancellation_token();
+                cancellation_token.enable_propagation();
+
+                auto secondary_cmds = cmd_bar_fo.SecondaryCommands();
+                secondary_cmds.Clear();
+                if (auto bili_res = that->m_page_frame.Content().try_as<winrt::BiliUWP::IBiliResource>()) {
+                    // Page is resource; check for individual items
+                    constexpr size_t max_retries = 600;
+                    size_t cur_retries = 0;
+                    if (!bili_res.IsBiliResReady()) {
+                        using namespace std::chrono_literals;
+                        auto btn_waiting_for_res = AppBarButton();
+                        btn_waiting_for_res.Label(App::res_str(L"App/Menu/AppTab/WaitingForRes/Text"));
+                        btn_waiting_for_res.IsEnabled(false);
+                        secondary_cmds.Append(btn_waiting_for_res);
+                        co_await 100ms;
+                        while (!bili_res.IsBiliResReady()) {
+                            co_await 100ms;
+                            cur_retries++;
+                            if (cur_retries >= max_retries) {
+                                co_await cmd_bar_fo.Dispatcher();
+                                secondary_cmds.Clear();
+                                auto btn_wait_for_res_timeout = AppBarButton();
+                                btn_wait_for_res_timeout.Label(
+                                    App::res_str(L"App/Menu/AppTab/WaitForResTimeout/Text")
+                                );
+                                btn_wait_for_res_timeout.IsEnabled(false);
+                                secondary_cmds.Append(btn_wait_for_res_timeout);
+                                co_return;
+                            }
+                        }
+                        co_await cmd_bar_fo.Dispatcher();
+                        secondary_cmds.Clear();
+                    }
+                    auto add_copy_res_btn_fn = [&](hstring const& res_str, hstring const& res_id) {
+                        if (res_str == L"") { return; }
+                        auto btn_res = AppBarButton();
+                        btn_res.Label(App::res_str(res_id));
+                        btn_res.Click([=](IInspectable const&, RoutedEventArgs const&) {
+                            util::winrt::set_clipboard_text(res_str, true);
+                        });
+                        secondary_cmds.Append(btn_res);
+                    };
+                    add_copy_res_btn_fn(bili_res.BiliResId(), L"App/Menu/AppTab/CopyResId/Text");
+                    add_copy_res_btn_fn(bili_res.BiliResUrl(), L"App/Menu/AppTab/CopyResLink/Text");
+                    add_copy_res_btn_fn(bili_res.BiliResId2(), L"App/Menu/AppTab/CopyAlternativeResId/Text");
+                    add_copy_res_btn_fn(bili_res.BiliResUrl2(), L"App/Menu/AppTab/CopyAlternativeResLink/Text");
+                    if (secondary_cmds.Size() == 0) {
+                        auto btn_no_info_from_res = AppBarButton();
+                        btn_no_info_from_res.Label(App::res_str(L"App/Menu/AppTab/NoInfoFromRes/Text"));
+                        btn_no_info_from_res.IsEnabled(false);
+                        secondary_cmds.Append(btn_no_info_from_res);
+                    }
+                }
+                else {
+                    // Page is not resource; do nothing
+                }
+            }(weak_cmd_bar_fo.get(), &*that);
         };
-        btn_back.Click([=](IInspectable const& sender, RoutedEventArgs const&) {
-            this->go_back();
-            update_menu_fn();
+        btn_back.Click([=, weak_this = weak_from_this()](IInspectable const& sender, RoutedEventArgs const&) {
+            auto strong_this = weak_this.lock();
+            if (!strong_this) { return; }
+            strong_this->go_back();
+            update_menu_fn(std::move(strong_this));
         });
-        btn_forward.Click([=](IInspectable const& sender, RoutedEventArgs const&) {
-            this->go_forward();
-            update_menu_fn();
+        btn_forward.Click([=, weak_this = weak_from_this()](IInspectable const& sender, RoutedEventArgs const&) {
+            auto strong_this = weak_this.lock();
+            if (!strong_this) { return; }
+            strong_this->go_forward();
+            update_menu_fn(std::move(strong_this));
         });
-        auto btn_copy_primary_res_id = AppBarButton();
-        btn_copy_primary_res_id.Label(App::res_str(L"App/MenuItem/CopyResId"));
-        cmd_bar_fo.SecondaryCommands().Append(btn_copy_primary_res_id);
         cmd_bar_fo.Placement(FlyoutPlacementMode::RightEdgeAlignedTop);
-        cmd_bar_fo.Opening([=](IInspectable const&, IInspectable const&) {
-            update_menu_fn();
+        cmd_bar_fo.Opening([=, weak_this = weak_from_this()](IInspectable const&, IInspectable const&) {
+            auto strong_this = weak_this.lock();
+            if (!strong_this) { return; }
+            update_menu_fn(std::move(strong_this));
+        });
+        cmd_bar_fo.Closing([weak_this = weak_from_this()](IInspectable const&, IInspectable const&) {
+            auto strong_this = weak_this.lock();
+            if (!strong_this) { return; }
+            util::winrt::cancel_async(strong_this->m_cur_op);
+            // NOTE: Coroutine is not freed if IAsyncAction is still alive
+            strong_this->m_cur_op = nullptr;
         });
         m_tab_item.ContextFlyout(cmd_bar_fo);
-        // TODO: Decide whether to show `Copy Res ID`, ... by trying to convert
-        //       Page into IBiliResource, and decide whether to show(?) menu item
-        //       by checking if i->bili_res_id() != L"".
-        // TODO: Reset secondary commands on the fly when menu is being opened
-
-        m_root_grid.Children().Append(m_page_frame);
-
-        // SAFETY: Destructors don't throw
-        s_frame_tab_map.emplace(m_page_frame, this);
     }
     implementation::AppTab::~AppTab() {
         s_frame_tab_map.erase(m_page_frame);
-
-        if (m_show_dlg_op) {
-            m_show_dlg_op.Cancel();
-        }
+        util::winrt::cancel_async(m_show_dlg_op);
+        util::winrt::cancel_async(m_cur_op);
     }
     Microsoft::UI::Xaml::Controls::IconSource implementation::AppTab::get_icon() {
         return m_tab_item.IconSource();

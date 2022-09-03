@@ -11,7 +11,13 @@
     <Grid>
         <Grid x:Name="MediaPlayerPane">
             <MediaPlayerElement x:Name="MediaPlayerElem"
-                                AutoPlay="True"/>
+                                AutoPlay="True">
+                <MediaPlayerElement.ContextFlyout>
+                    <MenuFlyout>
+                        <ToggleMenuFlyoutItem x:Uid="App/Menu/MediaPlayer/UseSystemControls" IsChecked="{x:Bind MediaPlayerElem.AreTransportControlsEnabled,Mode=TwoWay}"/>
+                    </MenuFlyout>
+                </MediaPlayerElement.ContextFlyout>
+            </MediaPlayerElement>
             <TextBlock x:Name="MediaPlayerInfoText"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"
