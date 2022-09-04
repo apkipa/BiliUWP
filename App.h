@@ -427,7 +427,7 @@ namespace BiliUWP {
         winrt::Windows::UI::Xaml::Controls::Frame m_page_frame;
 
         winrt::Windows::Foundation::IAsyncOperation<winrt::BiliUWP::SimpleContentDialogResult> m_show_dlg_op;
-        winrt::Windows::Foundation::IAsyncAction m_cur_op;
+        util::winrt::async_storage m_cur_async;
 
         winrt::event<winrt::Windows::Foundation::EventHandler<bool>> m_ev_closed_by_user;
     };

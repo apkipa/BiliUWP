@@ -30,11 +30,7 @@ namespace winrt::BiliUWP::implementation {
 
         static void final_release(std::unique_ptr<LoginPage> ptr) noexcept {
             // Page is closed; stop all pending tasks
-            auto cur_async_op = ptr->m_cur_async_op;
             ptr->m_finish_event.set();
-            if (cur_async_op) {
-                cur_async_op.Cancel();
-            }
         }
 
     private:
@@ -45,7 +41,8 @@ namespace winrt::BiliUWP::implementation {
 
         std::shared_ptr<LoginPageResult> m_result;
         ::BiliUWP::RequestTvQrLoginResult m_qr_session;
-        Windows::Foundation::IAsyncAction m_cur_async_op;
+
+        util::winrt::async_storage m_cur_async;
     };
 }
 

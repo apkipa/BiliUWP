@@ -25,10 +25,7 @@ namespace winrt::BiliUWP::implementation {
         tab->set_title(::BiliUWP::App::res_str(L"App/Common/Login"));
         tab->closed_by_user([this] {
             // Page is closed; stop all pending tasks
-            auto cur_async_op = m_cur_async_op;
-            if (cur_async_op) {
-                cur_async_op.Cancel();
-            }
+            m_cur_async.cancel_running();
             m_finish_event.set();
         });
     }
@@ -48,7 +45,7 @@ namespace winrt::BiliUWP::implementation {
             LoginMethodSelectionPane().Visibility(Visibility::Collapsed);
             QRCodeLoginPane().Visibility(Visibility::Visible);
             TokenLoginPane().Visibility(Visibility::Collapsed);
-            m_cur_async_op = [](LoginPage* that) -> IAsyncAction {
+            m_cur_async.cancel_and_run([](LoginPage* that) -> IAsyncAction {
                 using namespace std::chrono_literals;
                 // Fetch QRCode (only for the first time) and poll
                 auto cancellation_token = co_await winrt::get_cancellation_token();
@@ -98,7 +95,7 @@ namespace winrt::BiliUWP::implementation {
                     that->QRCodeFailed().Visibility(Visibility::Visible);
                     util::debug::log_error(L"Unknown error occurred");
                 }
-            }(this);
+            }, this);
         }
         else if (clicked_item == TokenLoginItem()) {
             LoginMethodSelectionPane().Visibility(Visibility::Collapsed);
@@ -110,17 +107,14 @@ namespace winrt::BiliUWP::implementation {
         }
     }
     void LoginPage::ButtonClick_ReturnToMethodsList(IInspectable const&, RoutedEventArgs const&) {
-        if (m_cur_async_op) {
-            m_cur_async_op.Cancel();
-            m_cur_async_op = nullptr;
-        }
+        m_cur_async.cancel_running();
 
         LoginMethodSelectionPane().Visibility(Visibility::Visible);
         QRCodeLoginPane().Visibility(Visibility::Collapsed);
         TokenLoginPane().Visibility(Visibility::Collapsed);
     }
     void LoginPage::QRCodeReloadButton_Click(IInspectable const&, RoutedEventArgs const&) {
-        m_cur_async_op = [](LoginPage* that) -> IAsyncAction {
+        m_cur_async.cancel_and_run([](LoginPage* that) -> IAsyncAction {
             using namespace std::chrono_literals;
             // Reload QRCode and poll
             auto cancellation_token = co_await winrt::get_cancellation_token();
@@ -163,7 +157,7 @@ namespace winrt::BiliUWP::implementation {
                 that->QRCodeFailed().Visibility(Visibility::Visible);
                 util::debug::log_error(L"Unknown error occurred");
             }
-        }(this);
+        }, this);
     }
     void LoginPage::TokenLogin_Click(IInspectable const&, RoutedEventArgs const&) {
         // Populate token and finish the process

@@ -29,7 +29,7 @@ namespace winrt::BiliUWP::implementation {
 
         Windows::Web::Http::HttpClient m_http_client;
 
-        Windows::Foundation::IAsyncAction m_cur_async_op;
+        util::winrt::async_storage m_cur_async;
 
         bool m_bili_res_is_ready;
         hstring m_bili_res_id_a, m_bili_res_id_b;

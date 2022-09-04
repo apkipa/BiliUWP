@@ -774,6 +774,9 @@ namespace util {
             return async && async.Status() == ::winrt::Windows::Foundation::AsyncStatus::Started;
         }
 
+        // NOTE: Smartly manages the lifetime of async operations
+        // NOTE: Exceptions are currently ignored, this may not be desired
+        // NOTE: Running async operations are canceled when async_storage destructs
         struct async_storage {
             async_storage() : m_data(std::make_shared<data>()), m_method_lock() {}
             async_storage(async_storage const&) = delete;
@@ -799,9 +802,7 @@ namespace util {
                 {
                     std::scoped_lock guard{ m_data->lock };
                     // If m_data->async is nullptr, we are confident that everything's really idle
-                    if (m_data->async) {
-                        return;
-                    }
+                    if (m_data->async) { return; }
                 }
                 auto async = std::invoke(std::forward<Functor>(functor), std::forward<Args>(args)...);
                 {
@@ -811,13 +812,27 @@ namespace util {
                 set_completed_handler_for_async(async);
             }
 
+            void cancel_running(void) {
+                // NOTE: m_method_lock must be locked here, or it may interleave with other methods
+                std::scoped_lock method_call_guard{ m_method_lock };
+                safe_cancel_clear();
+            }
+
+            ::winrt::Windows::Foundation::IAsyncInfo peek_async(void) {
+                std::scoped_lock method_call_guard{ m_method_lock };
+                std::scoped_lock guard{ m_data->lock };
+                return m_data->async;
+            }
+
         private:
             void safe_cancel_clear(void) {
                 m_data->lock.lock();
                 // SAFETY: noexcept
                 auto old_async = std::exchange(m_data->async, nullptr);
                 m_data->lock.unlock();
-                util::winrt::cancel_async(std::move(old_async));
+                if (old_async) {
+                    old_async.Cancel();
+                }
             }
 
             template<typename T>
@@ -827,6 +842,7 @@ namespace util {
                         if (status == ::winrt::Windows::Foundation::AsyncStatus::Started) { return; }
                         std::scoped_lock guard{ data->lock };
                         if (sender == data->async) {
+                            // NOTE: Coroutine is not freed if IAsyncInfo is still alive
                             data->async = nullptr;
                         }
                     }

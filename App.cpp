@@ -677,7 +677,7 @@ namespace BiliUWP {
 
     implementation::AppTab::AppTab(use_the_make_function) :
         m_app_inst(nullptr), m_tab_item(), m_root_grid(), m_page_frame(),
-        m_show_dlg_op(nullptr), m_cur_op(nullptr)
+        m_show_dlg_op(nullptr)
     {
         m_tab_item.Content(m_root_grid);
         m_root_grid.Children().Append(m_page_frame);
@@ -705,7 +705,6 @@ namespace BiliUWP {
         auto update_menu_fn = [weak_cmd_bar_fo = weak_ref(cmd_bar_fo),
             weak_btn_back = weak_ref(btn_back), weak_btn_forward = weak_ref(btn_forward)
         ](::BiliUWP::AppTab that) {
-            util::winrt::cancel_async(that->m_cur_op);
             // TODO: Maybe we should support stuff like IIntraNavigation for
             //       things like `in-app WebView` Page instances
             // Primary commands
@@ -713,7 +712,7 @@ namespace BiliUWP {
             weak_btn_forward.get().IsEnabled(that->can_go_forward());
             // Secondary commands
             // TODO: Maybe optimize performance by avoiding recreation of secondary commands
-            that->m_cur_op = [](CommandBarFlyout cmd_bar_fo, AppTab* that) -> IAsyncAction {
+            that->m_cur_async.cancel_and_run([](CommandBarFlyout cmd_bar_fo, AppTab* that) -> IAsyncAction {
                 auto cancellation_token = co_await get_cancellation_token();
                 cancellation_token.enable_propagation();
 
@@ -771,7 +770,7 @@ namespace BiliUWP {
                 else {
                     // Page is not resource; do nothing
                 }
-            }(weak_cmd_bar_fo.get(), &*that);
+            }, weak_cmd_bar_fo.get(), &*that);
         };
         btn_back.Click([=, weak_this = weak_from_this()](IInspectable const& sender, RoutedEventArgs const&) {
             auto strong_this = weak_this.lock();
@@ -794,16 +793,13 @@ namespace BiliUWP {
         cmd_bar_fo.Closing([weak_this = weak_from_this()](IInspectable const&, IInspectable const&) {
             auto strong_this = weak_this.lock();
             if (!strong_this) { return; }
-            util::winrt::cancel_async(strong_this->m_cur_op);
-            // NOTE: Coroutine is not freed if IAsyncAction is still alive
-            strong_this->m_cur_op = nullptr;
+            strong_this->m_cur_async.cancel_running();
         });
         m_tab_item.ContextFlyout(cmd_bar_fo);
     }
     implementation::AppTab::~AppTab() {
         s_frame_tab_map.erase(m_page_frame);
         util::winrt::cancel_async(m_show_dlg_op);
-        util::winrt::cancel_async(m_cur_op);
     }
     Microsoft::UI::Xaml::Controls::IconSource implementation::AppTab::get_icon() {
         return m_tab_item.IconSource();
@@ -854,10 +850,7 @@ namespace BiliUWP {
         m_show_dlg_op = dialog.ShowAsync();
         deferred([weak_this = this->weak_from_this()] {
             auto strong_this = weak_this.lock();
-            if (!strong_this) {
-                return;
-            }
-
+            if (!strong_this) { return; }
             strong_this->m_root_grid.Children().RemoveAtEnd();
             strong_this->m_show_dlg_op = nullptr;
         });

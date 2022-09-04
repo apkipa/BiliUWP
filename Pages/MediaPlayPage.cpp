@@ -21,7 +21,7 @@ using ::BiliUWP::App::res_str;
 
 namespace winrt::BiliUWP::implementation {
     MediaPlayPage::MediaPlayPage() :
-        m_http_client(nullptr), m_cur_async_op(nullptr),
+        m_http_client(nullptr),
         m_bili_res_is_ready(false), m_bili_res_id_a(), m_bili_res_id_b()
     {
         using namespace Windows::Web::Http;
@@ -42,20 +42,34 @@ namespace winrt::BiliUWP::implementation {
         http_client_drh.Referer(Uri(L"https://www.bilibili.com"));
     }
     fire_forget_except MediaPlayPage::final_release(std::unique_ptr<MediaPlayPage> ptr) noexcept {
-        util::winrt::cancel_async(ptr->m_cur_async_op);
         // Perform time-consuming destruction of media player in background;
         // prevents UI from freezing
+        using namespace std::chrono_literals;
+        ptr->m_cur_async.cancel_running();
         util::debug::log_trace(L"Final release");
-        co_await ptr->Dispatcher();
-        ptr->MediaPlayerElem().AreTransportControlsEnabled(false);
-        auto player = ptr->MediaPlayerElem().MediaPlayer();
-        ptr->MediaPlayerElem().SetMediaPlayer(nullptr);
-        if (player && player.Source()) {
-            auto session = player.PlaybackSession();
-            if (session && session.CanPause()) {
-                player.Pause();
+        auto dispatcher = ptr->Dispatcher();
+        MediaPlayer player{ nullptr };
+        auto cleanup_mediaplayer_fn = [&] {
+            ptr->MediaPlayerElem().AreTransportControlsEnabled(false);
+            player = ptr->MediaPlayerElem().MediaPlayer();
+            ptr->MediaPlayerElem().SetMediaPlayer(nullptr);
+            if (player && player.Source()) {
+                auto session = player.PlaybackSession();
+                if (session && session.CanPause()) {
+                    player.Pause();
+                }
             }
-        }
+        };
+        // Ensure we are on the UI thread (MediaPlayerElem may hold a reference
+        // in a non-UI thread)
+        co_await dispatcher;
+        cleanup_mediaplayer_fn();
+        // TODO: Is this really needed?
+        // Try to wait for async operations to stop completely
+        co_await 3s;
+        player = nullptr;
+        co_await dispatcher;
+        cleanup_mediaplayer_fn();
         co_await resume_background();
     }
     void MediaPlayPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e) {
@@ -67,10 +81,10 @@ namespace winrt::BiliUWP::implementation {
             // TODO: Parse media
             switch (opt->type) {
             case MediaPlayPage_MediaType::Video:
-                m_cur_async_op = this->HandleVideoPlay(opt->nid, opt->sid);
+                m_cur_async.cancel_and_run(&MediaPlayPage::HandleVideoPlay, this, opt->nid, opt->sid);
                 break;
             case MediaPlayPage_MediaType::Audio:
-                m_cur_async_op = this->HandleAudioPlay(opt->nid);
+                m_cur_async.cancel_and_run(&MediaPlayPage::HandleAudioPlay, this, opt->nid);
                 break;
             default:
                 util::debug::log_error(L"Media type not recognized");

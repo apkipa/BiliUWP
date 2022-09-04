@@ -42,8 +42,7 @@ std::wstring size_to_str(size_t size, double precision) {
 
 namespace winrt::BiliUWP::implementation {
     SettingsPage::SettingsPage() :
-        m_cfg_model(::BiliUWP::App::get()->cfg_model()), m_app_name_ver_text_click_times(0),
-        m_import_config_from_clipboard_op(nullptr), m_cache_op(nullptr) {}
+        m_cfg_model(::BiliUWP::App::get()->cfg_model()), m_app_name_ver_text_click_times(0) {}
     void SettingsPage::InitializeComponent() {
         using namespace Windows::ApplicationModel;
 
@@ -98,10 +97,6 @@ namespace winrt::BiliUWP::implementation {
             }
         });
     }
-    void SettingsPage::final_release(std::unique_ptr<SettingsPage> ptr) noexcept {
-        util::winrt::cancel_async(ptr->m_import_config_from_clipboard_op);
-        util::winrt::cancel_async(ptr->m_cache_op);
-    }
     void SettingsPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e) {
         auto tab = ::BiliUWP::App::get()->tab_from_page(*this);
         tab->set_icon(Symbol::Setting);
@@ -120,8 +115,7 @@ namespace winrt::BiliUWP::implementation {
     void SettingsPage::ImportConfigFromClipboardButton_Click(
         IInspectable const&, RoutedEventArgs const&
     ) {
-        if (util::winrt::is_async_running(m_import_config_from_clipboard_op)) { return; }
-        m_import_config_from_clipboard_op = [](SettingsPage* that) -> IAsyncAction {
+        m_import_config_from_clipboard_async.run_if_idle([](SettingsPage* that) -> IAsyncAction {
             auto cancellation_token = co_await get_cancellation_token();
             cancellation_token.enable_propagation();
 
@@ -154,7 +148,7 @@ namespace winrt::BiliUWP::implementation {
                     static_cast<uint32_t>(e.code()), e.message()
                 ));
             }
-        }(this);
+        }, this);
     }
     void SettingsPage::OpenStorageFolderButton_Click(IInspectable const&, RoutedEventArgs const&) {
         Windows::System::Launcher::LaunchFolderAsync(
@@ -162,8 +156,7 @@ namespace winrt::BiliUWP::implementation {
         );
     }
     void SettingsPage::CalculateCacheButton_Click(IInspectable const&, RoutedEventArgs const&) {
-        if (util::winrt::is_async_running(m_cache_op)) { return; }
-        m_cache_op = [](SettingsPage* that) -> IAsyncAction {
+        m_cache_async.run_if_idle([](SettingsPage* that) -> IAsyncAction {
             constexpr double cache_size_precision = 1e2;
 
             auto cancellation_token = co_await get_cancellation_token();
@@ -183,7 +176,7 @@ namespace winrt::BiliUWP::implementation {
                 auto prog_ring = that->CalculateCacheProgRing();
                 prog_ring.IsActive(true);
                 prog_ring.Visibility(Visibility::Visible);
-                
+
                 auto local_cache_folder_path = ApplicationData::Current().LocalCacheFolder().Path();
                 auto ac_inetcache_folder_path = local_cache_folder_path + L"\\..\\AC\\INetCache";
                 auto local_cache_size = co_await util::winrt::calc_folder_size(local_cache_folder_path);
@@ -202,11 +195,10 @@ namespace winrt::BiliUWP::implementation {
                     static_cast<uint32_t>(e.code()), e.message()
                 ));
             }
-        }(this);
+        }, this);
     }
     void SettingsPage::ClearCacheButton_Click(IInspectable const&, RoutedEventArgs const&) {
-        if (util::winrt::is_async_running(m_cache_op)) { return; }
-        m_cache_op = [](SettingsPage* that) -> IAsyncAction {
+        m_cache_async.run_if_idle([](SettingsPage* that) -> IAsyncAction {
             auto cancellation_token = co_await get_cancellation_token();
             cancellation_token.enable_propagation();
 
@@ -238,6 +230,6 @@ namespace winrt::BiliUWP::implementation {
                     static_cast<uint32_t>(e.code()), e.message()
                 ));
             }
-        }(this);
+        }, this);
     }
 }
