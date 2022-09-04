@@ -26,6 +26,7 @@
             <local:StringToUriImageConverter x:Key="StrToUri"/>
             -->
             <local:UInt32ToSelectedIndexConverter x:Key="UInt32ToSelectedIndexConverter"/>
+            <local:StringToUriConverter x:Key="StrToUri"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

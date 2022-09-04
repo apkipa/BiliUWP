@@ -148,9 +148,9 @@ namespace winrt::BiliUWP::implementation {
             height_binding.Mode(BindingMode::TwoWay);
 
             auto width_binding = Binding();
-            height_binding.Source(*this);
-            height_binding.Path(PropertyPath(L"ItemWidth"));
-            height_binding.Mode(BindingMode::TwoWay);
+            width_binding.Source(*this);
+            width_binding.Path(PropertyPath(L"ItemWidth"));
+            width_binding.Mode(BindingMode::TwoWay);
 
             element.SetBinding(FrameworkElement::HeightProperty(), height_binding);
             element.SetBinding(FrameworkElement::WidthProperty(), width_binding);

@@ -1,5 +1,6 @@
 #pragma once
 #include "BiliClientManaged.h"
+#include "util.hpp"
 #include <variant>
 
 // BiliClient: A native layer wrapping BiliClientManaged to provide idiomatic RPC experience

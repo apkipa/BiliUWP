@@ -736,6 +736,35 @@ namespace BiliUWP {
         jov.populate(result.media_count, "media_count");
         return result;
     }
+    template<>
+    FavFolderResList_Media JsonValueVisitor::as(void) {
+        FavFolderResList_Media result;
+        auto jov = this->as<JsonObjectVisitor>();
+        jov.populate(result.nid, "id");
+        jov.scope(adapter::assign_num_to_enum{ result.type }, "type");
+        jov.populate(result.title, "title");
+        jov.populate(result.cover_url, "cover");
+        jov.populate(result.intro, "intro");
+        jov.populate(result.page_count, "page");
+        jov.populate(result.duration, "duration");
+        jov.scope([&](JsonObjectVisitor jov) {
+            jov.populate(result.upper.mid, "mid");
+            jov.populate(result.upper.name, "name");
+            jov.populate(result.upper.face_url, "face");
+        }, "upper");
+        jov.populate(result.attr, "attr");
+        jov.scope([&](JsonObjectVisitor jov) {
+            jov.populate(result.cnt_info.favourite_count, "collect");
+            jov.populate(result.cnt_info.play_count, "play");
+            jov.populate(result.cnt_info.danmaku_count, "danmaku");
+        }, "cnt_info");
+        jov.populate(result.res_link, "link");
+        jov.populate(result.ctime, "ctime");
+        jov.populate(result.pubtime, "pubtime");
+        jov.populate(result.fav_time, "fav_time");
+        jov.populate(result.bvid, "bvid");
+        return result;
+    }
 
     BiliClient::BiliClient() :
         m_bili_client(winrt::BiliUWP::BiliClientManaged()),
@@ -1310,6 +1339,38 @@ namespace BiliUWP {
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
         jov.scope([&](JsonObjectVisitor jov) {
             // TODO: Finish BiliClient::fav_folder_res_list()
+            jov.scope([&](JsonObjectVisitor jov) {
+                jov.populate(result.info.id, "id");
+                jov.populate(result.info.fid, "fid");
+                jov.populate(result.info.mid, "mid");
+                jov.populate(result.info.attr, "attr");
+                jov.populate(result.info.title, "title");
+                jov.populate(result.info.cover_url, "cover");
+                jov.scope([&](JsonObjectVisitor jov) {
+                    jov.populate(result.info.upper.mid, "mid");
+                    jov.populate(result.info.upper.name, "name");
+                    jov.populate(result.info.upper.face_url, "face");
+                    jov.populate(result.info.upper.followed, "followed");
+                    jov.populate(result.info.upper.vip_type, "vip_type");
+                    jov.scope(adapter::assign_num_0_1_to_bool{ result.info.upper.is_vip }, "vip_statue");
+                }, "upper");
+                jov.populate(result.info.cover_type, "cover_type");
+                jov.scope([&](JsonObjectVisitor jov) {
+                    jov.populate(result.info.cnt_info.favourite_count, "collect");
+                    jov.populate(result.info.cnt_info.play_count, "play");
+                    jov.populate(result.info.cnt_info.like_count, "thumb_up");
+                    jov.populate(result.info.cnt_info.share_count, "share");
+                }, "cnt_info");
+                jov.populate(result.info.type, "type");
+                jov.populate(result.info.intro, "intro");
+                jov.populate(result.info.ctime, "ctime");
+                jov.populate(result.info.mtime, "mtime");
+                jov.populate(result.info.state, "state");
+                jov.scope(adapter::assign_num_0_1_to_bool{ result.info.fav_has_item }, "fav_state");
+                jov.scope(adapter::assign_num_0_1_to_bool{ result.info.is_liked }, "like_state");
+                jov.populate(result.info.media_count, "media_count");
+            }, "info");
+            jov.populate(result.media_list, "medias");
         }, "data");
 
         co_return result;

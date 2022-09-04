@@ -180,6 +180,18 @@
   <data name="App.Override.SR_TabViewCloseButtonTooltipWithKA" xml:space="preserve">
     <value>关闭选项卡(Ctrl+W)</value>
   </data>
+  <data name="App.Page.FavouritesUserPage.AllLoaded" xml:space="preserve">
+    <value>已全部加载完毕</value>
+  </data>
+  <data name="App.Page.FavouritesUserPage.Attributes.Private" xml:space="preserve">
+    <value>私密</value>
+  </data>
+  <data name="App.Page.FavouritesUserPage.Attributes.Public" xml:space="preserve">
+    <value>公开</value>
+  </data>
+  <data name="App.Page.FavouritesUserPage.Loading" xml:space="preserve">
+    <value>加载中...</value>
+  </data>
   <data name="App.Page.FavouritesUserPage.MyTitle" xml:space="preserve">
     <value>我的收藏</value>
   </data>

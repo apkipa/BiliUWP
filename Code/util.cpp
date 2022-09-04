@@ -532,9 +532,9 @@ namespace util {
             using namespace ::winrt::Windows::ApplicationModel::Preview::Holographic;
             try {
                 return ApiInformation::IsTypePresent(
-                    L"Windows.ApplicationModel.Preview.Holographic.HolographicApplicationPreview"
+                    ::winrt::name_of<HolographicApplicationPreview>()
                 ) && ApiInformation::IsMethodPresent(
-                    L"Windows.ApplicationModel.Preview.Holographic.HolographicApplicationPreview",
+                    ::winrt::name_of<HolographicApplicationPreview>(),
                     L"IsCurrentViewPresentedOnHolographicDisplay"
                 ) && HolographicApplicationPreview::IsCurrentViewPresentedOnHolographicDisplay();
             }

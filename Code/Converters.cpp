@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "Converters.h"
 #include "StringToBitmapImageConverter.g.cpp"
-#include "StringToUriImageConverter.g.cpp"
+#include "StringToUriConverter.g.cpp"
 #include "UInt32ToSelectedIndexConverter.g.cpp"
 
 #include "util.hpp"
@@ -9,7 +9,7 @@
 using namespace winrt;
 using namespace Windows::Foundation;
 
-// TODO: Maybe we should remove StringToBitmapImageConverter and StringToUriImageConverter
+// TODO: Maybe we should remove StringToBitmapImageConverter
 namespace winrt::BiliUWP::implementation {
     hstring try_unbox_valid_hstring(IInspectable const& value) {
         if (auto str = util::winrt::try_unbox_value<hstring>(value)) {
@@ -18,6 +18,7 @@ namespace winrt::BiliUWP::implementation {
         return {};
     }
     hstring try_replace_res_str(hstring const& str) {
+        /*
         constexpr std::wstring_view res_prefix = L"RES@";
         if (str.starts_with(res_prefix)) {
             std::wstring_view str_res_id = str;
@@ -30,6 +31,8 @@ namespace winrt::BiliUWP::implementation {
         else {
             return str;
         }
+        */
+        return str;
     }
 
     IInspectable StringToBitmapImageConverter::Convert(IInspectable const& value, Windows::UI::Xaml::Interop::TypeName const& targetType, IInspectable const& parameter, hstring const& language) {
@@ -50,7 +53,7 @@ namespace winrt::BiliUWP::implementation {
         throw hresult_not_implemented();
     }
 
-    IInspectable StringToUriImageConverter::Convert(IInspectable const& value, Windows::UI::Xaml::Interop::TypeName const& targetType, IInspectable const& parameter, hstring const& language) {
+    IInspectable StringToUriConverter::Convert(IInspectable const& value, Windows::UI::Xaml::Interop::TypeName const& targetType, IInspectable const& parameter, hstring const& language) {
         hstring str_url{};
         Uri uri{ nullptr };
         if (str_url == L"") {
@@ -64,7 +67,7 @@ namespace winrt::BiliUWP::implementation {
         }
         return uri;
     }
-    IInspectable StringToUriImageConverter::ConvertBack(IInspectable const& value, Windows::UI::Xaml::Interop::TypeName const& targetType, IInspectable const& parameter, hstring const& language) {
+    IInspectable StringToUriConverter::ConvertBack(IInspectable const& value, Windows::UI::Xaml::Interop::TypeName const& targetType, IInspectable const& parameter, hstring const& language) {
         throw hresult_not_implemented();
     }
 

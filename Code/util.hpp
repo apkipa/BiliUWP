@@ -16,7 +16,7 @@ namespace util {
         template<typename T>
         struct Defer final {
             Defer(T func) : m_func(std::move(func)) {}
-            ~Defer() { m_func(); }
+            ~Defer() { std::invoke(m_func); }
         private:
             T m_func;
         };
@@ -773,6 +773,73 @@ namespace util {
         inline bool is_async_running(::winrt::Windows::Foundation::IAsyncInfo async) {
             return async && async.Status() == ::winrt::Windows::Foundation::AsyncStatus::Started;
         }
+
+        struct async_storage {
+            async_storage() : m_data(std::make_shared<data>()), m_method_lock() {}
+            async_storage(async_storage const&) = delete;
+            async_storage& operator=(async_storage) = delete;
+            ~async_storage() {
+                safe_cancel_clear();
+            }
+
+            template<typename Functor, typename... Args>
+            void cancel_and_run(Functor&& functor, Args... args) {
+                std::scoped_lock method_call_guard{ m_method_lock };
+                safe_cancel_clear();
+                auto async = std::invoke(std::forward<Functor>(functor), std::forward<Args>(args)...);
+                {
+                    std::scoped_lock guard{ m_data->lock };
+                    m_data->async = async;
+                }
+                set_completed_handler_for_async(async);
+            }
+            template<typename Functor, typename... Args>
+            void run_if_idle(Functor&& functor, Args... args) {
+                std::scoped_lock method_call_guard{ m_method_lock };
+                {
+                    std::scoped_lock guard{ m_data->lock };
+                    // If m_data->async is nullptr, we are confident that everything's really idle
+                    if (m_data->async) {
+                        return;
+                    }
+                }
+                auto async = std::invoke(std::forward<Functor>(functor), std::forward<Args>(args)...);
+                {
+                    // SAFETY: Lock is not needed here since there are no possible race conditions
+                    m_data->async = async;
+                }
+                set_completed_handler_for_async(async);
+            }
+
+        private:
+            void safe_cancel_clear(void) {
+                m_data->lock.lock();
+                // SAFETY: noexcept
+                auto old_async = std::exchange(m_data->async, nullptr);
+                m_data->lock.unlock();
+                util::winrt::cancel_async(std::move(old_async));
+            }
+
+            template<typename T>
+            void set_completed_handler_for_async(T&& async) {
+                async.Completed(
+                    [data = m_data](auto&& sender, ::winrt::Windows::Foundation::AsyncStatus status) {
+                        if (status == ::winrt::Windows::Foundation::AsyncStatus::Started) { return; }
+                        std::scoped_lock guard{ data->lock };
+                        if (sender == data->async) {
+                            data->async = nullptr;
+                        }
+                    }
+                );
+            }
+
+            struct data {
+                std::mutex lock{};
+                ::winrt::Windows::Foundation::IAsyncInfo async{ nullptr };
+            };
+            std::shared_ptr<data> m_data;
+            std::mutex m_method_lock;
+        };
     }
 }
 
