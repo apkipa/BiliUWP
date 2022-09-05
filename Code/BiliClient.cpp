@@ -112,34 +112,14 @@ namespace BiliUWP {
             }
             return m_jv.GetNumber();
         }
-        template<>
-        std::optional<uint32_t> try_as(void) {
-            if (m_jv.ValueType() != winrt::Windows::Data::Json::JsonValueType::Number) {
-                return std::nullopt;
-            }
-            return static_cast<uint32_t>(m_jv.GetNumber());
-        }
-        template<>
-        std::optional<int32_t> try_as(void) {
-            if (m_jv.ValueType() != winrt::Windows::Data::Json::JsonValueType::Number) {
-                return std::nullopt;
-            }
-            return static_cast<int32_t>(m_jv.GetNumber());
-        }
-        template<>
-        std::optional<uint64_t> try_as(void) {
-            if (m_jv.ValueType() != winrt::Windows::Data::Json::JsonValueType::Number) {
-                return std::nullopt;
-            }
-            return static_cast<uint64_t>(m_jv.GetNumber());
-        }
-        template<>
-        std::optional<int64_t> try_as(void) {
-            if (m_jv.ValueType() != winrt::Windows::Data::Json::JsonValueType::Number) {
-                return std::nullopt;
-            }
-            return static_cast<int64_t>(m_jv.GetNumber());
-        }
+        template<> std::optional<uint8_t> try_as(void) { return try_as_integer<uint8_t>(); }
+        template<> std::optional<int8_t> try_as(void) { return try_as_integer<int8_t>(); }
+        template<> std::optional<uint16_t> try_as(void) { return try_as_integer<uint16_t>(); }
+        template<> std::optional<int16_t> try_as(void) { return try_as_integer<int16_t>(); }
+        template<> std::optional<uint32_t> try_as(void) { return try_as_integer<uint32_t>(); }
+        template<> std::optional<int32_t> try_as(void) { return try_as_integer<int32_t>(); }
+        template<> std::optional<uint64_t> try_as(void) { return try_as_integer<uint64_t>(); }
+        template<> std::optional<int64_t> try_as(void) { return try_as_integer<int64_t>(); }
         template<>
         std::optional<JsonObjectVisitor> try_as(void);
         template<>
@@ -167,22 +147,14 @@ namespace BiliUWP {
             expect_jv_type(m_jv, winrt::Windows::Data::Json::JsonValueType::Number);
             return m_jv.GetNumber();
         }
-        template<>
-        uint32_t as(void) {
-            return static_cast<uint32_t>(this->as<double>());
-        }
-        template<>
-        int32_t as(void) {
-            return static_cast<int32_t>(this->as<double>());
-        }
-        template<>
-        uint64_t as(void) {
-            return static_cast<uint64_t>(this->as<double>());
-        }
-        template<>
-        int64_t as(void) {
-            return static_cast<int64_t>(this->as<double>());
-        }
+        template<> uint8_t as(void) { return as_integer<uint8_t>(); }
+        template<> int8_t as(void) { return as_integer<int8_t>(); }
+        template<> uint16_t as(void) { return as_integer<uint16_t>(); }
+        template<> int16_t as(void) { return as_integer<int16_t>(); }
+        template<> uint32_t as(void) { return as_integer<uint32_t>(); }
+        template<> int32_t as(void) { return as_integer<int32_t>(); }
+        template<> uint64_t as(void) { return as_integer<uint64_t>(); }
+        template<> int64_t as(void) { return as_integer<int64_t>(); }
         template<>
         JsonObjectVisitor as(void);
         template<>
@@ -221,6 +193,60 @@ namespace BiliUWP {
                     JsonVisitorHelper::stringify(jvt)
                 );
             }
+        }
+        template<typename T>
+        std::optional<T> try_as_integer(void) {
+            expect_jv_type(m_jv, winrt::Windows::Data::Json::JsonValueType::Number);
+            auto number = m_jv.GetNumber();
+            if (std::trunc(number) != number) {
+                return std::nullopt;
+            }
+            errno = 0;
+            long long integer{ std::llround(number) };
+            if (auto cur_errno = errno; cur_errno == EDOM || cur_errno == ERANGE) {
+                return std::nullopt;
+            }
+            if constexpr (std::numeric_limits<T>::is_signed) {
+                if (integer < std::numeric_limits<T>::min() || integer > std::numeric_limits<T>::max()) {
+                    return std::nullopt;
+                }
+            }
+            else {
+                if (integer < 0 || static_cast<unsigned long long>(integer) > std::numeric_limits<T>::max()) {
+                    return std::nullopt;
+                }
+            }
+            return std::optional{ static_cast<T>(integer) };
+        }
+        template<typename T>
+        T as_integer(void) {
+            expect_jv_type(m_jv, winrt::Windows::Data::Json::JsonValueType::Number);
+            auto number = m_jv.GetNumber();
+            if (std::trunc(number) != number) {
+                throw BiliApiParseException(BiliApiParseException::json_parse_wrong_type,
+                    m_props_walk,
+                    "integer",
+                    JsonVisitorHelper::stringify(winrt::Windows::Data::Json::JsonValueType::Number)
+                );
+            }
+            errno = 0;
+            long long integer{ std::llround(number) };
+            if (auto cur_errno = errno; cur_errno == EDOM || cur_errno == ERANGE) {
+                throw BiliApiParseException(BiliApiParseException::json_parse_out_of_range,
+                    m_props_walk
+                );
+            }
+            if constexpr (std::numeric_limits<T>::is_signed) {
+                if (integer < std::numeric_limits<T>::min() || integer > std::numeric_limits<T>::max()) {
+                    throw BiliApiParseException(BiliApiParseException::json_parse_out_of_range, m_props_walk);
+                }
+            }
+            else {
+                if (integer < 0 || static_cast<unsigned long long>(integer) > std::numeric_limits<T>::max()) {
+                    throw BiliApiParseException(BiliApiParseException::json_parse_out_of_range, m_props_walk);
+                }
+            }
+            return static_cast<T>(integer);
         }
 
         winrt::Windows::Data::Json::IJsonValue m_jv;
@@ -548,14 +574,7 @@ namespace BiliUWP {
         struct assign_num_to_enum {
             assign_num_to_enum(T& dst) : m_dst(dst) {}
             void operator()(JsonValueVisitor jvv) {
-                auto value = jvv.as<double>();
-                if (std::trunc(value) != value) {
-                    throw BiliApiParseException(BiliApiParseException::json_parse_user_defined,
-                        jvv.get_props_walk_tree(), "Only integers are expected values"
-                    );
-                }
-                // TODO: Maybe check for overflow?
-                m_dst = static_cast<T>(value);
+                m_dst = static_cast<T>(jvv.as<std::underlying_type_t<T>>());
             }
         private:
             T& m_dst;
@@ -847,8 +866,7 @@ namespace BiliUWP {
                 jov.populate(result.expires_in, "expires_in");
                 jov.scope([&](JsonObjectVisitor jov) {
                     jov.scope([&](JsonArrayVisitor jav) {
-                        jav.scope_enumerate([&](size_t i, JsonObjectVisitor jov) {
-                            (void)i;
+                        jav.scope_enumerate([&](size_t, JsonObjectVisitor jov) {
                             winrt::hstring name;
                             jov.populate(name, "name");
                             if (name == L"SESSDATA") {
@@ -944,7 +962,7 @@ namespace BiliUWP {
         auto cancellation_token = co_await winrt::get_cancellation_token();
         cancellation_token.enable_propagation();
 
-        auto jo = co_await m_bili_client.api_app_x_web_interface_nav();
+        auto jo = co_await m_bili_client.api_api_x_web_interface_nav();
         util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
@@ -1008,7 +1026,7 @@ namespace BiliUWP {
         auto cancellation_token = co_await winrt::get_cancellation_token();
         cancellation_token.enable_propagation();
 
-        auto jo = co_await m_bili_client.api_app_x_web_interface_nav_stat();
+        auto jo = co_await m_bili_client.api_api_x_web_interface_nav_stat();
         util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
@@ -1017,6 +1035,67 @@ namespace BiliUWP {
             jov.populate(result.following_count, "following");
             jov.populate(result.follower_count, "follower");
             jov.populate(result.dynamic_count, "dynamic");
+        }, "data");
+
+        co_return result;
+    }
+    util::winrt::task<UserCardInfoResult> BiliClient::user_card_info(uint64_t mid) {
+        UserCardInfoResult result;
+
+        auto cancellation_token = co_await winrt::get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        auto jo = co_await m_bili_client.api_api_x_web_interface_card(mid);
+        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
+        check_json_code(jo);
+        JsonPropsWalkTree json_props_walk;
+        JsonObjectVisitor jov{ std::move(jo), json_props_walk };
+        jov.scope([&](JsonObjectVisitor jov) {
+            jov.scope([&](JsonObjectVisitor jov) {
+                jov.populate(result.card.mid, "mid");
+                jov.populate(result.card.name, "name");
+                jov.populate(result.card.sex, "sex");
+                jov.populate(result.card.face_url, "face");
+                jov.populate(result.card.follower_count, "fans");
+                jov.populate(result.card.following_count, "friend");
+                jov.scope([&](JsonObjectVisitor jov) {
+                    jov.populate(result.card.level_info.current_level, "current_level");
+                }, "level_info");
+                jov.scope([&](JsonObjectVisitor jov) {
+                    jov.populate(result.card.pendant.pid, "pid");
+                    jov.populate(result.card.pendant.name, "name");
+                    jov.populate(result.card.pendant.image_url, "image");
+                }, "pendant");
+                jov.scope([&](JsonObjectVisitor jov) {
+                    jov.populate(result.card.nameplate.nid, "nid");
+                    jov.populate(result.card.nameplate.name, "name");
+                    jov.populate(result.card.nameplate.image_url, "image");
+                    jov.populate(result.card.nameplate.image_small_url, "image_small");
+                    jov.populate(result.card.nameplate.level, "level");
+                    jov.populate(result.card.nameplate.condition, "condition");
+                }, "nameplate");
+                jov.scope([&](JsonObjectVisitor jov) {
+                    jov.populate(result.card.official.role, "role");
+                    jov.populate(result.card.official.title, "title");
+                    jov.populate(result.card.official.desc, "desc");
+                    jov.populate(result.card.official.type, "type");
+                }, "Official");
+                jov.scope([&](JsonObjectVisitor jov) {
+                    jov.populate(result.card.official_verify.type, "type");
+                    jov.populate(result.card.official_verify.desc, "desc");
+                }, "official_verify");
+                jov.scope([&](JsonObjectVisitor jov) {
+                    jov.populate(result.card.vip.type, "vipType");
+                    jov.scope(adapter::assign_num_0_1_to_bool{ result.card.vip.is_vip }, "vipStatus");
+                }, "vip");
+            }, "card");
+            jov.scope([&](JsonObjectVisitor jov) {
+                jov.populate(result.space.small_img_url, "s_img");
+                jov.populate(result.space.large_img_url, "l_img");
+            }, "space");
+            jov.populate(result.is_following, "following");
+            jov.populate(result.posts_count, "archive_count");
+            jov.populate(result.like_count, "like_num");
         }, "data");
 
         co_return result;

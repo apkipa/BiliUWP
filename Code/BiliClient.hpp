@@ -185,6 +185,7 @@ namespace BiliUWP {
         static inline struct json_parse_no_prop_t {} json_parse_no_prop;
         static inline struct json_parse_wrong_type_t {} json_parse_wrong_type;
         static inline struct json_parse_out_of_bound_t {} json_parse_out_of_bound;
+        static inline struct json_parse_out_of_range_t {} json_parse_out_of_range;
         static inline struct json_parse_user_defined_t {} json_parse_user_defined;
         enum class JsonParseFailKind {
             Unknown,
@@ -216,6 +217,15 @@ namespace BiliUWP {
                 "Out of bound while accessing `{}` of size {}",
                 props_tree.stringify(),
                 actual_size
+            );
+        }
+        BiliApiParseException(json_parse_out_of_range_t,
+            JsonPropsWalkTree const& props_tree
+        ) : m_err_msg("JSON parse error: ")
+        {
+            m_err_msg += std::format(
+                "Value of `{}` does not fit into requested native type",
+                props_tree.stringify()
             );
         }
         BiliApiParseException(json_parse_user_defined_t,
@@ -323,6 +333,55 @@ namespace BiliUWP {
         uint32_t follower_count;
         uint32_t dynamic_count;
     };
+    struct UserCardInfoResult {
+        struct {
+            winrt::hstring mid;
+            winrt::hstring name;
+            winrt::hstring sex;
+            winrt::hstring face_url;
+            uint64_t follower_count;
+            uint64_t following_count;
+            struct {
+                // Level: 0~6
+                uint32_t current_level;
+            } level_info;
+            struct {
+                uint64_t pid;
+                winrt::hstring name;
+                winrt::hstring image_url;
+            } pendant;
+            struct {
+                uint64_t nid;
+                winrt::hstring name;
+                winrt::hstring image_url;
+                winrt::hstring image_small_url;
+                winrt::hstring level;
+                winrt::hstring condition;
+            } nameplate;
+            struct {
+                uint32_t role;
+                winrt::hstring title;
+                winrt::hstring desc;
+                int32_t type;
+            } official;
+            struct {
+                int32_t type;
+                winrt::hstring desc;
+            } official_verify;
+            struct {
+                // TODO: Maybe extend this and other related items
+                uint32_t type;
+                bool is_vip;
+            } vip;
+        } card;
+        struct {
+            winrt::hstring small_img_url;
+            winrt::hstring large_img_url;
+        } space;
+        bool is_following;
+        uint64_t posts_count;
+        uint64_t like_count;
+    };
     struct VideoViewInfo_Dimension {
         uint32_t width;
         uint32_t height;
@@ -364,7 +423,7 @@ namespace BiliUWP {
         winrt::hstring name;
         winrt::hstring face_url;
         struct {
-            uint64_t type;
+            uint32_t type;
             bool is_vip;
         } vip;
         struct {
@@ -687,6 +746,7 @@ namespace BiliUWP {
         // User information
         util::winrt::task<MyAccountNavInfoResult> my_account_nav_info(void);
         util::winrt::task<MyAccountNavStatInfoResult> my_account_nav_stat_info(void);
+        util::winrt::task<UserCardInfoResult> user_card_info(uint64_t mid);
 
         // Video information
         util::winrt::task<VideoViewInfoResult> video_view_info(std::variant<uint64_t, winrt::hstring> vid);

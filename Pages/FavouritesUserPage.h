@@ -81,6 +81,10 @@ namespace winrt::BiliUWP::implementation {
     struct FavouritesUserPage : FavouritesUserPageT<FavouritesUserPage> {
         FavouritesUserPage();
         void OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e);
+        void AccKeyF5Invoked(
+            Windows::UI::Xaml::Input::KeyboardAccelerator const&,
+            Windows::UI::Xaml::Input::KeyboardAcceleratorInvokedEventArgs const& e
+        );
         void RefreshItem_Click(
             Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&
         );

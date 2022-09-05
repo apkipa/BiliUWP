@@ -78,10 +78,14 @@ namespace BiliUWP {
         Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_app_x_v2_account_myinfo(
             APISignKeys keys
         );
-        //   https://app.bilibili.com/x/web-interface/nav | cookies
-        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_app_x_web_interface_nav();
-        //   https://app.bilibili.com/x/web-interface/nav/stat | cookies
-        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_app_x_web_interface_nav_stat();
+        //   https://api.bilibili.com/x/web-interface/nav | cookies
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_web_interface_nav();
+        //   https://api.bilibili.com/x/web-interface/nav/stat | cookies
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_web_interface_nav_stat();
+        //   https://api.bilibili.com/x/web-interface/card | cookies
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_web_interface_card(
+            UInt64 mid
+        );
 
         // Video information
         // NOTE: avid format: "<digits>"; bvid format: "BV<chars>"

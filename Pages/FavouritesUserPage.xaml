@@ -8,6 +8,10 @@
     mc:Ignorable="d"
     Background="{ThemeResource SystemControlBackgroundAltHighBrush}">
 
+    <Page.KeyboardAccelerators>
+        <KeyboardAccelerator Key="F5" ScopeOwner="{x:Bind}" Invoked="AccKeyF5Invoked"/>
+    </Page.KeyboardAccelerators>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>

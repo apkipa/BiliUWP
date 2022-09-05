@@ -294,24 +294,35 @@ namespace winrt::BiliUWP::implementation {
         util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
     }
-    AsyncJsonObjectResult BiliClientManaged::api_app_x_web_interface_nav() {
+    AsyncJsonObjectResult BiliClientManaged::api_api_x_web_interface_nav() {
         auto cancellation_token = co_await get_cancellation_token();
         cancellation_token.enable_propagation();
 
         auto uri = make_uri(
-            L"https://app.bilibili.com",
+            L"https://api.bilibili.com",
             L"/x/web-interface/nav"
         );
         util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
     }
-    AsyncJsonObjectResult BiliClientManaged::api_app_x_web_interface_nav_stat() {
+    AsyncJsonObjectResult BiliClientManaged::api_api_x_web_interface_nav_stat() {
         auto cancellation_token = co_await get_cancellation_token();
         cancellation_token.enable_propagation();
 
         auto uri = make_uri(
-            L"https://app.bilibili.com",
+            L"https://api.bilibili.com",
             L"/x/web-interface/nav/stat"
+        );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
+        co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
+    }
+    AsyncJsonObjectResult BiliClientManaged::api_api_x_web_interface_card(uint64_t mid) {
+        auto cancellation_token = co_await get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        auto uri = make_uri(
+            L"https://api.bilibili.com",
+            L"/x/web-interface/card"
         );
         util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
