@@ -25,6 +25,7 @@ namespace BiliUWP {
     AppInst::AppInst() :
         m_app_tabs(), m_tv(), m_glob_frame(nullptr), m_cur_log_level(util::debug::LogLevel::Info),
         m_app_logs(), m_logging_provider(new AppLoggingProvider(this)), m_cur_log_file(nullptr),
+        m_logging_thread(), m_logging_tx(), m_logging_file_buf(nullptr),
         m_res_ldr(Windows::ApplicationModel::Resources::ResourceLoader::GetForViewIndependentUse()),
         m_cfg_model(winrt::BiliUWP::AppCfgModel()),
         m_cfg_app_use_tab_view(m_cfg_model.App_UseTabView()),
@@ -56,7 +57,7 @@ namespace BiliUWP {
             m_bili_client->set_cookies(user_cookies);
         };
         // TODO: Better listen to broadcast events ?
-        m_cfg_model.PropertyChanged([=](IInspectable const& sender, PropertyChangedEventArgs const& e) {
+        m_cfg_model.PropertyChanged([=](IInspectable const&, PropertyChangedEventArgs const& e) {
             // TODO: Reduce update cost according to the property name
             auto prop_name = e.PropertyName();
             if (prop_name == L"User_AccessToken") {
@@ -86,9 +87,11 @@ namespace BiliUWP {
         update_bili_client_fn();
     }
     AppInst::~AppInst() {
+        delete m_bili_client;
+        // Notify the logging thread to stop running, if any
+        m_logging_tx = {};
         util::debug::set_log_provider(nullptr);
         delete m_logging_provider;
-        delete m_bili_client;
     }
     AppTab AppInst::tab_from_page(Windows::UI::Xaml::Controls::Page const& tab_page) {
         // TODO: mutex lock or helper member function
@@ -157,22 +160,25 @@ namespace BiliUWP {
         tab->associate_app_inst(nullptr);
         auto tv = this->parent_of_tab(tab);
         uint32_t idx;
-        if (tv && tv.TabItems().IndexOf(tab->get_tab_view_item(), idx)) {
-            if (tv.TabItems().Size() == 1) {
-                // Close view instead of removing tab from TabView
-                // TODO: Don't close tab, so OnSuspending can save tab state (? should just save here?)
-                // TODO: Use a kv map to perform accurate reverse lookup (TabView -> ApplicationView)
-                ApplicationView::GetForCurrentView().TryConsolidateAsync();
-                // ???
-                if (m_tv.size() > 1) {
-                    // Remove TabView from m_tv
-                    m_tv.erase(std::find(m_tv.begin(), m_tv.end(), tv));
+        if (tv) {
+            // MSVC reports false positive C4701 for idx, so we split if checks
+            if (tv.TabItems().IndexOf(tab->get_tab_view_item(), idx)) {
+                if (tv.TabItems().Size() == 1) {
+                    // Close view instead of removing tab from TabView
+                    // TODO: Don't close tab, so OnSuspending can save tab state (? should just save here?)
+                    // TODO: Use a kv map to perform accurate reverse lookup (TabView -> ApplicationView)
+                    ApplicationView::GetForCurrentView().TryConsolidateAsync();
+                    // ???
+                    if (m_tv.size() > 1) {
+                        // Remove TabView from m_tv
+                        m_tv.erase(std::find(m_tv.begin(), m_tv.end(), tv));
+                    }
+                    return;
                 }
-                return;
+                tv.TabItems().RemoveAt(idx);
+                // Hack: Update tab items layout
+                tv.TabWidthMode(tv.TabWidthMode());
             }
-            tv.TabItems().RemoveAt(idx);
-            // Hack: Update tab items layout
-            tv.TabWidthMode(tv.TabWidthMode());
         }
         if (auto it = std::find(m_app_tabs.begin(), m_app_tabs.end(), tab); it != m_app_tabs.end()) {
             m_app_tabs.erase(it);
@@ -213,9 +219,6 @@ namespace BiliUWP {
     Windows::Foundation::IAsyncAction AppInst::request_login(void) {
         using LoginTaskType = concurrency::task<winrt::BiliUWP::LoginPageResult>;
         // TODO: Move static variables to AppInst
-        //static LoginTaskType s_login_op;
-        //static std::function<void()> s_cancel_login_op_fn;
-        //static std::shared_mutex s_mutex_lock;
         static struct {
             AppTab login_tab;
             LoginTaskType login_op;
@@ -365,47 +368,58 @@ namespace BiliUWP {
             log_desc.content = result;
         }
         if (m_cfg_app_store_logs) {
-            [](AppInst* that, hstring str) -> fire_forget_except {
-                using namespace Windows::Storage;
-                static std::queue<hstring> s_str_bufs{};
-                static std::atomic_flag s_lock;
-                // TODO: Maybe optimize & correct the logic
-                s_str_bufs.push(std::move(str));
-                while (s_lock.test_and_set()) {
-                    co_await resume_background();
-                    s_lock.wait(true);
-                }
-                deferred([] {
-                    s_lock.clear();
-                    s_lock.notify_one();
-                });
-                if (!that->m_cur_log_file) {
-                    // Open the file
-                    auto local_folder = ApplicationData::Current().LocalFolder();
-                    auto logs_folder = co_await local_folder.CreateFolderAsync(
-                        L"logs", CreationCollisionOption::OpenIfExists
-                    );
-                    try {
-                        // Rename old log if it exists
-                        auto old_log = co_await logs_folder.GetFileAsync(L"latest.log");
-                        auto props = co_await old_log.GetBasicPropertiesAsync();
-                        co_await old_log.RenameAsync(std::format(
-                            L"{:%F}.log",
-                            std::chrono::zoned_time{
-                                std::chrono::current_zone(),
-                                winrt::clock::to_sys(props.DateModified())
+            // TODO: This function might have a slim chance of data race, maybe fix it
+            auto send_log_fn = [this](hstring log_str) {
+                return m_logging_thread.joinable() && m_logging_tx.send(log_str);
+            };
+            [&](hstring log_str) {
+                // Optimistic check to reduce mutex overhead
+                if (send_log_fn(log_str)) { return; }
+                // Logging thread has long gone or not spawned; spawn a new one
+                // TODO: Get receiver back to recover lost logs if thread died abruptly
+                // Contend with thread creation
+                static std::mutex s_spawn_lock;
+                std::scoped_lock guard(s_spawn_lock);
+                // Make sure we need to create the thread
+                if (send_log_fn(log_str)) { return; }
+                // Spawn the logging thread
+                auto [tx, rx] = util::sync::mpsc_channel_bounded<hstring>(16);
+                m_logging_tx = std::move(tx);
+                m_logging_thread = std::jthread(
+                    [this](util::sync::mpsc_channel_receiver<hstring> rx) {
+                        using namespace Windows::Storage;
+                        while (auto result = rx.recv()) {
+                            // Open the log file if it hasn't been opened
+                            if (!m_cur_log_file) {
+                                auto local_folder = ApplicationData::Current().LocalFolder();
+                                auto logs_folder = local_folder.CreateFolderAsync(
+                                    L"logs", CreationCollisionOption::OpenIfExists
+                                ).get();
+                                try {
+                                    // Rename old log if it exists
+                                    auto old_log = logs_folder.GetFileAsync(L"latest.log").get();
+                                    auto props = old_log.GetBasicPropertiesAsync().get();
+                                    old_log.RenameAsync(std::format(
+                                        L"{:%F}.log",
+                                        std::chrono::zoned_time{
+                                            std::chrono::current_zone(),
+                                            winrt::clock::to_sys(props.DateModified())
+                                        }
+                                    ), NameCollisionOption::GenerateUniqueName).get();
+                                }
+                                catch (hresult_error const&) {}
+                                m_cur_log_file = logs_folder.CreateFileAsync(
+                                    L"latest.log", CreationCollisionOption::ReplaceExisting
+                                ).get();
                             }
-                        ), NameCollisionOption::GenerateUniqueName);
+                            // Write log to file
+                            FileIO::AppendLinesAsync(m_cur_log_file, { std::move(*result) }).get();
+                        }
                     }
-                    catch (hresult_error const&) {}
-                    that->m_cur_log_file = co_await logs_folder.CreateFileAsync(
-                        L"latest.log", CreationCollisionOption::ReplaceExisting
-                    );
-                }
-                for (; !s_str_bufs.empty(); s_str_bufs.pop()) {
-                    co_await FileIO::AppendLinesAsync(that->m_cur_log_file, { s_str_bufs.front() });
-                }
-            }(this, str_from_logdesc_fn(log_desc));
+                , std::move(rx));
+                // Send the log string again
+                m_logging_tx.send(std::move(log_str));
+            }(str_from_logdesc_fn(log_desc));
         }
         m_app_logs.push_back(std::move(log_desc));
     }
@@ -772,13 +786,13 @@ namespace BiliUWP {
                 }
             }, weak_cmd_bar_fo.get(), &*that);
         };
-        btn_back.Click([=, weak_this = weak_from_this()](IInspectable const& sender, RoutedEventArgs const&) {
+        btn_back.Click([=, weak_this = weak_from_this()](IInspectable const&, RoutedEventArgs const&) {
             auto strong_this = weak_this.lock();
             if (!strong_this) { return; }
             strong_this->go_back();
             update_menu_fn(std::move(strong_this));
         });
-        btn_forward.Click([=, weak_this = weak_from_this()](IInspectable const& sender, RoutedEventArgs const&) {
+        btn_forward.Click([=, weak_this = weak_from_this()](IInspectable const&, RoutedEventArgs const&) {
             auto strong_this = weak_this.lock();
             if (!strong_this) { return; }
             strong_this->go_forward();
@@ -1028,6 +1042,10 @@ void winrt::BiliUWP::implementation::App::OnSuspending(
 ) {
     // Save application state and stop any background activity
     // TODO: Notify all activities to save states
+    (void)sender;
+    (void)e;
+
+    util::debug::log_trace(L"Suspending application");
 }
 
 /// <summary>

@@ -119,10 +119,11 @@ namespace winrt::BiliUWP::implementation {
             auto cancellation_token = co_await get_cancellation_token();
             cancellation_token.enable_propagation();
 
-            deferred([weak_this = that->get_weak()] {
-                auto strong_this = weak_this.get();
-                if (!strong_this) { return; }
-                auto prog_ring = strong_this->ImportConfigFromClipboardProgRing();
+            auto weak_store = util::winrt::make_weak_storage(*that);
+
+            deferred([&weak_store] {
+                if (!weak_store.lock()) { return; }
+                auto prog_ring = weak_store->ImportConfigFromClipboardProgRing();
                 prog_ring.IsActive(false);
                 prog_ring.Visibility(Visibility::Collapsed);
             });
@@ -139,14 +140,16 @@ namespace winrt::BiliUWP::implementation {
                     util::debug::log_error(L"Only text can be imported as config");
                     co_return;
                 }
-                that->m_cfg_model.DeserializeFromString(co_await dp_view.GetTextAsync());
+                auto text = co_await dp_view.GetTextAsync();
+                if (!weak_store.lock()) { co_return; }
+                that->m_cfg_model.DeserializeFromString(std::move(text));
 
                 success_mark.Visibility(Visibility::Visible);
             }
-            catch (hresult_error const& e) {
-                util::debug::log_error(std::format(L"Unable to import config (0x{:08x}: {})",
-                    static_cast<uint32_t>(e.code()), e.message()
-                ));
+            catch (hresult_canceled const&) {}
+            catch (...) {
+                util::debug::log_error(L"Unable to import config");
+                util::winrt::log_current_exception();
             }
         }, this);
     }
@@ -156,16 +159,19 @@ namespace winrt::BiliUWP::implementation {
         );
     }
     void SettingsPage::CalculateCacheButton_Click(IInspectable const&, RoutedEventArgs const&) {
+        // NOTE: In order to keep accessing this safe, either obtain
+        //       weak ptr & upgrade, or avoid accessing this after suspension points
         m_cache_async.run_if_idle([](SettingsPage* that) -> IAsyncAction {
             constexpr double cache_size_precision = 1e2;
 
             auto cancellation_token = co_await get_cancellation_token();
             cancellation_token.enable_propagation();
 
-            deferred([weak_this = that->get_weak()] {
-                auto strong_this = weak_this.get();
-                if (!strong_this) { return; }
-                auto prog_ring = strong_this->CalculateCacheProgRing();
+            auto weak_store = util::winrt::make_weak_storage(*that);
+
+            deferred([&weak_store] {
+                if (!weak_store.lock()) { return; }
+                auto prog_ring = weak_store->CalculateCacheProgRing();
                 prog_ring.IsActive(false);
                 prog_ring.Visibility(Visibility::Collapsed);
             });
@@ -190,10 +196,10 @@ namespace winrt::BiliUWP::implementation {
 
                 result_text.Visibility(Visibility::Visible);
             }
-            catch (hresult_error const& e) {
-                util::debug::log_error(std::format(L"Unable to calculate cache size (0x{:08x}: {})",
-                    static_cast<uint32_t>(e.code()), e.message()
-                ));
+            catch (hresult_canceled const&) {}
+            catch (...) {
+                util::debug::log_error(L"Unable to calculate cache size");
+                util::winrt::log_current_exception();
             }
         }, this);
     }
@@ -202,10 +208,11 @@ namespace winrt::BiliUWP::implementation {
             auto cancellation_token = co_await get_cancellation_token();
             cancellation_token.enable_propagation();
 
-            deferred([weak_this = that->get_weak()] {
-                auto strong_this = weak_this.get();
-                if (!strong_this) { return; }
-                auto prog_ring = strong_this->ClearCacheProgRing();
+            auto weak_store = util::winrt::make_weak_storage(*that);
+
+            deferred([&weak_store] {
+                if (!weak_store.lock()) { return; }
+                auto prog_ring = weak_store->ClearCacheProgRing();
                 prog_ring.IsActive(false);
                 prog_ring.Visibility(Visibility::Collapsed);
             });
@@ -225,10 +232,10 @@ namespace winrt::BiliUWP::implementation {
 
                 success_mark.Visibility(Visibility::Visible);
             }
-            catch (hresult_error const& e) {
-                util::debug::log_error(std::format(L"Unable to clear cache (0x{:08x}: {})",
-                    static_cast<uint32_t>(e.code()), e.message()
-                ));
+            catch (hresult_canceled const&) {}
+            catch (...) {
+                util::debug::log_error(L"Unable to clear cache");
+                util::winrt::log_current_exception();
             }
         }, this);
     }

@@ -105,11 +105,15 @@ namespace winrt::BiliUWP::implementation {
         auto cancellation_token = co_await get_cancellation_token();
         cancellation_token.enable_propagation();
 
-        deferred([weak_this = get_weak()] {
-            auto strong_this = weak_this.get();
-            if (!strong_this) { return; }
-            strong_this->m_bili_res_is_ready = true;
+        auto weak_store = util::winrt::make_weak_storage(*this);
+
+        deferred([&weak_store] {
+            if (!weak_store.lock()) { return; }
+            weak_store->m_bili_res_is_ready = true;
         });
+
+        auto media_player_info_text = MediaPlayerInfoText();
+        auto http_client = m_http_client;
 
         try {
             auto client = ::BiliUWP::App::get()->bili_client();
@@ -122,9 +126,11 @@ namespace winrt::BiliUWP::implementation {
                 util::debug::log_trace(std::format(L"Parsing video av{}...", avid));
                 video_vinfo = std::move(co_await client->video_view_info(avid));
             }
+            if (!weak_store.lock()) { co_return; }
             m_bili_res_id_a = L"av" + to_hstring(video_vinfo.avid);
             m_bili_res_id_b = video_vinfo.bvid;
             m_bili_res_is_ready = true;
+            weak_store.unlock();
 
             ::BiliUWP::VideoPlayUrlPreferenceParam param;
             param.prefer_4k = true;
@@ -179,7 +185,7 @@ namespace winrt::BiliUWP::implementation {
                     dash_mpd_mem_stream,
                     Uri(L"https://example.com"),
                     L"application/dash+xml",
-                    m_http_client
+                    http_client
                 );
                 if (adaptive_media_src_result.Status() != AdaptiveMediaSourceCreationStatus::Success) {
                     auto hresult = adaptive_media_src_result.ExtendedError();
@@ -188,7 +194,6 @@ namespace winrt::BiliUWP::implementation {
                         static_cast<uint32_t>(hresult),
                         hresult_error(hresult).message()
                     ));
-                    co_return;
                 }
                 auto adaptive_media_src = adaptive_media_src_result.MediaSource();
 
@@ -197,15 +202,15 @@ namespace winrt::BiliUWP::implementation {
                 adaptive_media_src.DownloadRequested(
                     [=](AdaptiveMediaSource const&, AdaptiveMediaSourceDownloadRequestedEventArgs const& e) {
                         if (e.ResourceContentType().starts_with(L"video")) {
-                            util::debug::log_trace(L"Hack video url");
+                            //util::debug::log_trace(L"Hack video url");
                             e.Result().ResourceUri(Uri(video_stream.base_url));
                         }
                         else if (e.ResourceContentType().starts_with(L"audio")) {
-                            util::debug::log_trace(L"Hack audio url");
+                            //util::debug::log_trace(L"Hack audio url");
                             e.Result().ResourceUri(Uri(audio_stream.base_url));
                         }
                         else {
-                            util::debug::log_trace(L"Hacked nothing");
+                            util::debug::log_trace(L"Suspicious: Hacked nothing");
                         }
                     }
                 );
@@ -222,6 +227,7 @@ namespace winrt::BiliUWP::implementation {
 
             // TODO: Add configurable support for heartbeat packages
 
+            if (!weak_store.lock()) { co_return; }
             auto media_player = MediaPlayer();
             auto media_playback_item = MediaPlaybackItem(media_src);
             auto display_props = media_playback_item.GetDisplayProperties();
@@ -240,7 +246,7 @@ namespace winrt::BiliUWP::implementation {
 
             // TODO: Maybe (?) set some of the handlers in XAML?
             // Workaround a MediaPlayer resource leak bug by keeping MediaPlayer alive until media is actually opened
-            // (at the cost of wasting some bandwidth)
+            // (at the cost of wasting some data)
             auto et_mo = std::make_shared_for_overwrite<event_token>();
             *et_mo = media_player.MediaOpened(
                 [et_mo, strong_this = this->get_strong()](MediaPlayer const& sender, IInspectable const&) {
@@ -263,23 +269,15 @@ namespace winrt::BiliUWP::implementation {
         }
         catch (::BiliUWP::BiliApiException const& e) {
             // TODO: We may transform some specific exceptions into user-friendly errors
-            util::debug::log_error(winrt::to_hstring(e.what()));
-            MediaPlayerInfoText().Text(res_str(L"App/Page/MediaPlayPage/Error/ServerAPIFailed"));
-            MediaPlayerInfoText().Visibility(Visibility::Visible);
+            util::winrt::log_current_exception();
+            media_player_info_text.Text(res_str(L"App/Page/MediaPlayPage/Error/ServerAPIFailed"));
+            media_player_info_text.Visibility(Visibility::Visible);
         }
-        catch (hresult_canceled const&) {
-            co_return;
-        }
-        catch (hresult_error const& e) {
-            util::debug::log_error(e.message());
-            MediaPlayerInfoText().Text(res_str(L"App/Page/MediaPlayPage/Error/Unknown"));
-            MediaPlayerInfoText().Visibility(Visibility::Visible);
-        }
+        catch (hresult_canceled const&) { co_return; }
         catch (...) {
-            util::debug::log_error(L"Unknown error occurred while parsing video play urls");
-            MediaPlayerInfoText().Text(res_str(L"App/Page/MediaPlayPage/Error/Unknown"));
-            MediaPlayerInfoText().Visibility(Visibility::Visible);
-            throw;
+            util::winrt::log_current_exception();
+            media_player_info_text.Text(res_str(L"App/Page/MediaPlayPage/Error/Unknown"));
+            media_player_info_text.Visibility(Visibility::Visible);
         }
     }
     Windows::Foundation::IAsyncAction MediaPlayPage::HandleAudioPlay(uint64_t auid) {

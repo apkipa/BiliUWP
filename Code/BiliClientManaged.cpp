@@ -316,13 +316,18 @@ namespace winrt::BiliUWP::implementation {
         util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
     }
-    AsyncJsonObjectResult BiliClientManaged::api_api_x_web_interface_card(uint64_t mid) {
+    AsyncJsonObjectResult BiliClientManaged::api_api_x_web_interface_card(uint64_t mid, bool get_photo) {
+        ApiParamMaker param_maker;
+
         auto cancellation_token = co_await get_cancellation_token();
         cancellation_token.enable_propagation();
 
+        param_maker.add_param(L"mid", to_hstring(mid));
+        param_maker.add_param(L"photo", get_photo ? L"true" : L"false");
         auto uri = make_uri(
             L"https://api.bilibili.com",
-            L"/x/web-interface/card"
+            L"/x/web-interface/card",
+            param_maker.get_as_str()
         );
         util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));

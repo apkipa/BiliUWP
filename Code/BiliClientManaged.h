@@ -40,7 +40,7 @@ namespace winrt::BiliUWP::implementation {
         );
         AsyncJsonObjectResult api_api_x_web_interface_nav(void);
         AsyncJsonObjectResult api_api_x_web_interface_nav_stat(void);
-        AsyncJsonObjectResult api_api_x_web_interface_card(uint64_t mid);
+        AsyncJsonObjectResult api_api_x_web_interface_card(uint64_t mid, bool get_photo);
 
         // Video information
         AsyncJsonObjectResult api_api_x_web_interface_view(

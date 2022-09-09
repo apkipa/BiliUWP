@@ -224,6 +224,9 @@ namespace BiliUWP {
         std::vector<LogDesc> m_app_logs;
         AppLoggingProvider* m_logging_provider;
         winrt::Windows::Storage::StorageFile m_cur_log_file;
+        std::jthread m_logging_thread;
+        util::sync::mpsc_channel_sender<winrt::hstring> m_logging_tx;
+        winrt::Windows::Foundation::Collections::IVector<winrt::hstring> m_logging_file_buf;
         winrt::Windows::ApplicationModel::Resources::ResourceLoader m_res_ldr;
 
         // TODO: We should still handle config in separate RTClass in `AppCfgModel.cpp`.
@@ -247,11 +250,11 @@ namespace BiliUWP {
     struct AppLoggingProvider final : util::debug::LoggingProvider {
         AppLoggingProvider(AppInst* app_inst) : m_app_inst(app_inst) {}
         void set_log_level(util::debug::LogLevel new_level) {
-            // TODO: Use std::source_location
             m_app_inst->set_log_level(new_level);
         }
         void log(std::wstring_view str, std::source_location loc) {
-            // TODO: Use std::source_location
+            // TODO: Maybe implement AppLoggingProvider::log()
+            (void)loc;
             m_app_inst->log_info(winrt::hstring{ std::format(L"[{}]{}", -16384, str) });
         }
         void log_trace(std::wstring_view str, std::source_location loc) {
@@ -322,11 +325,10 @@ namespace BiliUWP {
                         index += param_str.size();
                     }
                 };
-                int dummy[] = { 0, (replace_fn(
+                (replace_fn(
                     util::str::concat_wstr(L"{", util::str::unsigned_to_wstr_v<idxs>, L"}"),
                     params
-                ), 0)... };
-                static_cast<void>(dummy);
+                ), ...);
                 return str.c_str();
             }
         }

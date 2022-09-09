@@ -2,6 +2,7 @@
 
 #include <string>
 #include <format>
+#include <atomic>
 #include <source_location>
 
 namespace util {
@@ -391,6 +392,50 @@ namespace util {
     auto& val{ *CONCAT_3(temp_capture_, val, __LINE__) }
 #define co_safe_capture(val) co_safe_capture_val(val)
 
+        // TODO: Check if this function should be placed in util::debug instead
+        inline void log_current_exception(void) noexcept {
+            try { throw; }
+            catch (::winrt::hresult_error const& e) {
+                auto error_message = e.message();
+                util::debug::log_error(std::format(
+                    L"Uncaught async exception(hresult_error): 0x{:08x}: {}",
+                    static_cast<uint32_t>(e.code()), error_message
+                ));
+                if (IsDebuggerPresent()) {
+                    __debugbreak();
+                }
+            }
+            catch (std::exception const& e) {
+                auto error_message = e.what();
+                // %S: Microsoft-C++ specific
+                util::debug::log_error(std::format(
+                    L"Uncaught async exception(std::exception): {}",
+                    ::winrt::to_hstring(error_message)
+                ));
+                if (IsDebuggerPresent()) {
+                    __debugbreak();
+                }
+            }
+            catch (const wchar_t* e) {
+                auto error_message = e;
+                util::debug::log_error(
+                    std::format(L"Uncaught async exception(wchar_t*): {}", error_message)
+                );
+                if (IsDebuggerPresent()) {
+                    __debugbreak();
+                }
+            }
+            catch (...) {
+                auto error_message = L"Unknown exception was thrown";
+                util::debug::log_error(
+                    std::format(L"Uncaught async exception(any): {}", error_message)
+                );
+                if (IsDebuggerPresent()) {
+                    __debugbreak();
+                }
+            }
+        }
+
         // Same as ::winrt::fire_and_forget, except that it reports unhandled exceptions
         // Source: https://devblogs.microsoft.com/oldnewthing/20190320-00/?p=102345
         struct fire_forget_except {
@@ -400,44 +445,7 @@ namespace util {
                 std::suspend_never initial_suspend() const noexcept { return {}; }
                 std::suspend_never final_suspend() const noexcept { return {}; }
                 void unhandled_exception() noexcept {
-                    try { throw; }
-                    catch (::winrt::hresult_error const& e) {
-                        auto error_message = e.message();
-                        util::debug::log_error(
-                            std::format(L"Uncaught async exception(hresult_error): {}", error_message)
-                        );
-                        if (IsDebuggerPresent()) {
-                            __debugbreak();
-                        }
-                    }
-                    catch (std::exception const& e) {
-                        auto error_message = e.what();
-                        // %S: Microsoft-C++ specific
-                        util::debug::log_error(
-                            util::str::wstrprintf(L"Uncaught async exception(std::exception): %S", error_message)
-                        );
-                        if (IsDebuggerPresent()) {
-                            __debugbreak();
-                        }
-                    }
-                    catch (const wchar_t* e) {
-                        auto error_message = e;
-                        util::debug::log_error(
-                            std::format(L"Uncaught async exception(wchar_t*): {}", error_message)
-                        );
-                        if (IsDebuggerPresent()) {
-                            __debugbreak();
-                        }
-                    }
-                    catch (...) {
-                        auto error_message = L"Unknown exception was thrown";
-                        util::debug::log_error(
-                            std::format(L"Uncaught async exception(any): {}", error_message)
-                        );
-                        if (IsDebuggerPresent()) {
-                            __debugbreak();
-                        }
-                    }
+                    log_current_exception();
                 }
             };
         };
@@ -581,6 +589,10 @@ namespace util {
         struct task : ::winrt::enable_await_cancellation {
             using ReturnWrapType = typename std::shared_ptr<ReturnType>;
 
+            task() :
+                m_task(), m_cts(concurrency::cancellation_token_source::_FromImpl(nullptr)),
+                m_cancellable(nullptr) {}
+
             struct promise_type {
                 promise_type() : m_cancellable(std::make_shared<::winrt::cancellable_promise>()) {}
                 task get_return_object() {
@@ -600,12 +612,12 @@ namespace util {
                 void unhandled_exception() {
                     m_tce.set_exception(std::current_exception());
                 }
-                template <typename Expression>
+                template<typename Expression>
                 auto await_transform(Expression&& expression) {
                     if (m_cts.get_token().is_canceled()) {
                         throw ::winrt::hresult_canceled();
                     }
-                    return ::winrt::impl::notify_awaiter<Expression> {
+                    return ::winrt::impl::notify_awaiter<Expression>{
                         static_cast<Expression&&>(expression),
                         m_propagate_cancellation ? &*m_cancellable : nullptr
                     };
@@ -627,13 +639,13 @@ namespace util {
             bool await_ready() const {
                 return m_task.is_done();
             }
-            void await_suspend(std::coroutine_handle<> resume) {
+            void await_suspend(std::coroutine_handle<> resume) const {
                 m_task.then(
                     [resume](concurrency::task<ReturnWrapType> const&) { resume(); },
                     concurrency::task_continuation_context::get_current_winrt_context()
                 );
             }
-            ReturnType& await_resume() {
+            ReturnType& await_resume() const {
                 return *m_task.get();
             }
             void enable_cancellation(::winrt::cancellable_promise* promise) {
@@ -648,6 +660,7 @@ namespace util {
             }
             ~task() {
                 // Swallow exceptions, if any
+                if (m_task == decltype(m_task){}) { return; }
                 m_task.then([](concurrency::task<ReturnWrapType> const& task) {
                     try { task.wait(); }
                     catch (...) {}
@@ -667,6 +680,10 @@ namespace util {
         // task<void> specialization
         template<>
         struct task<void> : ::winrt::enable_await_cancellation {
+            task() :
+                m_task(), m_cts(concurrency::cancellation_token_source::_FromImpl(nullptr)),
+                m_cancellable(nullptr) {}
+
             struct promise_type {
                 promise_type() : m_cancellable(std::make_shared<::winrt::cancellable_promise>()) {}
                 task get_return_object() {
@@ -684,12 +701,12 @@ namespace util {
                 void unhandled_exception() {
                     m_tce.set_exception(std::current_exception());
                 }
-                template <typename Expression>
+                template<typename Expression>
                 auto await_transform(Expression&& expression) {
                     if (m_cts.get_token().is_canceled()) {
                         throw ::winrt::hresult_canceled();
                     }
-                    return ::winrt::impl::notify_awaiter<Expression> {
+                    return ::winrt::impl::notify_awaiter<Expression>{
                         static_cast<Expression&&>(expression),
                             m_propagate_cancellation ? &*m_cancellable : nullptr
                     };
@@ -711,13 +728,13 @@ namespace util {
             bool await_ready() const {
                 return m_task.is_done();
             }
-            void await_suspend(std::coroutine_handle<> resume) {
+            void await_suspend(std::coroutine_handle<> resume) const {
                 m_task.then(
                     [resume](concurrency::task<void> const&) { resume(); },
                     concurrency::task_continuation_context::get_current_winrt_context()
                 );
             }
-            void await_resume() {
+            void await_resume() const {
                 m_task.get();
             }
             void enable_cancellation(::winrt::cancellable_promise* promise) {
@@ -732,6 +749,7 @@ namespace util {
             }
             ~task() {
                 // Swallow exceptions, if any
+                if (m_task == decltype(m_task){}) { return; }
                 m_task.then([](concurrency::task<void> const& task) {
                     try { task.wait(); }
                     catch (...) {}
@@ -856,8 +874,549 @@ namespace util {
             std::shared_ptr<data> m_data;
             std::mutex m_method_lock;
         };
+
+        namespace details {
+            template<typename T>
+            class has_get_weak {
+                template<typename U, typename = decltype(std::declval<U>().get_weak())>
+                static constexpr bool get_value(int) { return true; }
+                template<typename>
+                static constexpr bool get_value(...) { return false; }
+            public:
+                static constexpr bool value = get_value<T>(0);
+            };
+            template<typename>
+            struct is_com_ptr : std::false_type {};
+            template<typename T>
+            struct is_com_ptr<::winrt::com_ptr<T>> : std::true_type {};
+            template<typename T>
+            class has_member_operator_co_await {
+                template<typename U, typename = decltype(std::declval<U>().operator co_await())>
+                static constexpr bool get_value(int) { return true; }
+                template<typename>
+                static constexpr bool get_value(...) { return false; }
+            public:
+                static constexpr bool value = get_value<T>(0);
+            };
+            template<typename T>
+            class has_nonmember_operator_co_await {
+                template<typename U, typename = decltype(operator co_await(std::declval<U>()))>
+                static constexpr bool get_value(int) { return true; }
+                template<typename>
+                static constexpr bool get_value(...) { return false; }
+            public:
+                static constexpr bool value = get_value<T>(0);
+            };
+            /*template<typename T>
+            auto awaiter_from_awaitable(T&& awaitable) {
+                using OT = std::decay_t<T>;
+                if constexpr (has_member_operator_co_await<OT>::value) {
+                    return awaitable.operator co_await();
+                }
+                else if constexpr (has_nonmember_operator_co_await<OT>::value) {
+                    return operator co_await(static_cast<OT&&>(awaitable));
+                }
+                else {
+                    struct awaiter_wrapper {
+                        awaiter_wrapper(T a) : m_a(a) {}
+                        bool await_ready() const {
+                            return m_a.await_ready();
+                        }
+                        auto await_suspend(std::coroutine_handle<> resume) {
+                            return m_a.await_suspend(resume);
+                        }
+                        decltype(auto) await_resume() {
+                            return m_a.await_resume();
+                        }
+
+                        T m_a;
+                    };
+                    return awaiter_wrapper(awaitable);
+                }
+            }*/
+        }
+
+        // WARN: Don't use weak_storage directly. Instead, use make_weak_storage.
+        template<typename T>
+        struct weak_storage {
+            weak_storage() : m_weak_ref(nullptr), m_strong_ref(nullptr) {}
+            template<
+                typename U = ::winrt::impl::com_ref<T> const&,
+                typename = std::enable_if_t<std::is_constructible_v<::winrt::weak_ref<T>, U&&>>
+            > weak_storage(U&& object) :
+                m_weak_ref(::winrt::weak_ref{ std::forward<U>(object) }), m_strong_ref(nullptr) {}
+            weak_storage(::winrt::weak_ref<T> weak) : m_weak_ref(std::move(weak)), m_strong_ref(nullptr) {}
+
+            // Obtain a strong reference and pass ownership to caller
+            auto get(void) noexcept {
+                if (m_strong_ref) { return m_strong_ref; }
+                return m_weak_ref.get();
+            }
+            // Obtain a strong reference and lock ownership until unlocked or destructed
+            auto lock(void) noexcept {
+                if (!m_strong_ref) { m_strong_ref = this->get(); }
+                return m_strong_ref;
+            }
+            // Release previously locked ownership, if any
+            void unlock(void) noexcept {
+                m_strong_ref = nullptr;
+            }
+
+            // unlock-await-lock; throws hresult_canceled if failed
+            template<typename U>
+            auto ual(U&& awaitable) {
+                struct ual_awaitable {
+                    ual_awaitable() = delete;
+                    ual_awaitable(U&& awaitable, weak_storage* that) :
+                        m_awaiter(::winrt::impl::get_awaiter(static_cast<U&&>(awaitable))), m_that(that) {}
+                    bool await_ready() const {
+                        return m_awaiter.await_ready();
+                    }
+                    auto await_suspend(std::coroutine_handle<> resume) {
+                        m_that->unlock();
+                        return m_awaiter.await_suspend(resume);
+                    }
+                    decltype(auto) await_resume() {
+                        if (!m_that->lock()) {
+                            throw ::winrt::hresult_canceled(L"ual interrupted due to invalid weak reference");
+                        }
+                        return m_awaiter.await_resume();
+                    }
+                    decltype(::winrt::impl::get_awaiter(std::declval<U&&>())) m_awaiter;
+                    weak_storage* m_that;
+                };
+                return ual_awaitable{ static_cast<U&&>(awaitable), this };
+            }
+
+            // WARN: Make sure it is in locked state before using operator->
+            auto& operator*() noexcept {
+                assert(m_strong_ref != nullptr);
+                if constexpr (details::is_com_ptr<decltype(m_strong_ref)>::value) {
+                    return m_strong_ref.operator*();
+                }
+                else {
+                    return m_strong_ref;
+                }
+            }
+            // WARN: Make sure it is in locked state before using operator->
+            auto operator->() noexcept {
+                assert(m_strong_ref != nullptr);
+                if constexpr (details::is_com_ptr<decltype(m_strong_ref)>::value) {
+                    return m_strong_ref.operator->();
+                }
+                else {
+                    return &m_strong_ref;
+                }
+            }
+
+        private:
+            ::winrt::weak_ref<T> m_weak_ref;
+            ::winrt::impl::com_ref<T> m_strong_ref;
+        };
+        template<typename T>
+        weak_storage<::winrt::impl::wrapped_type_t<std::decay_t<T>>> make_weak_storage(T&& object) {
+            if constexpr (details::has_get_weak<T>::value) {
+                return object.get_weak();
+            }
+            else {
+                return std::forward<T>(object);
+            }
+        }
+
+        /*
+        // Logs unhandled exceptions
+        template<typename T, bool propagate = true>
+        struct co_exlog : T {
+            co_exlog(T& value) : T(value) {}
+            co_exlog(T&& value) : T(std::move(value)) {}
+        };
+        template<typename T, bool propagate, typename... Args>
+        struct std::coroutine_traits<co_exlog<T, propagate>, Args...> : std::coroutine_traits<T, Args...> {
+        protected:
+            template<typename T>
+            class has_return_void {
+                template<typename U, typename = decltype(std::declval<U>().return_void())>
+                static constexpr bool get_value(int) { return true; }
+                template<typename>
+                static constexpr bool get_value(...) { return false; }
+            public:
+                static constexpr bool value = get_value<T>(0);
+            };
+
+        public:
+            struct promise_type : std::coroutine_traits<T, Args...>::promise_type {
+                void unhandled_exception()
+                    noexcept(std::coroutine_traits<T, Args...>::unhandled_exception())
+                    override
+                {
+                    try { throw; }
+                    catch (::winrt::hresult_error const& e) {
+                        auto error_message = e.message();
+                        util::debug::log_error(
+                            std::format(L"Uncaught async exception(hresult_error): {}", error_message)
+                        );
+                        if (IsDebuggerPresent()) {
+                            __debugbreak();
+                        }
+                    }
+                    catch (std::exception const& e) {
+                        auto error_message = e.what();
+                        // %S: Microsoft-C++ specific
+                        util::debug::log_error(
+                            util::str::wstrprintf(L"Uncaught async exception(std::exception): %S", error_message)
+                        );
+                        if (IsDebuggerPresent()) {
+                            __debugbreak();
+                        }
+                    }
+                    catch (const wchar_t* e) {
+                        auto error_message = e;
+                        util::debug::log_error(
+                            std::format(L"Uncaught async exception(wchar_t*): {}", error_message)
+                        );
+                        if (IsDebuggerPresent()) {
+                            __debugbreak();
+                        }
+                    }
+                    catch (...) {
+                        auto error_message = L"Unknown exception was thrown";
+                        util::debug::log_error(
+                            std::format(L"Uncaught async exception(any): {}", error_message)
+                        );
+                        if (IsDebuggerPresent()) {
+                            __debugbreak();
+                        }
+                    }
+                    if constexpr (propagate) {
+                        std::coroutine_traits<T, Args...>::unhandled_exception();
+                        this->return_vod();
+                    }
+                    else {
+                        if constexpr (has_return_void<std::coroutine_traits<T, Args...>>::value) {
+                            this->return_vod();
+                        }
+                        else {
+                            this->return_vlue({});
+                        }
+                    }
+                }
+            };
+        };
+        */
+    }
+
+    namespace sync {
+        // UNLIKELY TODO: Implement unbounded mpsc channel with linked list
+        // TODO: Implement mutex-based mpmc channel
+
+        // TODO: Maybe place size_t_msb to a better place?
+        static constexpr size_t size_t_msb = ~(std::numeric_limits<size_t>::max() >> 1);
+        // NOTE: These masks are for heads & tails
+        static constexpr size_t disconnected_mask = size_t_msb;
+        // Sufficient to avoid ABA problems
+        static constexpr size_t turn_around_mask = size_t_msb >> 1;
+        static constexpr size_t value_mask = ~(disconnected_mask | turn_around_mask);
+        // NOTE: To close either sender or receiver, simply make them empty
+        // NOTE: mpsc_channel is a low-performace channel and provides strong order guarantee
+        // WARN: If multiple senders race, latecomers must wait until firstcomers finish
+        // WARN: NEVER access receivers across threads
+        // TODO: Fallback to std::atomic_flag version if atomic operations are not lock-free
+        // TODO: mpsc_channel may have issues; write unit tests
+        static_assert(
+            std::atomic<size_t>::is_always_lock_free,
+            "size_t operations are not lock-free; use mutex version instead"
+        );
+#pragma warning(push)
+#pragma warning(disable: 4324)
+        template<typename T>
+        struct mpsc_channel_shared_ring_buffer {
+            static_assert(
+                std::is_nothrow_move_constructible_v<T>&& std::is_nothrow_destructible_v<T>,
+                "mpsc_channel requires non-throwing types to work correctly. "
+                "Consider wrapping the type in a std::shared_ptr."
+            );
+
+            char* const buffer;
+            const size_t capacity;
+            // Use paired head & tail to ensure integrity
+            alignas(std::hardware_destructive_interference_size)
+                std::atomic<size_t> head1, tail1;   // Preallocated range
+            alignas(std::hardware_destructive_interference_size)
+                std::atomic<size_t> head2, tail2;   // Actual range
+            std::atomic<size_t> sender_count, receiver_count;
+
+            mpsc_channel_shared_ring_buffer(size_t n) :
+                buffer{ new(operator new(n * sizeof(T), std::align_val_t(alignof(T)))) char[n * sizeof(T)] },
+                capacity(n), head1(0), tail1(0), head2(0), tail2(0),
+                sender_count(0), receiver_count(0) {}
+            ~mpsc_channel_shared_ring_buffer() {
+                auto head = head2.load(), tail = tail2.load();
+                auto items_count = tail - head;
+                head %= capacity;
+                for (size_t i = 0; i < items_count; i++) {
+                    if (head >= capacity) {
+                        head = 0;
+                    }
+                    std::launder(reinterpret_cast<T*>(buffer + head * sizeof(T)))->~T();
+                    head++;
+                }
+                operator delete(
+                    reinterpret_cast<void*>(buffer),
+                    capacity * sizeof(T),
+                    std::align_val_t(alignof(T))
+                );
+            }
+
+            void disconnect_and_notify(void) noexcept {
+                head2.fetch_or(disconnected_mask);
+                tail2.fetch_or(disconnected_mask);
+                head2.notify_all();
+                tail2.notify_all();
+            }
+            char* get_raw_slot_ptr(size_t slot) noexcept {
+                //return buffer + (slot % capacity) * sizeof(T);
+                return buffer + (slot & (capacity - 1)) * sizeof(T);
+            }
+            T* get_slot_ptr(size_t slot) noexcept {
+                return std::launder(reinterpret_cast<T*>(get_raw_slot_ptr(slot)));
+            }
+        };
+#pragma warning(pop)
+        template<typename T>
+        struct mpsc_channel_sender {
+            mpsc_channel_sender() noexcept : m_shared(nullptr) {}
+            mpsc_channel_sender(std::shared_ptr<mpsc_channel_shared_ring_buffer<T>> shared) noexcept :
+                m_shared(std::move(shared))
+            {
+                m_shared->sender_count.fetch_add(1);
+            }
+            mpsc_channel_sender(mpsc_channel_sender const& other) noexcept : m_shared(other.m_shared) {
+                m_shared->sender_count.fetch_add(1);
+            }
+            mpsc_channel_sender(mpsc_channel_sender&& other) noexcept :
+                m_shared(std::move(other.m_shared)) {}
+            mpsc_channel_sender& operator=(mpsc_channel_sender other) noexcept {
+                m_shared.swap(other.m_shared);
+                return *this;
+            }
+            ~mpsc_channel_sender() {
+                if (!m_shared) { return; }
+                if (m_shared->sender_count.fetch_sub(1) == 1) {
+                    m_shared->disconnect_and_notify();
+                }
+            }
+            // If send failed, this means there are no available receivers
+            // WARN: send() will be blocked if backpressure occurs or firstcomers are sending
+            // WARN: Do NOT call send on empty senders
+            bool send(T value) const noexcept {
+                // Acquire a slot for writing
+                auto slot = m_shared->tail1.fetch_add(1);
+                // Wait until slot is empty
+                auto cur_real_head = m_shared->head2.load();
+                // NOTE: If cur_real_head has disconnected_mask set, the result is guaranteed
+                //       to be larger than capacity (because of unsigned integer modulo rule)
+                while (((slot - cur_real_head) & ~turn_around_mask) >= m_shared->capacity) {
+                    if (cur_real_head & disconnected_mask) {
+                        // Rollback
+                        m_shared->tail1.fetch_sub(1);
+                        return false;
+                    }
+                    m_shared->head2.wait(cur_real_head);
+                    cur_real_head = m_shared->head2.load();
+                }
+                // Wait until firstcomers complete
+                // NOTE: Make the wait section as small as possible
+                auto cur_real_tail = m_shared->tail2.load();
+                while (((slot - cur_real_tail) & ~turn_around_mask) > 0) {
+                    if (cur_real_tail & disconnected_mask) {
+                        // Rollback
+                        m_shared->tail1.fetch_sub(1);
+                        return false;
+                    }
+                    m_shared->tail2.wait(cur_real_tail);
+                    cur_real_tail = m_shared->tail2.load();
+                }
+                // Start actual writing operation
+                new(m_shared->get_raw_slot_ptr(slot)) T(std::move(value));
+                // Mark completion of writing
+                m_shared->tail2.fetch_add(1);
+                m_shared->tail2.notify_all();
+
+                return true;
+            }
+            // NOTE: If send failed, try_send() will return the value passed in;
+            //       otherwise returns std::nullopt
+            // WARN: While try_send() does not wait when buffer is full, it will
+            //       still wait for firstcomers
+            std::optional<T> try_send(T value) const noexcept {
+                // Try to acquire a slot
+                size_t slot;
+                do {
+                    // Get a slot for future writing
+                    slot = m_shared->tail1.load();
+                    // Make sure the slot is empty
+                    if (((slot - m_shared->head2.load()) & ~turn_around_mask) >= m_shared->capacity) {
+                        return std::optional<T>{ std::move(value) };
+                    }
+                    // Acquire the slot via CAS
+                } while (!m_shared->tail1.compare_exchange_weak(slot, slot + 1));
+                // Wait until firstcomers complete
+                auto cur_real_tail = m_shared->tail2.load();
+                while (((slot - cur_real_tail) & ~turn_around_mask) > 0) {
+                    if (cur_real_tail & disconnected_mask) {
+                        // Rollback
+                        m_shared->tail1.fetch_sub(1);
+                        return false;
+                    }
+                    m_shared->tail2.wait(cur_real_tail);
+                    cur_real_tail = m_shared->tail2.load();
+                }
+                // Start actual writing operation
+                new(m_shared->get_raw_slot_ptr(slot)) T(std::move(value));
+                // Mark completion of writing
+                m_shared->tail2.fetch_add(1);
+                m_shared->tail2.notify_all();
+
+                return std::nullopt;
+            }
+
+            bool is_disconnected(void) const noexcept {
+                return m_shared->receiver_count.load() == 0;
+            }
+
+        private:
+            std::shared_ptr<mpsc_channel_shared_ring_buffer<T>> m_shared;
+        };
+        template<typename T>
+        struct mpsc_channel_receiver {
+            mpsc_channel_receiver() noexcept : m_shared(nullptr) {}
+            mpsc_channel_receiver(std::shared_ptr<mpsc_channel_shared_ring_buffer<T>> shared) noexcept :
+                m_shared(std::move(shared))
+            {
+                m_shared->receiver_count.fetch_add(1);
+            }
+            mpsc_channel_receiver(mpsc_channel_receiver const&) = delete;
+            mpsc_channel_receiver(mpsc_channel_receiver&& other) noexcept :
+                m_shared(std::move(other.m_shared)) {}
+            mpsc_channel_receiver& operator=(mpsc_channel_receiver other) noexcept {
+                m_shared.swap(other.m_shared);
+                return *this;
+            }
+            ~mpsc_channel_receiver() {
+                if (!m_shared) { return; }
+                if (m_shared->receiver_count.fetch_sub(1) == 1) {
+                    m_shared->disconnect_and_notify();
+                }
+            }
+            // NOTE: If there are no data in buffer, recv will block the thread.
+            //       If all senders are gone, recv will return std::nullopt.
+            // WARN: Do NOT call recv on empty receivers
+            std::optional<T> recv(void) const noexcept {
+                // Acquire a slot for reading
+                auto slot = m_shared->head1.fetch_add(1);
+                // Wait until slot has data
+                // NOTE: If slot has data, readers will unconditionally continue, which
+                //       differs from senders' behaviour
+                auto cur_real_tail = m_shared->tail2.load();
+                while ((cur_real_tail & ~disconnected_mask) <= slot) {
+                    if (cur_real_tail & disconnected_mask) {
+                        // Rollback
+                        m_shared->head1.fetch_sub(1);
+                        return std::nullopt;
+                    }
+                    m_shared->tail2.wait(cur_real_tail);
+                    cur_real_tail = m_shared->tail2.load();
+                }
+                // Start actual reading operation
+                auto slot_ptr = m_shared->get_slot_ptr(slot);
+                std::optional<T> result{ std::move(*slot_ptr) };
+                slot_ptr->~T();
+                // Mark completion of reading
+                m_shared->head2.fetch_add(1);
+                m_shared->head2.notify_all();
+
+                // Extra: if slot has turn_around_mask set, perform a turn around
+                if (slot & turn_around_mask) {
+                    // Turning around should be transparent; no need no notify
+                    m_shared->head1.fetch_and(~turn_around_mask);
+                    m_shared->head2.fetch_and(~turn_around_mask);
+                    m_shared->tail1.fetch_and(~turn_around_mask);
+                    m_shared->tail2.fetch_and(~turn_around_mask);
+                }
+
+                return result;
+            }
+            std::optional<T> try_recv(void) const noexcept {
+                // Try to acquire a slot
+                size_t slot;
+                do {
+                    // Get a slot for future reading
+                    slot = m_shared->head1.load();
+                    // Make sure the slot has data
+                    auto cur_real_tail = m_shared->tail2.load();
+                    if ((cur_real_tail & ~disconnected_mask) <= slot) {
+                        return std::nullopt;
+                    }
+                    // Acquire the slot via CAS
+                } while (!m_shared->head1.compare_exchange_weak(slot, slot + 1));
+                // Start actual reading operation
+                auto slot_ptr = m_shared->get_slot_ptr(slot);
+                std::optional<T> result{ std::move(*slot_ptr) };
+                slot_ptr->~T();
+                // Mark completion of reading
+                m_shared->head2.fetch_add(1);
+                m_shared->head2.notify_all();
+
+                // Extra: if slot has turn_around_mask set, perform a turn around
+                if (slot & turn_around_mask) {
+                    // Turning around should be transparent; no need no notify
+                    m_shared->head1.fetch_and(~turn_around_mask);
+                    m_shared->head2.fetch_and(~turn_around_mask);
+                    m_shared->tail1.fetch_and(~turn_around_mask);
+                    m_shared->tail2.fetch_and(~turn_around_mask);
+                }
+
+                return result;
+            }
+
+            bool is_disconnected(void) const noexcept {
+                return m_shared->sender_count.load() == 0;
+            }
+
+        private:
+            std::shared_ptr<mpsc_channel_shared_ring_buffer<T>> m_shared;
+        };
+        // NOTE: Currently, we don't support too large capacity
+        template<typename T>
+        inline std::pair<mpsc_channel_sender<T>, mpsc_channel_receiver<T>> mpsc_channel_bounded(size_t n) {
+            if (n == 0) {
+                // Default value
+                n = std::max(0xffff / sizeof(T), std::size_t{ 1 });
+            }
+            // Make capacity power of 2 for simple turn around
+            n--;
+            n |= n >> 1;
+            n |= n >> 2;
+            n |= n >> 4;
+            if constexpr (sizeof(size_t) > 1) {
+                n |= n >> 8;
+            }
+            if constexpr (sizeof(size_t) > 2) {
+                n |= n >> 16;
+            }
+            if constexpr (sizeof(size_t) > 4) {
+                n |= n >> 32;
+            }
+            n++;
+            if (n >= std::min(turn_around_mask - 1, std::size_t{ 0x1fffffff })) {
+                throw std::invalid_argument("Capacity too large");
+            }
+            auto shared = std::make_shared<mpsc_channel_shared_ring_buffer<T>>(n);
+            return { shared, shared };
+        }
     }
 }
 
 // Preludes
 using util::winrt::fire_forget_except;
+//using util::winrt::co_exlog;

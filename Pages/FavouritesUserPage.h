@@ -93,6 +93,8 @@ namespace winrt::BiliUWP::implementation {
 
     private:
         BiliUWP::FavouriteUserViewPage_ViewItemSource m_view_item_src;
+
+        util::winrt::async_storage m_cur_async;
     };
 }
 

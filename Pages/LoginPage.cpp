@@ -50,10 +50,11 @@ namespace winrt::BiliUWP::implementation {
                 // Fetch QRCode (only for the first time) and poll
                 auto cancellation_token = co_await winrt::get_cancellation_token();
                 cancellation_token.enable_propagation();
+                auto weak_store = util::winrt::make_weak_storage(*that);
                 try {
                     if (that->m_qr_session.auth_code == L"") {
                         // Update QRCode
-                        co_await that->UpdateQRCcodeImage();
+                        co_await weak_store.ual(that->UpdateQRCcodeImage());
                     }
                     // Return early if the process has already failed
                     if (that->QRCodeReload().Visibility() == Visibility::Visible ||
@@ -62,9 +63,9 @@ namespace winrt::BiliUWP::implementation {
                         co_return;
                     }
                     // Poll QRCode
-                    for (;; co_await 3s) {
+                    for (;; co_await weak_store.ual(3s)) {
                         co_await that->Dispatcher();
-                        switch (co_await that->PollQRCcodeStatus()) {
+                        switch (co_await weak_store.ual(that->PollQRCcodeStatus())) {
                         case QRCodePollResult::Expired:
                             that->QRCodeReload().Visibility(Visibility::Visible);
                             co_return;
@@ -80,20 +81,10 @@ namespace winrt::BiliUWP::implementation {
                         }
                     }
                 }
-                catch (hresult_canceled const&) {
-                    co_return;
-                }
-                catch (hresult_error const& e) {
-                    that->QRCodeFailed().Visibility(Visibility::Visible);
-                    util::debug::log_error(e.message());
-                }
-                catch (::BiliUWP::BiliApiException const& e) {
-                    that->QRCodeFailed().Visibility(Visibility::Visible);
-                    util::debug::log_error(winrt::to_hstring(e.what()));
-                }
+                catch (hresult_canceled const&) {}
                 catch (...) {
+                    util::winrt::log_current_exception();
                     that->QRCodeFailed().Visibility(Visibility::Visible);
-                    util::debug::log_error(L"Unknown error occurred");
                 }
             }, this);
         }
@@ -119,14 +110,15 @@ namespace winrt::BiliUWP::implementation {
             // Reload QRCode and poll
             auto cancellation_token = co_await winrt::get_cancellation_token();
             cancellation_token.enable_propagation();
+            auto weak_store = util::winrt::make_weak_storage(*that);
             // Update QRCode
             that->QRCodeFailed().Visibility(Visibility::Collapsed);
             that->QRCodeReload().Visibility(Visibility::Collapsed);
             try {
-                co_await that->UpdateQRCcodeImage();
-                for (;; co_await 3s) {
+                co_await weak_store.ual(that->UpdateQRCcodeImage());
+                for (;; co_await weak_store.ual(3s)) {
                     co_await that->Dispatcher();
-                    switch (co_await that->PollQRCcodeStatus()) {
+                    switch (co_await weak_store.ual(that->PollQRCcodeStatus())) {
                     case QRCodePollResult::Expired:
                         that->QRCodeReload().Visibility(Visibility::Visible);
                         co_return;
@@ -142,20 +134,10 @@ namespace winrt::BiliUWP::implementation {
                     }
                 }
             }
-            catch (hresult_canceled const&) {
-                co_return;
-            }
-            catch (hresult_error const& e) {
-                that->QRCodeFailed().Visibility(Visibility::Visible);
-                util::debug::log_error(e.message());
-            }
-            catch (::BiliUWP::BiliApiException const& e) {
-                that->QRCodeFailed().Visibility(Visibility::Visible);
-                util::debug::log_error(winrt::to_hstring(e.what()));
-            }
+            catch (hresult_canceled const&) {}
             catch (...) {
+                util::winrt::log_current_exception();
                 that->QRCodeFailed().Visibility(Visibility::Visible);
-                util::debug::log_error(L"Unknown error occurred");
             }
         }, this);
     }
@@ -184,15 +166,14 @@ namespace winrt::BiliUWP::implementation {
         auto cancellation_token = co_await winrt::get_cancellation_token();
         cancellation_token.enable_propagation();
 
+        auto weak_store = util::winrt::make_weak_storage(*this);
+
         auto qrcode_image = this->QRCodeImage();
         qrcode_image.Source(nullptr);
         QRCodeProgRing().IsActive(true);
-        deferred([weak_this = this->get_weak()] {
-            auto strong_this = weak_this.get();
-            if (!strong_this) {
-                return;
-            }
-            strong_this->QRCodeProgRing().IsActive(false);
+        deferred([&weak_store] {
+            if (!weak_store.lock()) { return; }
+            weak_store->QRCodeProgRing().IsActive(false);
         });
 
         auto client = ::BiliUWP::App::get()->bili_client();
@@ -218,6 +199,7 @@ namespace winrt::BiliUWP::implementation {
         qrcode_image.Source(svg_img_src);
         co_await svg_img_src.SetSourceAsync(mem_stream);
 
+        if (!weak_store.lock()) { co_return; }
         m_qr_session = std::move(req_result);
     }
     util::winrt::task<QRCodePollResult> LoginPage::PollQRCcodeStatus(void) {

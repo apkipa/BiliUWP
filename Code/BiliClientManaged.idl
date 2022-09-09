@@ -84,7 +84,7 @@ namespace BiliUWP {
         Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_web_interface_nav_stat();
         //   https://api.bilibili.com/x/web-interface/card | cookies
         Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_web_interface_card(
-            UInt64 mid
+            UInt64 mid, Boolean get_photo
         );
 
         // Video information

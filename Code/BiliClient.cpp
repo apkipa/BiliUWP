@@ -1045,7 +1045,7 @@ namespace BiliUWP {
         auto cancellation_token = co_await winrt::get_cancellation_token();
         cancellation_token.enable_propagation();
 
-        auto jo = co_await m_bili_client.api_api_x_web_interface_card(mid);
+        auto jo = co_await m_bili_client.api_api_x_web_interface_card(mid, true);
         util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;

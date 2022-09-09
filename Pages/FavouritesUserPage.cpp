@@ -29,25 +29,35 @@ namespace winrt::BiliUWP::implementation {
         m_vec(single_threaded_observable_vector<Windows::Foundation::IInspectable>()),
         m_user_mid(user_mid), m_cur_page_n(0), m_has_more(true), m_total_items_count(0), 
         m_is_loading() {}
-    IAsyncOperation<LoadMoreItemsResult> FavouriteUserViewPage_ViewItemSource::LoadMoreItemsAsync(uint32_t count) {
+    IAsyncOperation<LoadMoreItemsResult> FavouriteUserViewPage_ViewItemSource::LoadMoreItemsAsync(
+        uint32_t count
+    ) {
         auto cancellation_token = co_await get_cancellation_token();
         cancellation_token.enable_propagation();
 
         // TODO: Should we store the async operation in order to cancel upon releasing self?
 
+        auto bili_client = ::BiliUWP::App::get()->bili_client();
+
+        auto weak_store = util::winrt::make_weak_storage(*this);
+
         if (m_is_loading.exchange(true)) { co_return{}; }
         m_loading_state_changed(*this, true);
-        deferred([weak_this = get_weak()] {
-            auto strong_this = weak_this.get();
-            if (!strong_this) { return; }
-            strong_this->m_loading_state_changed(*strong_this, false);
-            strong_this->m_is_loading.store(false);
+        deferred([&]() {
+            if (!weak_store.lock()) { return; }
+            weak_store->m_loading_state_changed(*weak_store, false);
+            weak_store->m_is_loading.store(false);
         });
 
+        auto on_exception_cleanup_fn = [&] {
+            if (!weak_store.lock()) { return; }
+            weak_store->m_has_more = false;
+        };
+
         try {
-            auto result = std::move(co_await ::BiliUWP::App::get()->bili_client()->user_fav_folders_list(
+            auto result = std::move(co_await weak_store.ual(bili_client->user_fav_folders_list(
                 m_user_mid, { .n = m_cur_page_n + 1, .size = 20 }, std::nullopt
-            ));
+            )));
             m_has_more = result.has_more;
             m_total_items_count = static_cast<uint32_t>(result.count);
             if (m_vec.Size() == 0) {
@@ -67,20 +77,13 @@ namespace winrt::BiliUWP::implementation {
 
             co_return { .Count = static_cast<uint32_t>(result.list.size()) };
         }
-        catch (::BiliUWP::BiliApiException const& e) {
-            util::debug::log_error(winrt::to_hstring(e.what()));
-            m_has_more = false;
-            co_return{};
+        catch (hresult_canceled const&) { on_exception_cleanup_fn(); }
+        catch (...) {
+            util::winrt::log_current_exception();
+            on_exception_cleanup_fn();
         }
-        catch (hresult_canceled const&) {
-            m_has_more = false;
-            co_return{};
-        }
-        catch (hresult_error const& e) {
-            util::debug::log_error(e.message());
-            m_has_more = false;
-            co_return{};
-        }
+
+        co_return{};
     }
 
     FavouritesUserPage::FavouritesUserPage() : m_view_item_src(nullptr) {}
@@ -95,13 +98,29 @@ namespace winrt::BiliUWP::implementation {
                 tab->set_title(::BiliUWP::App::res_str(L"App/Page/FavouritesUserPage/MyTitle"));
             }
             m_view_item_src = make<FavouriteUserViewPage_ViewItemSource>(uid);
-            // TODO: Use additional request to convert uid into user name
             TopTextInfoTitle().Text(::BiliUWP::App::res_str(
                 L"App/Page/FavouritesUserPage/TopTextInfoTitle",
                 std::format(L"uid{}", uid)
             ));
+            m_cur_async.cancel_and_run([](FavouritesUserPage* that, uint64_t uid) -> IAsyncAction {
+                auto cancellation_token = co_await get_cancellation_token();
+                cancellation_token.enable_propagation();
+
+                try {
+                    auto top_text_info_title = that->TopTextInfoTitle();
+                    auto card_info = std::move(
+                        co_await ::BiliUWP::App::get()->bili_client()->user_card_info(uid)
+                    );
+                    top_text_info_title.Text(::BiliUWP::App::res_str(
+                        L"App/Page/FavouritesUserPage/TopTextInfoTitle",
+                        card_info.card.name
+                    ));
+                }
+                catch (hresult_canceled const&) {}
+                catch (...) { util::winrt::log_current_exception(); }
+            }, this, uid);
             m_view_item_src.LoadingStateChanged(
-                [weak_this = get_weak()](IInspectable const& sender, bool is_loading) {
+                [weak_this = get_weak()](IInspectable const&, bool is_loading) {
                     auto strong_this = weak_this.get();
                     if (!strong_this) { return; }
                     auto prog_ring = strong_this->BottomProgRing();
