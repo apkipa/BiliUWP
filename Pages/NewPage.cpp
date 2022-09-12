@@ -80,7 +80,7 @@ namespace winrt::BiliUWP::implementation {
             sender.as<AutoSuggestBox>().Focus(FocusState::Programmatic);
         });
     }
-    void NewPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e) {
+    void NewPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const&) {
         auto tab = ::BiliUWP::App::get()->tab_from_page(*this);
         tab->set_icon(Symbol::Placeholder);
         tab->set_title(::BiliUWP::App::res_str(L"App/Page/NewPage/Title"));
@@ -166,8 +166,11 @@ namespace winrt::BiliUWP::implementation {
             );
             break;
         case BiliResType::FavouritesFolder:
-            // TODO: Implement remaining types of resources
-            throw hresult_not_implemented();
+            tab->navigate(
+                xaml_typename<winrt::BiliUWP::FavouritesFolderPage>(),
+                box_value(FavouritesFolderPageNavParam{ extract_nid_from_str(text, 4) })
+            );
+            break;
         case BiliResType::Live:
             // TODO: Implement remaining types of resources
             throw hresult_not_implemented();
@@ -195,7 +198,7 @@ namespace winrt::BiliUWP::implementation {
         app->add_tab(tab);
         tab->activate();
     }
-    void NewPage::Button_Settings_Click(IInspectable const&, RoutedEventArgs const& e) {
+    void NewPage::Button_Settings_Click(IInspectable const&, RoutedEventArgs const&) {
         auto tab = ::BiliUWP::make<::BiliUWP::AppTab>();
         tab->navigate(xaml_typename<winrt::BiliUWP::SettingsPage>());
         ::BiliUWP::App::get()->add_tab(tab);

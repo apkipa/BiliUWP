@@ -8,6 +8,7 @@
 using namespace winrt;
 using namespace Windows::Foundation;
 using namespace Windows::UI::Xaml;
+using namespace Windows::UI::Xaml::Media;
 using namespace Windows::UI::Xaml::Controls;
 using namespace Windows::UI::Xaml::Media::Imaging;
 using namespace Windows::Media;
@@ -18,6 +19,8 @@ using namespace Windows::Storage::Streams;
 using namespace Windows::Security::Cryptography;
 
 using ::BiliUWP::App::res_str;
+
+// TODO: Maybe implement GridSplitter to ease sidebar resizing
 
 namespace winrt::BiliUWP::implementation {
     MediaPlayPage::MediaPlayPage() :
@@ -130,6 +133,24 @@ namespace winrt::BiliUWP::implementation {
             m_bili_res_id_a = L"av" + to_hstring(video_vinfo.avid);
             m_bili_res_id_b = video_vinfo.bvid;
             m_bili_res_is_ready = true;
+
+            // Update media sidebar details
+            auto cover_img = BitmapImage(Uri(video_vinfo.cover_url));
+            cover_img.AutoPlay(false);
+            MediaCoverImage().Source(cover_img);
+            MediaTitle().Text(video_vinfo.title);
+            auto up_face_ellipse = UpFaceEllipse();
+            auto up_face_img = BitmapImage(Uri(video_vinfo.owner.face_url));
+            up_face_img.DecodePixelType(DecodePixelType::Logical);
+            up_face_img.DecodePixelWidth(up_face_ellipse.Width());
+            up_face_img.DecodePixelHeight(up_face_ellipse.Height());
+            up_face_img.AutoPlay(false);
+            auto up_face_img_brush = ImageBrush();
+            up_face_img_brush.ImageSource(up_face_img);
+            up_face_ellipse.Fill(up_face_img_brush);
+            UpName().Text(video_vinfo.owner.name);
+            MediaDescription().Text(video_vinfo.desc);
+
             weak_store.unlock();
 
             ::BiliUWP::VideoPlayUrlPreferenceParam param;

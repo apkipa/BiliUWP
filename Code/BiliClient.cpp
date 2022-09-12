@@ -622,7 +622,6 @@ namespace BiliUWP {
         jov.populate(result.language, "lan");
         jov.populate(result.language_doc, "lan_doc");
         jov.populate(result.locked, "is_lock");
-        jov.populate(result.author_mid, "author_mid");
         jov.populate(result.subtitle_url, "subtitle_url");
         jov.scope([&](JsonObjectVisitor jov) {
             jov.populate(result.author.mid, "mid");
@@ -1142,8 +1141,7 @@ namespace BiliUWP {
             jov.populate(result.pubdate, "pubdate");
             jov.populate(result.ctime, "ctime");
             jov.populate(result.desc, "desc");
-            //jov.scope(adapter::assign_vec{ result.desc_v2 }, "desc_v2");
-            jov.populate(result.desc_v2, "desc_v2");
+            jov.scope(adapter::assign_vec_or_null_as_empty{ result.desc_v2 }, "desc_v2");
             jov.populate(result.state, "state");
             jov.populate(result.duration, "duration");
             jov.populate(result.forward_avid, "forward");
@@ -1417,7 +1415,6 @@ namespace BiliUWP {
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
         jov.scope([&](JsonObjectVisitor jov) {
-            // TODO: Finish BiliClient::fav_folder_res_list()
             jov.scope([&](JsonObjectVisitor jov) {
                 jov.populate(result.info.id, "id");
                 jov.populate(result.info.fid, "fid");
@@ -1449,7 +1446,8 @@ namespace BiliUWP {
                 jov.scope(adapter::assign_num_0_1_to_bool{ result.info.is_liked }, "like_state");
                 jov.populate(result.info.media_count, "media_count");
             }, "info");
-            jov.populate(result.media_list, "medias");
+            jov.scope(adapter::assign_vec_or_null_as_empty{ result.media_list }, "medias");
+            jov.populate(result.has_more, "has_more");
         }, "data");
 
         co_return result;

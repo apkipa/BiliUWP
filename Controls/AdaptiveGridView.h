@@ -41,6 +41,10 @@ namespace winrt::BiliUWP::implementation {
         
         static unsigned long CalculateColumns(double container_width, double item_width);
 
+        static void final_release(std::unique_ptr<AdaptiveGridView> ptr) {
+            // NOTE: To correctly release GridView, one must set ItemsSource to null
+        }
+
     private:
         double CalculateItemWidth(double container_width);
         void RecalculateLayout(double container_width);

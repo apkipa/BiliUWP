@@ -138,6 +138,9 @@
     <Page Include="Pages\FavouritesUserPage.xaml">
       <Filter>Pages</Filter>
     </Page>
+    <Page Include="Pages\FavouritesFolderPage.xaml">
+      <Filter>Pages</Filter>
+    </Page>
   </ItemGroup>
   <ItemGroup>
     <PRIResource Include="Strings\Resources.language-en-US.resw">

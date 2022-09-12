@@ -8,8 +8,33 @@
     mc:Ignorable="d"
     Background="{ThemeResource SystemControlBackgroundAltHighBrush}">
 
+    <Page.Resources>
+        <Style TargetType="PivotItem" BasedOn="{StaticResource DefaultPivotItemStyle}">
+            <Setter Property="Margin" Value="0"/>
+        </Style>
+        <Style TargetType="PivotHeaderItem" BasedOn="{StaticResource DefaultPivotHeaderItemStyle}">
+            <Setter Property="FontSize" Value="20"/>
+        </Style>
+    </Page.Resources>
+
     <Grid>
-        <Grid x:Name="MediaPlayerPane">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup>
+                <VisualState>
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="1000"/>
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="MediaSidebar.Visibility" Value="Visible"/>
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+        <Grid x:Name="MediaPlayerPane" Grid.Column="0">
             <MediaPlayerElement x:Name="MediaPlayerElem"
                                 AutoPlay="True">
                 <MediaPlayerElement.ContextFlyout>
@@ -24,5 +49,30 @@
                        Visibility="Collapsed"
                        Foreground="Red"/>
         </Grid>
+        <Pivot x:Name="MediaSidebar" Grid.Column="1" Width="300" Visibility="Collapsed">
+            <PivotItem x:Uid="App/Page/MediaPlayPage/Sidebar/Details">
+                <ScrollViewer IsScrollInertiaEnabled="True"
+                      VerticalScrollBarVisibility="Auto">
+                    <StackPanel Orientation="Vertical" Spacing="6" Padding="10,8,10,0">
+                        <Image x:Name="MediaCoverImage"/>
+                        <TextBlock x:Name="MediaTitle" FontSize="19" TextWrapping="WrapWholeWords" IsTextSelectionEnabled="True"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="UpFaceEllipse" Height="36" Width="36" Margin="0,0,8,0" Stroke="{ThemeResource SystemBaseMediumColor}" StrokeThickness="0.3"/>
+                            <TextBlock x:Name="UpName" TextLineBounds="Tight" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBlock x:Name="MediaDescription" Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}" TextWrapping="WrapWholeWords" IsTextSelectionEnabled="True"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </PivotItem>
+            <PivotItem Header="Comments">
+                <TextBlock Text="Comments go here"/>
+            </PivotItem>
+            <PivotItem Header="Danmaku">
+                <TextBlock Text="Danmaku goes here"/>
+            </PivotItem>
+            <PivotItem Header="Recommendations">
+                <TextBlock Text="Recommendations go here"/>
+            </PivotItem>
+        </Pivot>
     </Grid>
 </Page>

@@ -7,7 +7,7 @@ namespace winrt::BiliUWP::implementation {
         NewPage();
         void InitializeComponent();
 
-        void OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e);
+        void OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const&);
 
         void SearchBox_PreviewKeyDown(
             Windows::Foundation::IInspectable const& sender,
@@ -24,11 +24,11 @@ namespace winrt::BiliUWP::implementation {
 
         void Button_MyFavourites_Click(
             Windows::Foundation::IInspectable const& sender,
-            Windows::UI::Xaml::RoutedEventArgs const& e
+            Windows::UI::Xaml::RoutedEventArgs const&
         );
         void Button_Settings_Click(
             Windows::Foundation::IInspectable const& sender,
-            Windows::UI::Xaml::RoutedEventArgs const& e
+            Windows::UI::Xaml::RoutedEventArgs const&
         );
 
     private:

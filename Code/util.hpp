@@ -393,17 +393,15 @@ namespace util {
 #define co_safe_capture(val) co_safe_capture_val(val)
 
         // TODO: Check if this function should be placed in util::debug instead
-        inline void log_current_exception(void) noexcept {
+        inline void log_current_exception(std::source_location loc = std::source_location::current()) noexcept {
             try { throw; }
             catch (::winrt::hresult_error const& e) {
                 auto error_message = e.message();
                 util::debug::log_error(std::format(
                     L"Uncaught async exception(hresult_error): 0x{:08x}: {}",
                     static_cast<uint32_t>(e.code()), error_message
-                ));
-                if (IsDebuggerPresent()) {
-                    __debugbreak();
-                }
+                ), loc);
+                if (IsDebuggerPresent()) { __debugbreak(); }
             }
             catch (std::exception const& e) {
                 auto error_message = e.what();
@@ -411,28 +409,22 @@ namespace util {
                 util::debug::log_error(std::format(
                     L"Uncaught async exception(std::exception): {}",
                     ::winrt::to_hstring(error_message)
-                ));
-                if (IsDebuggerPresent()) {
-                    __debugbreak();
-                }
+                ), loc);
+                if (IsDebuggerPresent()) { __debugbreak(); }
             }
             catch (const wchar_t* e) {
                 auto error_message = e;
-                util::debug::log_error(
-                    std::format(L"Uncaught async exception(wchar_t*): {}", error_message)
-                );
-                if (IsDebuggerPresent()) {
-                    __debugbreak();
-                }
+                util::debug::log_error(std::format(
+                    L"Uncaught async exception(wchar_t*): {}", error_message
+                ), loc);
+                if (IsDebuggerPresent()) { __debugbreak(); }
             }
             catch (...) {
                 auto error_message = L"Unknown exception was thrown";
-                util::debug::log_error(
-                    std::format(L"Uncaught async exception(any): {}", error_message)
-                );
-                if (IsDebuggerPresent()) {
-                    __debugbreak();
-                }
+                util::debug::log_error(std::format(
+                    L"Uncaught async exception(any): {}", error_message
+                ), loc);
+                if (IsDebuggerPresent()) { __debugbreak(); }
             }
         }
 

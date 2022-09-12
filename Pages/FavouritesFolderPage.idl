@@ -1,0 +1,35 @@
+namespace BiliUWP {
+    runtimeclass FavouritesFolderPage_ViewItem {
+        String Title{ get; };
+        // NOTE: If an item has no cover, this property will return a placeholder cover url
+        String CoverUrl{ get; };
+        String Description{ get; };
+        String UpName{ get; };
+        String UpFaceUrl{ get; };
+        UInt64 PlayCount{ get; };
+        UInt64 DanmakuCount{ get; };
+        UInt64 FavouriteCount{ get; };
+    };
+
+    [default_interface]
+    runtimeclass FavouritesFolderPage_ViewItemSource :
+        IObservableVector<IInspectable>, Windows.UI.Xaml.Data.ISupportIncrementalLoading
+    {
+        // Param: true => Loading; false => Loaded
+        event Windows.Foundation.EventHandler<Boolean> LoadingStateChanged;
+        void Reload();
+        String UpperName{ get; };
+        String FolderName{ get; };
+        UInt32 TotalItemsCount{ get; };
+    };
+
+    struct FavouritesFolderPageNavParam {
+        UInt64 folder_id;
+    };
+
+    [default_interface]
+    runtimeclass FavouritesFolderPage : Windows.UI.Xaml.Controls.Page {
+        FavouritesFolderPage();
+        FavouritesFolderPage_ViewItemSource ViewItemSource{ get; };
+    }
+}

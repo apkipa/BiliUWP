@@ -407,7 +407,6 @@ namespace BiliUWP {
         winrt::hstring language;
         winrt::hstring language_doc;
         bool locked;
-        uint64_t author_mid;
         winrt::hstring subtitle_url;
         struct {
             uint64_t mid;
@@ -696,6 +695,7 @@ namespace BiliUWP {
             uint64_t media_count;
         } info;
         std::vector<FavFolderResList_Media> media_list;
+        bool has_more;
     };
 
     // Parameter types

@@ -413,7 +413,15 @@ namespace BiliUWP {
                                 ).get();
                             }
                             // Write log to file
-                            FileIO::AppendLinesAsync(m_cur_log_file, { std::move(*result) }).get();
+                            try {
+                                FileIO::AppendLinesAsync(m_cur_log_file, { std::move(*result) }).get();
+                            }
+                            catch (...) {
+                                // We cannot go further; clean up and halt this thread
+                                m_cur_log_file = nullptr;
+                                util::winrt::log_current_exception();
+                                return;
+                            }
                         }
                     }
                 , std::move(rx));
@@ -804,11 +812,13 @@ namespace BiliUWP {
             if (!strong_this) { return; }
             update_menu_fn(std::move(strong_this));
         });
-        cmd_bar_fo.Closing([weak_this = weak_from_this()](IInspectable const&, IInspectable const&) {
+        cmd_bar_fo.Closing([weak_this = weak_from_this()](IInspectable const& sender, IInspectable const&) {
             auto strong_this = weak_this.lock();
             if (!strong_this) { return; }
             strong_this->m_cur_async.cancel_running();
         });
+        // TODO: Maybe (?) workaround CommandBarFlyout's buggy shadow?
+        //cmd_bar_fo.AlwaysExpanded(true);
         m_tab_item.ContextFlyout(cmd_bar_fo);
     }
     implementation::AppTab::~AppTab() {
@@ -886,7 +896,10 @@ winrt::BiliUWP::implementation::App::App() :
 
     UnhandledException([this](IInspectable const&, UnhandledExceptionEventArgs const& e) {
         auto error_message = e.Message();
-        util::debug::log_error(error_message);
+        util::debug::log_error(std::format(
+            L"Uncaught exception in application: 0x{:08x}: {}",
+            static_cast<uint32_t>(e.Exception()), error_message
+        ));
         if (IsDebuggerPresent()) {
             __debugbreak();
         }
@@ -1005,14 +1018,12 @@ void winrt::BiliUWP::implementation::App::OnLaunched(LaunchActivatedEventArgs co
                 auto ico_src = Microsoft::UI::Xaml::Controls::SymbolIconSource();
                 ico_src.Symbol(Symbol::Home);
                 home_tab->set_icon(ico_src);
-                home_tab->set_title(L"CHANGE THIS LATER");
+                home_tab->set_title(L"IMPLEMENT THIS");
                 auto prog_ring = ProgressRing();
                 prog_ring.IsActive(true);
                 prog_ring.Width(60);
                 prog_ring.Height(60);
-                //home_tab->navigate(xaml_typename<ContainerPage>(), box_value(L"111"));
                 home_tab->navigate(xaml_typename<ContainerPage>(), prog_ring);
-                //home_tab->navigate(xaml_typename<ContainerPage>(), box_value(L"333"));
                 m_app_inst->add_tab(home_tab);
                 home_tab->activate();
             }

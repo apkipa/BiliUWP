@@ -3,21 +3,23 @@
 #if __has_include("FavouritesUserPage.g.cpp")
 #include "FavouritesUserPage.g.cpp"
 #endif
-#include "FavouriteUserViewPage_ViewItem.g.cpp"
-#include "FavouriteUserViewPage_ViewItemSource.g.cpp"
+#include "FavouritesUserPage_ViewItem.g.cpp"
+#include "FavouritesUserPage_ViewItemSource.g.cpp"
 #include "App.h"
 
 using namespace winrt;
 using namespace Windows::UI::Xaml;
 using namespace Windows::UI::Xaml::Data;
+using namespace Windows::UI::Xaml::Input;
 using namespace Windows::UI::Xaml::Controls;
+using namespace Windows::UI::Xaml::Navigation;
 using namespace Windows::Foundation;
 using namespace Windows::Foundation::Collections;
 
 // TODO: We may use ItemsReorderAnimation for ItemsGridView in XAML
 
 namespace winrt::BiliUWP::implementation {
-    hstring FavouriteUserViewPage_ViewItem::AttrStr() {
+    hstring FavouritesUserPage_ViewItem::AttrStr() {
         if (m_data.attr & 1) {
             return ::BiliUWP::App::res_str(L"App/Page/FavouritesUserPage/Attributes/Private");
         }
@@ -25,11 +27,11 @@ namespace winrt::BiliUWP::implementation {
             return ::BiliUWP::App::res_str(L"App/Page/FavouritesUserPage/Attributes/Public");
         }
     }
-    FavouriteUserViewPage_ViewItemSource::FavouriteUserViewPage_ViewItemSource(uint64_t user_mid) :
+    FavouritesUserPage_ViewItemSource::FavouritesUserPage_ViewItemSource(uint64_t user_mid) :
         m_vec(single_threaded_observable_vector<Windows::Foundation::IInspectable>()),
         m_user_mid(user_mid), m_cur_page_n(0), m_has_more(true), m_total_items_count(0), 
         m_is_loading() {}
-    IAsyncOperation<LoadMoreItemsResult> FavouriteUserViewPage_ViewItemSource::LoadMoreItemsAsync(
+    IAsyncOperation<LoadMoreItemsResult> FavouritesUserPage_ViewItemSource::LoadMoreItemsAsync(
         uint32_t count
     ) {
         auto cancellation_token = co_await get_cancellation_token();
@@ -61,15 +63,15 @@ namespace winrt::BiliUWP::implementation {
             m_has_more = result.has_more;
             m_total_items_count = static_cast<uint32_t>(result.count);
             if (m_vec.Size() == 0) {
-                std::vector<winrt::BiliUWP::FavouriteUserViewPage_ViewItem> vec;
+                std::vector<winrt::BiliUWP::FavouritesUserPage_ViewItem> vec;
                 for (auto& i : result.list) {
-                    vec.push_back(winrt::make<FavouriteUserViewPage_ViewItem>(i));
+                    vec.push_back(winrt::make<FavouritesUserPage_ViewItem>(i));
                 }
                 m_vec.ReplaceAll(std::move(vec));
             }
             else {
                 for (auto& i : result.list) {
-                    m_vec.Append(winrt::make<FavouriteUserViewPage_ViewItem>(i));
+                    m_vec.Append(winrt::make<FavouritesUserPage_ViewItem>(i));
                 }
             }
 
@@ -87,7 +89,7 @@ namespace winrt::BiliUWP::implementation {
     }
 
     FavouritesUserPage::FavouritesUserPage() : m_view_item_src(nullptr) {}
-    void FavouritesUserPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e) {
+    void FavouritesUserPage::OnNavigatedTo(NavigationEventArgs const& e) {
         auto app = ::BiliUWP::App::get();
         auto tab = app->tab_from_page(*this);
         tab->set_icon(Symbol::OutlineStar);
@@ -97,7 +99,7 @@ namespace winrt::BiliUWP::implementation {
             if (to_hstring(uid) == app->cfg_model().User_Cookies_DedeUserID()) {
                 tab->set_title(::BiliUWP::App::res_str(L"App/Page/FavouritesUserPage/MyTitle"));
             }
-            m_view_item_src = make<FavouriteUserViewPage_ViewItemSource>(uid);
+            m_view_item_src = make<FavouritesUserPage_ViewItemSource>(uid);
             TopTextInfoTitle().Text(::BiliUWP::App::res_str(
                 L"App/Page/FavouritesUserPage/TopTextInfoTitle",
                 std::format(L"uid{}", uid)
@@ -128,12 +130,12 @@ namespace winrt::BiliUWP::implementation {
                     if (is_loading) {
                         prog_ring.IsActive(true);
                         prog_ring.Visibility(Visibility::Visible);
-                        info_text.Text(::BiliUWP::App::res_str(L"App/Page/FavouritesUserPage/Loading"));
+                        info_text.Text(::BiliUWP::App::res_str(L"App/Common/Loading"));
                     }
                     else {
                         prog_ring.IsActive(false);
                         prog_ring.Visibility(Visibility::Collapsed);
-                        info_text.Text(::BiliUWP::App::res_str(L"App/Page/FavouritesUserPage/AllLoaded"));
+                        info_text.Text(::BiliUWP::App::res_str(L"App/Common/AllLoaded"));
                         strong_this->TopTextInfoDesc().Text(::BiliUWP::App::res_str(
                             L"App/Page/FavouritesUserPage/TopTextInfoDesc",
                             to_hstring(strong_this->m_view_item_src.TotalItemsCount())
@@ -147,8 +149,8 @@ namespace winrt::BiliUWP::implementation {
         }
     }
     void FavouritesUserPage::AccKeyF5Invoked(
-        Windows::UI::Xaml::Input::KeyboardAccelerator const&,
-        Windows::UI::Xaml::Input::KeyboardAcceleratorInvokedEventArgs const& e
+        KeyboardAccelerator const&,
+        KeyboardAcceleratorInvokedEventArgs const& e
     ) {
         m_view_item_src.Reload();
         e.Handled(true);
@@ -157,5 +159,17 @@ namespace winrt::BiliUWP::implementation {
         Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&
     ) {
         m_view_item_src.Reload();
+    }
+    void FavouritesUserPage::ItemsGridView_ItemClick(
+        Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::ItemClickEventArgs const& e
+    ) {
+        auto vi = e.ClickedItem().as<FavouritesUserPage_ViewItem>();
+        auto tab = ::BiliUWP::make<::BiliUWP::AppTab>();
+        tab->navigate(
+            xaml_typename<winrt::BiliUWP::FavouritesFolderPage>(),
+            box_value(FavouritesFolderPageNavParam{ vi->FolderId() })
+        );
+        ::BiliUWP::App::get()->add_tab(tab);
+        tab->activate();
     }
 }

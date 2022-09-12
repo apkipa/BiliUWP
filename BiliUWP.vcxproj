@@ -176,6 +176,10 @@
       <DependentUpon>Pages\ContainerPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </ClInclude>
+    <ClInclude Include="Pages\FavouritesFolderPage.h">
+      <DependentUpon>Pages\FavouritesFolderPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClInclude>
     <ClInclude Include="Pages\FavouritesUserPage.h">
       <DependentUpon>Pages\FavouritesUserPage.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -213,6 +217,9 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Pages\ContainerPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Pages\FavouritesFolderPage.xaml">
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Pages\FavouritesUserPage.xaml">
@@ -253,6 +260,10 @@
     </ClCompile>
     <ClCompile Include="Pages\ContainerPage.cpp">
       <DependentUpon>Pages\ContainerPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClCompile>
+    <ClCompile Include="Pages\FavouritesFolderPage.cpp">
+      <DependentUpon>Pages\FavouritesFolderPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </ClCompile>
     <ClCompile Include="Pages\FavouritesUserPage.cpp">
@@ -311,6 +322,10 @@
     </Midl>
     <Midl Include="Pages\ContainerPage.idl">
       <DependentUpon>Pages\ContainerPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
+    <Midl Include="Pages\FavouritesFolderPage.idl">
+      <DependentUpon>Pages\FavouritesFolderPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Midl>
     <Midl Include="Pages\FavouritesUserPage.idl">

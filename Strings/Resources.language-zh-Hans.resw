@@ -117,6 +117,12 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="Add.Common.Loading" xml:space="preserve">
+    <value>加载中...</value>
+  </data>
+  <data name="App.Common.AllLoaded" xml:space="preserve">
+    <value>已全部加载完毕</value>
+  </data>
   <data name="App.Common.Back" xml:space="preserve">
     <value>后退</value>
   </data>
@@ -180,8 +186,14 @@
   <data name="App.Override.SR_TabViewCloseButtonTooltipWithKA" xml:space="preserve">
     <value>关闭选项卡(Ctrl+W)</value>
   </data>
-  <data name="App.Page.FavouritesUserPage.AllLoaded" xml:space="preserve">
-    <value>已全部加载完毕</value>
+  <data name="App.Page.FavouritesFolderPage.Title" xml:space="preserve">
+    <value>收藏夹详情</value>
+  </data>
+  <data name="App.Page.FavouritesFolderPage.TopTextInfoDesc" xml:space="preserve">
+    <value>共 {0} 项</value>
+  </data>
+  <data name="App.Page.FavouritesFolderPage.TopTextInfoTitle" xml:space="preserve">
+    <value>{0} 的收藏夹 {1}</value>
   </data>
   <data name="App.Page.FavouritesUserPage.Attributes.Private" xml:space="preserve">
     <value>私密</value>
@@ -189,14 +201,8 @@
   <data name="App.Page.FavouritesUserPage.Attributes.Public" xml:space="preserve">
     <value>公开</value>
   </data>
-  <data name="App.Page.FavouritesUserPage.Loading" xml:space="preserve">
-    <value>加载中...</value>
-  </data>
   <data name="App.Page.FavouritesUserPage.MyTitle" xml:space="preserve">
     <value>我的收藏</value>
-  </data>
-  <data name="App.Page.FavouritesUserPage.RefreshItem.Tooltip.Text" xml:space="preserve">
-    <value>刷新</value>
   </data>
   <data name="App.Page.FavouritesUserPage.Title" xml:space="preserve">
     <value>用户收藏</value>
@@ -236,6 +242,9 @@
   </data>
   <data name="App.Page.MediaPlayPage.Error.Unknown" xml:space="preserve">
     <value>发生了未知错误</value>
+  </data>
+  <data name="App.Page.MediaPlayPage.Sidebar.Details.Header" xml:space="preserve">
+    <value>详情</value>
   </data>
   <data name="App.Page.MediaPlayPage.Title" xml:space="preserve">
     <value>媒体播放页</value>
@@ -326,6 +335,9 @@
   </data>
   <data name="App.XCommon.Login.Content" xml:space="preserve">
     <value>登录</value>
+  </data>
+  <data name="App.XCommon.Refresh.Text" xml:space="preserve">
+    <value>刷新</value>
   </data>
   <data name="App.XCommon.Reload.Content" xml:space="preserve">
     <value>重新加载</value>

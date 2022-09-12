@@ -1,7 +1,7 @@
 #pragma once
 #include "BiliClientManaged.g.h"
 
-// BiliClientManaged: A thin wrapping for simple RPC purpose
+// BiliClientManaged: A thin wrapper for simple RPC purpose
 
 namespace winrt::BiliUWP::implementation {
     struct BiliClientManaged : BiliClientManagedT<BiliClientManaged> {
