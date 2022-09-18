@@ -117,9 +117,6 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="Add.Common.Loading" xml:space="preserve">
-    <value>加载中...</value>
-  </data>
   <data name="App.Common.AllLoaded" xml:space="preserve">
     <value>已全部加载完毕</value>
   </data>
@@ -131,6 +128,12 @@
   </data>
   <data name="App.Common.Forward" xml:space="preserve">
     <value>前进</value>
+  </data>
+  <data name="App.Common.LoadFailed" xml:space="preserve">
+    <value>加载失败</value>
+  </data>
+  <data name="App.Common.Loading" xml:space="preserve">
+    <value>加载中...</value>
   </data>
   <data name="App.Common.Login" xml:space="preserve">
     <value>登录</value>
@@ -179,6 +182,9 @@
   </data>
   <data name="App.Menu.AppTab.WaitingForRes.Text" xml:space="preserve">
     <value>正在等待资源加载...</value>
+  </data>
+  <data name="App.Menu.MediaPlayer.ShowDetailedStats.Text" xml:space="preserve">
+    <value>显示详细统计信息</value>
   </data>
   <data name="App.Menu.MediaPlayer.UseSystemControls.Text" xml:space="preserve">
     <value>使用系统媒体控件</value>
@@ -235,10 +241,10 @@
     <value>警告: 如果你不知道这意味着什么，请不要继续操作。</value>
   </data>
   <data name="App.Page.MediaPlayPage.Error.IllegalNavParam" xml:space="preserve">
-    <value>错误: 页面导航参数非法</value>
+    <value>页面导航参数非法</value>
   </data>
   <data name="App.Page.MediaPlayPage.Error.ServerAPIFailed" xml:space="preserve">
-    <value>错误: 服务器 API 调用失败，视频可能不存在或程序出现了 BUG</value>
+    <value>服务器 API 调用失败，音/视频可能不存在或程序出现了 BUG</value>
   </data>
   <data name="App.Page.MediaPlayPage.Error.Unknown" xml:space="preserve">
     <value>发生了未知错误</value>
@@ -276,6 +282,12 @@
   </data>
   <data name="App.Page.SettingsPage.Appearance.Text" xml:space="preserve">
     <value>外观</value>
+  </data>
+  <data name="App.Page.SettingsPage.App_AlwaysSyncPlayingCfg.Header" xml:space="preserve">
+    <value>总是同步当前视频播放设置至全局</value>
+  </data>
+  <data name="App.Page.SettingsPage.App_GlobalVolume.Header" xml:space="preserve">
+    <value>全局音量</value>
   </data>
   <data name="App.Page.SettingsPage.App_IsDeveloper.Header" xml:space="preserve">
     <value>启用开发者模式</value>
@@ -322,6 +334,9 @@
   </data>
   <data name="App.Page.SettingsPage.OpenStorageFolderButton.Content" xml:space="preserve">
     <value>打开应用存储文件夹</value>
+  </data>
+  <data name="App.Page.SettingsPage.Playing.Text" xml:space="preserve">
+    <value>播放</value>
   </data>
   <data name="App.Page.SettingsPage.Storage.Text" xml:space="preserve">
     <value>存储</value>

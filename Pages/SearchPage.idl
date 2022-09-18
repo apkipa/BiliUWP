@@ -1,0 +1,6 @@
+namespace BiliUWP {
+    [default_interface]
+    runtimeclass SearchPage : Windows.UI.Xaml.Controls.Page {
+        SearchPage();
+    }
+}

@@ -150,7 +150,7 @@ namespace winrt::BiliUWP::implementation {
         default:
             util::debug::log_error(std::format(
                 L"Unsupported or unimplemented resource type {}",
-                util::misc::enum_to_int(res_item_type)
+                std::to_underlying(res_item_type)
             ));
             return;
         }

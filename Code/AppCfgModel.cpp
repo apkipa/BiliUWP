@@ -6,6 +6,8 @@
 #define apply_props_list(functor)                                                   \
     functor(ConfigVersion, L"0.1.0");                                               \
     functor(App_UseTabView, true);                                                  \
+    functor(App_AlwaysSyncPlayingCfg, true);                                        \
+    functor(App_GlobalVolume, 1000);                                                \
     functor(App_PersistClipboardAfterExit, false);                                  \
     functor(App_SimplifyVisualsLevel, 0);                                           \
     functor(App_IsDeveloper, false);                                                \
@@ -66,6 +68,7 @@ namespace winrt::BiliUWP::implementation {
         }                                                                       \
     }                                                                           \
     void AppCfgModel::key(ParamT<key##_type> value) {                           \
+        if (value == this->key()) { return; }                                   \
         this->SetItemBoxed(L"" #key, box_value(value));                         \
         m_PropertyChanged(*this, PropertyChangedEventArgs{ L"" #key });         \
     }

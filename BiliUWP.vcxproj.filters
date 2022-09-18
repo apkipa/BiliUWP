@@ -20,6 +20,9 @@
     <Midl Include="Code\Converters.idl">
       <Filter>Code</Filter>
     </Midl>
+    <Midl Include="Code\HttpRandomAccessStream.idl">
+      <Filter>Code</Filter>
+    </Midl>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
@@ -49,6 +52,9 @@
     <ClCompile Include="Code\Converters.cpp">
       <Filter>Code</Filter>
     </ClCompile>
+    <ClCompile Include="Code\HttpRandomAccessStream.cpp">
+      <Filter>Code</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -74,6 +80,9 @@
       <Filter>Controls\AdaptiveGridView</Filter>
     </ClInclude>
     <ClInclude Include="Code\Converters.h">
+      <Filter>Code</Filter>
+    </ClInclude>
+    <ClInclude Include="Code\HttpRandomAccessStream.h">
       <Filter>Code</Filter>
     </ClInclude>
   </ItemGroup>
@@ -139,6 +148,15 @@
       <Filter>Pages</Filter>
     </Page>
     <Page Include="Pages\FavouritesFolderPage.xaml">
+      <Filter>Pages</Filter>
+    </Page>
+    <Page Include="Controls\SimpleStateOverlay.xaml">
+      <Filter>Controls</Filter>
+    </Page>
+    <Page Include="Pages\UserPage.xaml">
+      <Filter>Pages</Filter>
+    </Page>
+    <Page Include="Pages\SearchPage.xaml">
       <Filter>Pages</Filter>
     </Page>
   </ItemGroup>

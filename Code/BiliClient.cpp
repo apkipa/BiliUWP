@@ -719,7 +719,7 @@ namespace BiliUWP {
         jov.populate(result.size, "size");
         jov.populate(result.bps, "bps");
         jov.populate(result.tag, "tag");
-        jov.populate(result.require_membership, "require");
+        jov.scope(adapter::assign_num_0_1_to_bool{ result.require_membership }, "require");
         jov.populate(result.require_membership_desc, "requiredesc");
         return result;
     }
@@ -1225,8 +1225,10 @@ namespace BiliUWP {
             }
         }, vid);
         api_prefers.prefer_dash = prefers.prefer_dash;
-        api_prefers.prefer_4k = prefers.prefer_4k;
         api_prefers.prefer_hdr = prefers.prefer_hdr;
+        api_prefers.prefer_4k = prefers.prefer_4k;
+        api_prefers.prefer_dolby = prefers.prefer_dolby;
+        api_prefers.prefer_8k = prefers.prefer_8k;
         api_prefers.prefer_av1 = prefers.prefer_av1;
 
         auto jo = co_await m_bili_client.api_api_x_player_playurl(avid, bvid, cid, api_prefers);
@@ -1268,6 +1270,7 @@ namespace BiliUWP {
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
         jov.scope([&](JsonObjectVisitor jov) {
+            jov.populate(result.auid, "id");
             jov.populate(result.uid, "uid");
             jov.populate(result.uname, "uname");
             jov.populate(result.author, "author");
@@ -1339,7 +1342,7 @@ namespace BiliUWP {
 
         auto jo = co_await m_bili_client.api_api_x_v3_fav_folder_created_list(
             mid, winrt::BiliUWP::ApiParam_Page{ page.n, page.size },
-            util::misc::map_optional(std::move(item_to_find), [](FavItemLookupParam v) {
+            item_to_find.transform([](FavItemLookupParam v) {
                 return winrt::BiliUWP::ApiParam_FavItemLookup{
                     v.nid, static_cast<winrt::BiliUWP::ApiData_ResType>(v.type)
                 };
@@ -1366,7 +1369,7 @@ namespace BiliUWP {
         cancellation_token.enable_propagation();
 
         auto jo = co_await m_bili_client.api_api_x_v3_fav_folder_created_list_all(
-            mid, util::misc::map_optional(std::move(item_to_find), [](FavItemLookupParam v) {
+            mid, item_to_find.transform([](FavItemLookupParam v) {
                 return winrt::BiliUWP::ApiParam_FavItemLookup{
                     v.nid, static_cast<winrt::BiliUWP::ApiData_ResType>(v.type)
                 };

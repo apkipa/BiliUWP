@@ -21,6 +21,7 @@
             <Setter Property="CornerRadius" Value="{ThemeResource OverlayCornerRadius}"/>
         </Style>
     </ContentControl.Resources>
+
     <ContentControl.Template>
         <ControlTemplate TargetType="local:SimpleContentDialog">
             <Border x:Name="Container">
@@ -315,99 +316,4 @@
             </Border>
         </ControlTemplate>
     </ContentControl.Template>
-
-    <!--
-    <Grid x:Name="Container">
-        <Rectangle x:Name="RootBackground"
-                   Fill="{ThemeResource ContentDialogDimmingThemeBrush}"/>
-        <Border x:Name="BackgroundElement"
-                Background="{x:Bind Background}"
-                FlowDirection="{x:Bind FlowDirection}"
-                BorderThickness="{x:Bind BorderThickness}"
-                BorderBrush="{x:Bind BorderBrush}"
-                CornerRadius="{x:Bind CornerRadius}"
-                MinWidth="{ThemeResource ContentDialogMinWidth}"
-                MaxWidth="{ThemeResource ContentDialogMaxWidth}"
-                MinHeight="{ThemeResource ContentDialogMinHeight}"
-                MaxHeight="{ThemeResource ContentDialogMaxHeight}"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center">
-            <Border.Shadow>
-                <ThemeShadow/>
-            </Border.Shadow>
-            <Grid x:Name="DialogSpace"
-                  Padding="{ThemeResource ContentDialogPadding}">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                <ScrollViewer x:Name="ContentScrollViewer"
-                              HorizontalScrollBarVisibility="Disabled"
-                              VerticalScrollBarVisibility="Disabled"
-                              ZoomMode="Disabled"
-                              Margin="{ThemeResource ContentDialogContentScrollViewerMargin}"
-                              IsTabStop="False">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                    <ContentControl x:Name="Title"
-                                    Margin="{ThemeResource ContentDialogTitleMargin}"
-                                    Content="{x:Bind Title}"
-                                    FontSize="20"
-                                    FontFamily="{ThemeResource ContentControlThemeFontFamily}"
-                                    FontWeight="Normal"
-                                    Foreground="{x:Bind Foreground}"
-                                    HorizontalAlignment="Left"
-                                    VerticalAlignment="Top"
-                                    IsTabStop="False">
-                        <ContentControl.Template>
-                            <ControlTemplate TargetType="ContentControl">
-                                    <ContentPresenter Content="{TemplateBinding Content}"
-                                                      MaxLines="2"
-                                                      TextWrapping="Wrap"
-                                                      ContentTemplate="{TemplateBinding ContentTemplate}"
-                                                      Margin="{TemplateBinding Padding}"
-                                                      ContentTransitions="{TemplateBinding ContentTransitions}"
-                                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
-                                </ControlTemplate>
-                        </ContentControl.Template>
-                    </ContentControl>
-                    <ContentPresenter x:Name="Content"
-                                      Content="{x:Bind Content}"
-                                      FontSize="{ThemeResource ControlContentThemeFontSize}"
-                                      FontFamily="{ThemeResource ContentControlThemeFontFamily}"
-                                      Margin="{ThemeResource ContentDialogContentMargin}"
-                                      Foreground="{x:Bind Foreground}"
-                                      Grid.Row="1"
-                                      TextWrapping="Wrap"/>
-                    </Grid>
-                </ScrollViewer>
-                <Grid x:Name="CommandSpace"
-                      Grid.Row="1"
-                      HorizontalAlignment="Stretch"
-                      VerticalAlignment="Bottom"
-                      XYFocusKeyboardNavigation="Enabled"
-                      Margin="{ThemeResource ContentDialogCommandSpaceMargin}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition/>
-                        <ColumnDefinition Width="0.5*"/>
-                        <ColumnDefinition Width="0.5*"/>
-                        <ColumnDefinition/>
-                    </Grid.ColumnDefinitions>
-                    <Button x:Name="CloseButton"
-                            Content="{x:Bind CloseButtonText}"
-                            IsTabStop="False"
-                            Style="{ThemeResource DefaultButtonStyle}"
-                            ElementSoundMode="FocusOnly"
-                            HorizontalAlignment="Stretch"
-                            VerticalAlignment="Stretch"
-                            Margin="2,0,0,0" Grid.Column="3"/>
-                </Grid>
-            </Grid>
-        </Border>
-    </Grid>
-    -->
 </ContentControl>

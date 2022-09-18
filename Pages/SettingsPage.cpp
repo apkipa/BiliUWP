@@ -15,31 +15,6 @@ using namespace Windows::UI::Xaml::Controls;
 using namespace Windows::ApplicationModel::DataTransfer;
 using namespace Windows::Storage;
 
-std::wstring size_to_str(size_t size, double precision) {
-    double float_size = static_cast<double>(size);
-    const wchar_t* size_postfix;
-    uint64_t power_of_size = 0;
-
-    while (float_size >= 1024) {
-        float_size /= 1024;
-        power_of_size++;
-    }
-    switch (power_of_size) {
-    case 0:     size_postfix = L"B";        break;
-    case 1:     size_postfix = L"KiB";      break;
-    case 2:     size_postfix = L"MiB";      break;
-    case 3:     size_postfix = L"GiB";      break;
-    case 4:     size_postfix = L"TiB";      break;
-    case 5:     size_postfix = L"PiB";      break;
-    case 6:     size_postfix = L"EiB";      break;
-    default:    size_postfix = L"<ERROR>";  break;
-    }
-    return std::format(L"{} {}",
-        std::round(float_size * precision) / precision,
-        size_postfix
-    );
-}
-
 namespace winrt::BiliUWP::implementation {
     SettingsPage::SettingsPage() :
         m_cfg_model(::BiliUWP::App::get()->cfg_model()), m_app_name_ver_text_click_times(0) {}
@@ -146,10 +121,11 @@ namespace winrt::BiliUWP::implementation {
 
                 success_mark.Visibility(Visibility::Visible);
             }
-            catch (hresult_canceled const&) {}
+            catch (hresult_canceled const&) { throw; }
             catch (...) {
                 util::debug::log_error(L"Unable to import config");
                 util::winrt::log_current_exception();
+                throw;
             }
         }, this);
     }
@@ -187,19 +163,22 @@ namespace winrt::BiliUWP::implementation {
                 auto ac_inetcache_folder_path = local_cache_folder_path + L"\\..\\AC\\INetCache";
                 auto local_cache_size = co_await util::winrt::calc_folder_size(local_cache_folder_path);
                 auto sys_cache_size = co_await util::winrt::calc_folder_size(ac_inetcache_folder_path);
-                result_text.Text(size_to_str(local_cache_size + sys_cache_size, cache_size_precision));
+                result_text.Text(
+                    util::str::size_to_str(local_cache_size + sys_cache_size, cache_size_precision)
+                );
                 ToolTipService::SetToolTip(result_text, box_value(::BiliUWP::App::res_str(
                     L"App/Page/SettingsPage/CalculateCacheResultText_ToolTip",
-                    size_to_str(local_cache_size, cache_size_precision),
-                    size_to_str(sys_cache_size, cache_size_precision)
+                    util::str::size_to_str(local_cache_size, cache_size_precision),
+                    util::str::size_to_str(sys_cache_size, cache_size_precision)
                 )));
 
                 result_text.Visibility(Visibility::Visible);
             }
-            catch (hresult_canceled const&) {}
+            catch (hresult_canceled const&) { throw; }
             catch (...) {
                 util::debug::log_error(L"Unable to calculate cache size");
                 util::winrt::log_current_exception();
+                throw;
             }
         }, this);
     }
@@ -232,10 +211,11 @@ namespace winrt::BiliUWP::implementation {
 
                 success_mark.Visibility(Visibility::Visible);
             }
-            catch (hresult_canceled const&) {}
+            catch (hresult_canceled const&) { throw; }
             catch (...) {
                 util::debug::log_error(L"Unable to clear cache");
                 util::winrt::log_current_exception();
+                throw;
             }
         }, this);
     }

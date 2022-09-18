@@ -22,22 +22,11 @@ namespace util {
             T m_func;
         };
 
-        template<typename T, std::enable_if_t<std::is_enum_v<T>, int> = 0>
-        constexpr std::underlying_type_t<T> enum_to_int(T const& value) {
-            return static_cast<std::underlying_type_t<T>>(value);
-        }
-
         template<typename>
         inline constexpr bool always_false_v = false;
 
         template<typename, typename U>
         using discard_first_type = U;
-
-        template<typename T, typename Functor>
-        auto map_optional(std::optional<T> opt, Functor&& functor) {
-            using RetType = std::decay_t<decltype(functor(*opt))>;
-            return opt ? std::optional{ functor(std::move(*opt)) } : std::optional<RetType>{ std::nullopt };
-        }
     }
 
     namespace str {
@@ -139,6 +128,31 @@ namespace util {
         constexpr void write_u64_hex_swap(uint64_t n, wchar_t buf[16]) {
             write_u32_hex_swap(n & 0xffffffff, buf);
             write_u32_hex_swap(n >> 32, buf + 8);
+        }
+
+        inline std::wstring size_to_str(size_t size, double precision = 1) {
+            double float_size = static_cast<double>(size);
+            const wchar_t* size_postfix;
+            uint64_t power_of_size = 0;
+
+            while (float_size >= 1024) {
+                float_size /= 1024;
+                power_of_size++;
+            }
+            switch (power_of_size) {
+            case 0:     size_postfix = L"B";        break;
+            case 1:     size_postfix = L"KiB";      break;
+            case 2:     size_postfix = L"MiB";      break;
+            case 3:     size_postfix = L"GiB";      break;
+            case 4:     size_postfix = L"TiB";      break;
+            case 5:     size_postfix = L"PiB";      break;
+            case 6:     size_postfix = L"EiB";      break;
+            default:    size_postfix = L"<ERROR>";  break;
+            }
+            return std::format(L"{} {}",
+                std::round(float_size * precision) / precision,
+                size_postfix
+            );
         }
     }
 
@@ -545,6 +559,12 @@ namespace util {
             );
         }
 
+        inline auto make_text_block(::winrt::hstring const& text) {
+            ::winrt::Windows::UI::Xaml::Controls::TextBlock tb;
+            tb.Text(text);
+            return tb;
+        }
+
         // Source: https://rudyhuyn.azurewebsites.net/blog/2019/09/25/detect-the-display-mode-of-your-uwp-window/
         enum class AppViewWindowingMode {
             Unknown,
@@ -637,6 +657,8 @@ namespace util {
                     concurrency::task_continuation_context::get_current_winrt_context()
                 );
             }
+            // TODO: msvc is possibly dishonoring the lvalue reference and forcing
+            //       a move; double check and report this in the future
             ReturnType& await_resume() const {
                 return *m_task.get();
             }
@@ -799,7 +821,9 @@ namespace util {
             void cancel_and_run(Functor&& functor, Args... args) {
                 std::scoped_lock method_call_guard{ m_method_lock };
                 safe_cancel_clear();
-                auto async = std::invoke(std::forward<Functor>(functor), std::forward<Args>(args)...);
+                auto async = transform_async(
+                    std::invoke(std::forward<Functor>(functor), std::forward<Args>(args)...)
+                );
                 {
                     std::scoped_lock guard{ m_data->lock };
                     m_data->async = async;
@@ -842,6 +866,19 @@ namespace util {
                 m_data->lock.unlock();
                 if (old_async) {
                     old_async.Cancel();
+                }
+            }
+
+            template<typename T>
+            auto transform_async(T&& async) {
+                if constexpr (std::is_convertible_v<T, ::winrt::Windows::Foundation::IAsyncInfo>) {
+                    return std::forward<T>(async);
+                }
+                else {
+                    // TODO: Maybe optimize performance by not creating a new coroutine
+                    return [](T&& async) -> ::winrt::Windows::Foundation::IAsyncAction {
+                        co_await async;
+                    }(std::forward<T>(async));
                 }
             }
 
@@ -957,10 +994,18 @@ namespace util {
             // unlock-await-lock; throws hresult_canceled if failed
             template<typename U>
             auto ual(U&& awaitable) {
-                struct ual_awaitable {
+                struct ual_awaitable : ::winrt::enable_await_cancellation {
                     ual_awaitable() = delete;
                     ual_awaitable(U&& awaitable, weak_storage* that) :
                         m_awaiter(::winrt::impl::get_awaiter(static_cast<U&&>(awaitable))), m_that(that) {}
+                    void enable_cancellation(::winrt::cancellable_promise* promise) {
+                        if constexpr (std::is_convertible_v<
+                            std::remove_reference_t<decltype(m_awaiter)>&, enable_await_cancellation&
+                        >) {
+                            // NOTE: Cancellation revoking happens in this class, not in the inner awaiter
+                            m_awaiter.enable_cancellation(promise);
+                        }
+                    }
                     bool await_ready() const {
                         return m_awaiter.await_ready();
                     }
@@ -974,6 +1019,7 @@ namespace util {
                         }
                         return m_awaiter.await_resume();
                     }
+
                     decltype(::winrt::impl::get_awaiter(std::declval<U&&>())) m_awaiter;
                     weak_storage* m_that;
                 };
@@ -1015,86 +1061,35 @@ namespace util {
             }
         }
 
-        /*
-        // Logs unhandled exceptions
-        template<typename T, bool propagate = true>
-        struct co_exlog : T {
-            co_exlog(T& value) : T(value) {}
-            co_exlog(T&& value) : T(std::move(value)) {}
-        };
-        template<typename T, bool propagate, typename... Args>
-        struct std::coroutine_traits<co_exlog<T, propagate>, Args...> : std::coroutine_traits<T, Args...> {
-        protected:
-            template<typename T>
-            class has_return_void {
-                template<typename U, typename = decltype(std::declval<U>().return_void())>
-                static constexpr bool get_value(int) { return true; }
-                template<typename>
-                static constexpr bool get_value(...) { return false; }
-            public:
-                static constexpr bool value = get_value<T>(0);
-            };
+        inline ::winrt::Windows::Foundation::IAsyncOperationWithProgress<::winrt::Windows::Storage::Streams::IBuffer, uint64_t> fetch_partial_http_as_buffer(
+            ::winrt::Windows::Foundation::Uri const& http_uri,
+            ::winrt::Windows::Web::Http::HttpClient const& http_client,
+            uint64_t pos, uint64_t size
+        ) {
+            auto cancellation_token = co_await ::winrt::get_cancellation_token();
+            cancellation_token.enable_propagation();
+            auto progress_token = co_await ::winrt::get_progress_token();
 
-        public:
-            struct promise_type : std::coroutine_traits<T, Args...>::promise_type {
-                void unhandled_exception()
-                    noexcept(std::coroutine_traits<T, Args...>::unhandled_exception())
-                    override
-                {
-                    try { throw; }
-                    catch (::winrt::hresult_error const& e) {
-                        auto error_message = e.message();
-                        util::debug::log_error(
-                            std::format(L"Uncaught async exception(hresult_error): {}", error_message)
-                        );
-                        if (IsDebuggerPresent()) {
-                            __debugbreak();
-                        }
-                    }
-                    catch (std::exception const& e) {
-                        auto error_message = e.what();
-                        // %S: Microsoft-C++ specific
-                        util::debug::log_error(
-                            util::str::wstrprintf(L"Uncaught async exception(std::exception): %S", error_message)
-                        );
-                        if (IsDebuggerPresent()) {
-                            __debugbreak();
-                        }
-                    }
-                    catch (const wchar_t* e) {
-                        auto error_message = e;
-                        util::debug::log_error(
-                            std::format(L"Uncaught async exception(wchar_t*): {}", error_message)
-                        );
-                        if (IsDebuggerPresent()) {
-                            __debugbreak();
-                        }
-                    }
-                    catch (...) {
-                        auto error_message = L"Unknown exception was thrown";
-                        util::debug::log_error(
-                            std::format(L"Uncaught async exception(any): {}", error_message)
-                        );
-                        if (IsDebuggerPresent()) {
-                            __debugbreak();
-                        }
-                    }
-                    if constexpr (propagate) {
-                        std::coroutine_traits<T, Args...>::unhandled_exception();
-                        this->return_vod();
-                    }
-                    else {
-                        if constexpr (has_return_void<std::coroutine_traits<T, Args...>>::value) {
-                            this->return_vod();
-                        }
-                        else {
-                            this->return_vlue({});
-                        }
-                    }
-                }
-            };
-        };
-        */
+            auto http_req_msg = ::winrt::Windows::Web::Http::HttpRequestMessage();
+            http_req_msg.Method(::winrt::Windows::Web::Http::HttpMethod::Get());
+            http_req_msg.RequestUri(http_uri);
+            http_req_msg.Headers().Append(L"Range", ::winrt::hstring(std::format(
+                L"bytes={}-{}", pos, pos + size - 1
+            )));
+            auto http_resp = co_await http_client.SendRequestAsync(
+                http_req_msg, ::winrt::Windows::Web::Http::HttpCompletionOption::ResponseHeadersRead
+            );
+            if (http_resp.StatusCode() != ::winrt::Windows::Web::Http::HttpStatusCode::PartialContent) {
+                throw ::winrt::hresult_error(
+                    E_FAIL, L"Requested resource does not support partial downloading"
+                );
+            }
+            auto read_as_buf_op = http_resp.Content().ReadAsBufferAsync();
+            read_as_buf_op.Progress([&](auto const&, uint64_t progress) {
+                progress_token(progress);
+            });
+            co_return co_await read_as_buf_op;
+        }
     }
 
     namespace sync {

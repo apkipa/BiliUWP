@@ -9,7 +9,12 @@ namespace BiliUWP {
     };
 
     [default_interface]
-    runtimeclass UInt32ToSelectedIndexConverter : Windows.UI.Xaml.Data.IValueConverter{
+    runtimeclass UInt32ToSelectedIndexConverter : Windows.UI.Xaml.Data.IValueConverter {
         UInt32ToSelectedIndexConverter();
+    }
+
+    [default_interface]
+    runtimeclass NumberScaleConverter : Windows.UI.Xaml.Data.IValueConverter {
+        NumberScaleConverter();
     }
 }

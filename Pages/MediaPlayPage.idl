@@ -1,6 +1,12 @@
 import "IBiliResource.idl";
 
-namespace BiliUWP {
+namespace BiliUWP{
+    runtimeclass MediaPlayPage_UpItem {
+        String UpName{ get; };
+        String UpFaceUrl{ get; };
+        UInt64 UpMid{ get; };
+    }
+
     enum MediaPlayPage_MediaType {
         Video,
         Audio,
@@ -17,5 +23,10 @@ namespace BiliUWP {
         MediaPlayPage();
 
         Windows.UI.Xaml.Controls.MediaPlayerElement MediaPlayerElem{ get; };
+
+        String MediaTitle{ get; };
+        String MediaCoverImageUrl{ get; };
+        String MediaDescription{ get; };
+        IObservableVector<IInspectable> UpList{ get; };
     }
 }

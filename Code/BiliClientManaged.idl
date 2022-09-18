@@ -27,8 +27,10 @@ namespace BiliUWP {
     };
     struct ApiParam_VideoPlayUrlPreference {
         Boolean prefer_dash;
-        Boolean prefer_4k;
         Boolean prefer_hdr;
+        Boolean prefer_4k;
+        Boolean prefer_dolby;
+        Boolean prefer_8k;
         Boolean prefer_av1;
     };
     struct ApiParam_FavItemLookup {

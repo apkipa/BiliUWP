@@ -113,10 +113,10 @@
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(ProjectDir)Controls\;$(ProjectDir)Thirdparty\qrcodegen\;$(GeneratedFilesDir)Pages\;$(GeneratedFilesDir)Controls\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(ProjectDir)Controls\;$(ProjectDir)Thirdparty\qrcodegen\;$(GeneratedFilesDir)Pages\;$(GeneratedFilesDir)Controls\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(ProjectDir)Controls\;$(ProjectDir)Thirdparty\qrcodegen\;$(GeneratedFilesDir)Pages\;$(GeneratedFilesDir)Controls\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">stdcpp20</LanguageStandard>
-      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">stdcpp20</LanguageStandard>
-      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdcpp20</LanguageStandard>
-      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdcpp20</LanguageStandard>
+      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">stdcpplatest</LanguageStandard>
+      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">stdcpplatest</LanguageStandard>
+      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdcpplatest</LanguageStandard>
+      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdcpplatest</LanguageStandard>
     </ClCompile>
     <Midl>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">$(ProjectDir)Code\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -138,10 +138,10 @@
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(ProjectDir)Controls\;$(ProjectDir)Thirdparty\qrcodegen\;$(GeneratedFilesDir)Pages\;$(GeneratedFilesDir)Controls\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(ProjectDir)Controls\;$(ProjectDir)Thirdparty\qrcodegen\;$(GeneratedFilesDir)Pages\;$(GeneratedFilesDir)Controls\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)Code\;$(ProjectDir)Pages\;$(ProjectDir)Controls\;$(ProjectDir)Thirdparty\qrcodegen\;$(GeneratedFilesDir)Pages\;$(GeneratedFilesDir)Controls\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">stdcpp20</LanguageStandard>
-      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">stdcpp20</LanguageStandard>
-      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdcpp20</LanguageStandard>
-      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdcpp20</LanguageStandard>
+      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">stdcpplatest</LanguageStandard>
+      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">stdcpplatest</LanguageStandard>
+      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdcpplatest</LanguageStandard>
+      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -165,11 +165,16 @@
     <ClInclude Include="Code\BiliClient.hpp" />
     <ClInclude Include="Code\BiliClientManaged.h" />
     <ClInclude Include="Code\Converters.h" />
+    <ClInclude Include="Code\HttpRandomAccessStream.h" />
     <ClInclude Include="Code\json.h" />
     <ClInclude Include="Code\util.hpp" />
     <ClInclude Include="Controls\AdaptiveGridView.h" />
     <ClInclude Include="Controls\SimpleContentDialog.h">
       <DependentUpon>Controls\SimpleContentDialog.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClInclude>
+    <ClInclude Include="Controls\SimpleStateOverlay.h">
+      <DependentUpon>Controls\SimpleStateOverlay.xaml</DependentUpon>
       <SubType>Code</SubType>
     </ClInclude>
     <ClInclude Include="Pages\ContainerPage.h">
@@ -196,8 +201,16 @@
       <DependentUpon>Pages\NewPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </ClInclude>
+    <ClInclude Include="Pages\SearchPage.h">
+      <DependentUpon>Pages\SearchPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClInclude>
     <ClInclude Include="Pages\SettingsPage.h">
       <DependentUpon>Pages\SettingsPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClInclude>
+    <ClInclude Include="Pages\UserPage.h">
+      <DependentUpon>Pages\UserPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </ClInclude>
     <ClInclude Include="pch.h" />
@@ -214,6 +227,9 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Page Include="Controls\SimpleContentDialog.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Controls\SimpleStateOverlay.xaml">
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Pages\ContainerPage.xaml">
@@ -237,7 +253,13 @@
     <Page Include="Pages\NewPage.xaml">
       <SubType>Designer</SubType>
     </Page>
+    <Page Include="Pages\SearchPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="Pages\SettingsPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Pages\UserPage.xaml">
       <SubType>Designer</SubType>
     </Page>
   </ItemGroup>
@@ -251,11 +273,16 @@
     <ClCompile Include="Code\BiliClient.cpp" />
     <ClCompile Include="Code\BiliClientManaged.cpp" />
     <ClCompile Include="Code\Converters.cpp" />
+    <ClCompile Include="Code\HttpRandomAccessStream.cpp" />
     <ClCompile Include="Code\json.cpp" />
     <ClCompile Include="Code\util.cpp" />
     <ClCompile Include="Controls\AdaptiveGridView.cpp" />
     <ClCompile Include="Controls\SimpleContentDialog.cpp">
       <DependentUpon>Controls\SimpleContentDialog.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClCompile>
+    <ClCompile Include="Controls\SimpleStateOverlay.cpp">
+      <DependentUpon>Controls\SimpleStateOverlay.xaml</DependentUpon>
       <SubType>Code</SubType>
     </ClCompile>
     <ClCompile Include="Pages\ContainerPage.cpp">
@@ -282,8 +309,16 @@
       <DependentUpon>Pages\NewPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </ClCompile>
+    <ClCompile Include="Pages\SearchPage.cpp">
+      <DependentUpon>Pages\SearchPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClCompile>
     <ClCompile Include="Pages\SettingsPage.cpp">
       <DependentUpon>Pages\SettingsPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClCompile>
+    <ClCompile Include="Pages\UserPage.cpp">
+      <DependentUpon>Pages\UserPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </ClCompile>
     <ClCompile Include="pch.cpp">
@@ -314,10 +349,15 @@
     <Midl Include="Code\AppCfgModel.idl" />
     <Midl Include="Code\BiliClientManaged.idl" />
     <Midl Include="Code\Converters.idl" />
+    <Midl Include="Code\HttpRandomAccessStream.idl" />
     <Midl Include="Code\IBiliResource.idl" />
     <Midl Include="Controls\AdaptiveGridView.idl" />
     <Midl Include="Controls\SimpleContentDialog.idl">
       <DependentUpon>Controls\SimpleContentDialog.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
+    <Midl Include="Controls\SimpleStateOverlay.idl">
+      <DependentUpon>Controls\SimpleStateOverlay.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Midl>
     <Midl Include="Pages\ContainerPage.idl">
@@ -347,8 +387,16 @@
       <DependentUpon>Pages\NewPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Midl>
+    <Midl Include="Pages\SearchPage.idl">
+      <DependentUpon>Pages\SearchPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
     <Midl Include="Pages\SettingsPage.idl">
       <DependentUpon>Pages\SettingsPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
+    <Midl Include="Pages\UserPage.idl">
+      <DependentUpon>Pages\UserPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Midl>
   </ItemGroup>

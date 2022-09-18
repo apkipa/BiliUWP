@@ -26,6 +26,8 @@ enum class BiliResType {
     Live,               // live<...>
 };
 
+// TODO: Add support for App_PersistClipboardAfterExit
+
 auto extract_nid_from_str(std::wstring_view sv, size_t skip_prefix_count = 0) {
     uint64_t n = 0;
     for (sv.remove_prefix(skip_prefix_count); !sv.empty(); sv.remove_prefix(1)) {

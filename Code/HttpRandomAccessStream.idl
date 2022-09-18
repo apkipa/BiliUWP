@@ -1,0 +1,33 @@
+namespace BiliUWP {
+    enum HttpRandomAccessStreamBufferOptions {
+        None,               // Disable cache
+        Sized,              // [WIP] Limited cache capacity, populated on demand
+        DynamicallySized,   // [WIP] Dynamic cache capacity, populated & expands / shrinks on demand
+        Full,               // Full cache capacity, populated on demand
+        ImmediateFull,      // Full cache capacity, populated immediately
+    };
+
+    runtimeclass NewUriRequestedEventArgs {
+        Windows.Foundation.Deferral GetDeferral();
+    }
+
+    // NOTE: cache_capacity: Unsupported.
+    // NOTE: extra_integrity_check: Unsupported. If set to true, hresult_invalid_argument will be thrown.
+    //       HttpRandomAccessStream can retrieve data from multiple uris. If the candidates list becomes
+    //       empty while reading, NewUriRequested event will be fired only once during the read session.
+    [default_interface]
+    runtimeclass HttpRandomAccessStream : Windows.Storage.Streams.IRandomAccessStreamWithContentType {
+        static Windows.Foundation.IAsyncOperation<HttpRandomAccessStream> CreateAsync(
+            Windows.Foundation.Uri http_uri,
+            Windows.Web.Http.HttpClient http_client,
+            HttpRandomAccessStreamBufferOptions buffer_options,
+            UInt64 cache_capacity,
+            Boolean extra_integrity_check
+        );
+
+        // NOTE: New uris will be added to list
+        void SupplyNewUri(Windows.Foundation.Uri[] new_uris);
+
+        event Windows.Foundation.TypedEventHandler<HttpRandomAccessStream, NewUriRequestedEventArgs> NewUriRequested;
+    }
+}

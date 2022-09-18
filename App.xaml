@@ -19,14 +19,15 @@
             <Thickness x:Key="TabViewHeaderPadding">8,0,4,0</Thickness>
             <!-- Make TabViewItem not focusable -->
             <Style TargetType="muxc:TabViewItem">
-                <Setter Property="IsTabStop" Value="false"/>
+                <Setter Property="IsTabStop" Value="False"/>
             </Style>
             <!-- TODO: Add converters in XAML?
             <local:StringToBitmapImageConverter x:Key="StrToBmpImg"/>
             <local:StringToUriImageConverter x:Key="StrToUri"/>
             -->
-            <local:UInt32ToSelectedIndexConverter x:Key="UInt32ToSelectedIndexConverter"/>
             <local:StringToUriConverter x:Key="StrToUri"/>
+            <local:UInt32ToSelectedIndexConverter x:Key="UInt32ToSelectedIndexConverter"/>
+            <local:NumberScaleConverter x:Key="NumberScaleConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

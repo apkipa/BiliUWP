@@ -709,7 +709,8 @@ namespace BiliUWP {
     }
     void implementation::AppTab::post_init(use_the_make_function) {
         using namespace Windows::UI::Xaml::Controls::Primitives;
-        using Microsoft::UI::Xaml::Controls::CommandBarFlyout;
+        using Microsoft::UI::Xaml::Controls::CommandBarFlyout;      // Buggy
+        //using Windows::UI::Xaml::Controls::CommandBarFlyout;      // Not buggy
 
         auto str_back = App::res_str(L"App/Common/Back");
         auto str_forward = App::res_str(L"App/Common/Forward");

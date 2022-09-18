@@ -106,6 +106,8 @@ namespace BiliUWP {
     class BiliApiException : public std::exception {};
     class BiliApiUpstreamException : public BiliApiException {
         std::string m_err_msg;
+        ApiCode m_api_code;
+        std::string m_server_msg;
         static std::string_view code_to_msg(ApiCode api_code) {
             switch (api_code) {
 #define gen_branch(value, msg)  case ApiCode::value:   return msg;
@@ -167,17 +169,23 @@ namespace BiliUWP {
             }
         }
     public:
-        BiliApiUpstreamException(ApiCode api_code) : m_err_msg("Server error") {
+        BiliApiUpstreamException(ApiCode api_code) :
+            m_api_code(api_code), m_server_msg(), m_err_msg("Server error")
+        {
             m_err_msg += std::format("[{}: {}]",
-                util::misc::enum_to_int(api_code), code_to_msg(api_code)
+                std::to_underlying(api_code), code_to_msg(api_code)
             );
         }
-        BiliApiUpstreamException(ApiCode api_code, std::string_view msg) : m_err_msg("Server error") {
+        BiliApiUpstreamException(ApiCode api_code, std::string_view server_msg) :
+            m_api_code(api_code), m_server_msg(server_msg), m_err_msg("Server error")
+        {
             m_err_msg += std::format("[{}: {}]: {}",
-                util::misc::enum_to_int(api_code), code_to_msg(api_code), msg
+                std::to_underlying(api_code), code_to_msg(api_code), server_msg
             );
         }
         const char* what() const override { return m_err_msg.c_str(); }
+        ApiCode get_api_code(void) const { return m_api_code; }
+        std::string_view get_server_msg(void) const { return m_server_msg; }
     };
     class BiliApiParseException : public BiliApiException {
         std::string m_err_msg;
@@ -558,6 +566,7 @@ namespace BiliUWP {
         std::vector<VideoPlayUrl_SupportFormat> support_formats;
     };
     struct AudioBasicInfoResult {
+        uint64_t auid;
         uint64_t uid;
         winrt::hstring uname;
         winrt::hstring author;
@@ -701,8 +710,10 @@ namespace BiliUWP {
     // Parameter types
     struct VideoPlayUrlPreferenceParam {
         bool prefer_dash;
-        bool prefer_4k;
         bool prefer_hdr;
+        bool prefer_4k;
+        bool prefer_dolby;
+        bool prefer_8k;
         bool prefer_av1;
     };
     using AudioQualityParam = AudioQuality;

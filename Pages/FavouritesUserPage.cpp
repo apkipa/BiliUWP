@@ -118,8 +118,8 @@ namespace winrt::BiliUWP::implementation {
                         card_info.card.name
                     ));
                 }
-                catch (hresult_canceled const&) {}
-                catch (...) { util::winrt::log_current_exception(); }
+                catch (hresult_canceled const&) { throw; }
+                catch (...) { util::winrt::log_current_exception(); throw; }
             }, this, uid);
             m_view_item_src.LoadingStateChanged(
                 [weak_this = get_weak()](IInspectable const&, bool is_loading) {

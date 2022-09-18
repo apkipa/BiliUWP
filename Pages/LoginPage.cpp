@@ -81,10 +81,11 @@ namespace winrt::BiliUWP::implementation {
                         }
                     }
                 }
-                catch (hresult_canceled const&) {}
+                catch (hresult_canceled const&) { throw; }
                 catch (...) {
                     util::winrt::log_current_exception();
                     that->QRCodeFailed().Visibility(Visibility::Visible);
+                    throw;
                 }
             }, this);
         }
@@ -134,10 +135,11 @@ namespace winrt::BiliUWP::implementation {
                     }
                 }
             }
-            catch (hresult_canceled const&) {}
+            catch (hresult_canceled const&) { throw; }
             catch (...) {
                 util::winrt::log_current_exception();
                 that->QRCodeFailed().Visibility(Visibility::Visible);
+                throw;
             }
         }, this);
     }
@@ -228,7 +230,7 @@ namespace winrt::BiliUWP::implementation {
         }
         default:
             throw hresult_error(E_FAIL,
-                std::format(L"Got unknown ApiCode {}", util::misc::enum_to_int(result.code))
+                std::format(L"Got unknown ApiCode {}", std::to_underlying(result.code))
             );
         }
     }

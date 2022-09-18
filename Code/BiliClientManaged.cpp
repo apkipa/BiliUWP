@@ -400,12 +400,18 @@ namespace winrt::BiliUWP::implementation {
         if (prefers.prefer_dash) {
             // TODO: qn may also be required in url params; do tests later
             fnval |= 16;
+            if (prefers.prefer_hdr) {
+                fnval |= 64;
+            }
             if (prefers.prefer_4k) {
                 fnval |= 128;
                 fourk = 1;
             }
-            if (prefers.prefer_hdr) {
-                fnval |= 64;
+            if (prefers.prefer_dolby) {
+                fnval |= 256 | 512;
+            }
+            if (prefers.prefer_8k) {
+                fnval |= 1024;
             }
             if (prefers.prefer_av1) {
                 fnval |= 2048;
@@ -481,7 +487,7 @@ namespace winrt::BiliUWP::implementation {
         if (item_to_find) {
             auto lookup_value = item_to_find.Value();
             param_maker.add_param(L"rid", to_hstring(lookup_value.res_id));
-            param_maker.add_param(L"type", to_hstring(util::misc::enum_to_int(lookup_value.res_type)));
+            param_maker.add_param(L"type", to_hstring(std::to_underlying(lookup_value.res_type)));
         }
         auto uri = make_uri(
             L"https://api.bilibili.com",
@@ -504,7 +510,7 @@ namespace winrt::BiliUWP::implementation {
         if (item_to_find) {
             auto lookup_value = item_to_find.Value();
             param_maker.add_param(L"rid", to_hstring(lookup_value.res_id));
-            param_maker.add_param(L"type", to_hstring(util::misc::enum_to_int(lookup_value.res_type)));
+            param_maker.add_param(L"type", to_hstring(std::to_underlying(lookup_value.res_type)));
         }
         auto uri = make_uri(
             L"https://api.bilibili.com",
