@@ -12,6 +12,7 @@ namespace BiliUWP {
     runtimeclass FavouritesUserPage_ViewItemSource :
         IObservableVector<IInspectable>, Windows.UI.Xaml.Data.ISupportIncrementalLoading
     {
+        FavouritesUserPage_ViewItemSource(UInt64 user_mid);
         // Param: true => Loading; false => Loaded
         event Windows.Foundation.EventHandler<Boolean> LoadingStateChanged;
         void Reload();

@@ -88,24 +88,6 @@ namespace winrt::BiliUWP::implementation {
 }
 
 namespace winrt::BiliUWP::implementation {
-    NewUriRequestedEventArgs::NewUriRequestedEventArgs() {
-        m_event.set();
-    }
-    Windows::Foundation::Deferral NewUriRequestedEventArgs::GetDeferral() {
-        m_event.reset();
-        m_counter.fetch_add(1);
-        return Windows::Foundation::Deferral([weak_this = get_weak()] {
-            auto strong_this = weak_this.get();
-            if (!strong_this) { return; }
-            if (strong_this->m_counter.fetch_sub(1) == 1) {
-                strong_this->m_event.set();
-            }
-        });
-    }
-    IAsyncAction NewUriRequestedEventArgs::WaitForCompletion() {
-        co_await m_event;
-    }
-
     HttpRandomAccessStream::HttpRandomAccessStream(
         std::shared_ptr<HttpRandomAccessStreamImpl> impl,
         hstring content_type

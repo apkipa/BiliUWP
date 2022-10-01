@@ -4,6 +4,7 @@
 #include "util.hpp"
 #include "AppCfgModel.h"
 #include "BiliClient.hpp"
+#include "DebugConsole.hpp"
 
 namespace BiliUWP {
     struct AppInst;
@@ -135,45 +136,56 @@ namespace BiliUWP {
         struct LogDesc {
             std::chrono::system_clock::time_point time;
             util::debug::LogLevel level;
+            std::source_location src_loc;
             winrt::hstring content;
         };
         // NOTE: Higher the level, fewer the logs
         void set_log_level(util::debug::LogLevel new_level) { m_cur_log_level = new_level; }
-        void log_trace(winrt::hstring str) {
+        void log_trace(winrt::hstring str, std::source_location loc) {
             // TODO: Add mutex support
             constexpr auto this_level = util::debug::LogLevel::Trace;
             if (this_level < m_cur_log_level) {
                 return;
             }
-            this->append_log_entry({ std::chrono::system_clock::now(), this_level, std::move(str) });
+            this->append_log_entry(
+                { std::chrono::system_clock::now(), this_level, std::move(loc), std::move(str) }
+            );
         }
-        void log_debug(winrt::hstring str) {
+        void log_debug(winrt::hstring str, std::source_location loc) {
             constexpr auto this_level = util::debug::LogLevel::Debug;
             if (this_level < m_cur_log_level) {
                 return;
             }
-            this->append_log_entry({ std::chrono::system_clock::now(), this_level, std::move(str) });
+            this->append_log_entry(
+                { std::chrono::system_clock::now(), this_level, std::move(loc), std::move(str) }
+            );
         }
-        void log_info(winrt::hstring str) {
+        void log_info(winrt::hstring str, std::source_location loc) {
             constexpr auto this_level = util::debug::LogLevel::Info;
             if (this_level < m_cur_log_level) {
                 return;
             }
-            this->append_log_entry({ std::chrono::system_clock::now(), this_level, std::move(str) });
+            this->append_log_entry(
+                { std::chrono::system_clock::now(), this_level, std::move(loc), std::move(str) }
+            );
         }
-        void log_warn(winrt::hstring str) {
+        void log_warn(winrt::hstring str, std::source_location loc) {
             constexpr auto this_level = util::debug::LogLevel::Warn;
             if (this_level < m_cur_log_level) {
                 return;
             }
-            this->append_log_entry({ std::chrono::system_clock::now(), this_level, std::move(str) });
+            this->append_log_entry(
+                { std::chrono::system_clock::now(), this_level, std::move(loc), std::move(str) }
+            );
         }
-        void log_error(winrt::hstring str) {
+        void log_error(winrt::hstring str, std::source_location loc) {
             constexpr auto this_level = util::debug::LogLevel::Error;
             if (this_level < m_cur_log_level) {
                 return;
             }
-            this->append_log_entry({ std::chrono::system_clock::now(), this_level, std::move(str) });
+            this->append_log_entry(
+                { std::chrono::system_clock::now(), this_level, std::move(loc), std::move(str) }
+            );
         }
         void clear_log(void) { m_app_logs.clear(); };
 
@@ -199,6 +211,10 @@ namespace BiliUWP {
 
         BiliClient* bili_client(void) {
             return m_bili_client;
+        }
+
+        DebugConsole& debug_console(void) {
+            return m_dbg_con;
         }
 
     private:
@@ -228,6 +244,7 @@ namespace BiliUWP {
         util::sync::mpsc_channel_sender<winrt::hstring> m_logging_tx;
         winrt::Windows::Foundation::Collections::IVector<winrt::hstring> m_logging_file_buf;
         winrt::Windows::ApplicationModel::Resources::ResourceLoader m_res_ldr;
+        ::BiliUWP::DebugConsole m_dbg_con;
 
         // TODO: We should still handle config in separate RTClass in `AppCfgModel.cpp`.
         //       The reason is that all settings should be laid flat in the root space,
@@ -254,39 +271,24 @@ namespace BiliUWP {
         }
         void log(std::wstring_view str, std::source_location loc) {
             // TODO: Maybe implement AppLoggingProvider::log()
-            (void)loc;
-            m_app_inst->log_info(winrt::hstring{ std::format(L"[{}]{}", -16384, str) });
+            m_app_inst->log_info(winrt::hstring{ str }, std::move(loc));
         }
         void log_trace(std::wstring_view str, std::source_location loc) {
-            // TODO: Use std::source_location
-            m_app_inst->log_trace(winrt::to_hstring(std::format("[{}:{}:{}] ",
-                loc.file_name(), loc.function_name(), loc.line()
-            )) + str);
+            m_app_inst->log_trace(winrt::hstring{ str }, std::move(loc));
         }
         void log_debug(std::wstring_view str, std::source_location loc) {
-            // TODO: Use std::source_location
-            m_app_inst->log_debug(winrt::to_hstring(std::format("[{}:{}:{}] ",
-                loc.file_name(), loc.function_name(), loc.line()
-            )) + str);
+            m_app_inst->log_debug(winrt::hstring{ str }, std::move(loc));
         }
         void log_info(std::wstring_view str, std::source_location loc) {
-            // TODO: Use std::source_location
-            m_app_inst->log_info(winrt::to_hstring(std::format("[{}:{}:{}] ",
-                loc.file_name(), loc.function_name(), loc.line()
-            )) + str);
+            m_app_inst->log_info(winrt::hstring{ str }, std::move(loc));
         }
         void log_warn(std::wstring_view str, std::source_location loc) {
-            // TODO: Use std::source_location
-            m_app_inst->log_warn(winrt::to_hstring(std::format("[{}:{}:{}] ",
-                loc.file_name(), loc.function_name(), loc.line()
-            )) + str);
+            m_app_inst->log_warn(winrt::hstring{ str }, std::move(loc));
         }
         void log_error(std::wstring_view str, std::source_location loc) {
-            // TODO: Use std::source_location
-            m_app_inst->log_error(winrt::to_hstring(std::format("[{}:{}:{}] ",
-                loc.file_name(), loc.function_name(), loc.line()
-            )) + str);
+            m_app_inst->log_error(winrt::hstring{ str }, std::move(loc));
         }
+
     private:
         AppInst* m_app_inst;
     };
@@ -367,7 +369,6 @@ namespace BiliUWP {
 
         // NOTE: Cancel the returned async operation to close the dialog
         // NOTE: If the close button text is empty, the button will not be shown
-        // TODO: Reuse ContentDialog?
         winrt::Windows::Foundation::IAsyncOperation<winrt::BiliUWP::SimpleContentDialogResult> show_dialog(
             winrt::BiliUWP::SimpleContentDialog dialog
         );
@@ -388,7 +389,7 @@ namespace BiliUWP {
         template<typename T>
         winrt::event_token closed_by_user(T&& functor) {
             return m_ev_closed_by_user.add(
-                [functor = std::move(functor)](winrt::Windows::Foundation::IInspectable const&, bool) {
+                [functor = std::forward<T>(functor)](winrt::Windows::Foundation::IInspectable const&, bool) {
                     functor();
                 }
             );

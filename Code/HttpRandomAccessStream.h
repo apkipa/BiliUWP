@@ -6,16 +6,12 @@
 
 namespace winrt::BiliUWP::implementation {
     using EventHandlerType_NUR = Windows::Foundation::TypedEventHandler<
-        BiliUWP::HttpRandomAccessStream, BiliUWP::NewUriRequestedEventArgs
-    >;
+        BiliUWP::HttpRandomAccessStream, BiliUWP::NewUriRequestedEventArgs>;
 
-    struct NewUriRequestedEventArgs : NewUriRequestedEventArgsT<NewUriRequestedEventArgs> {
-        NewUriRequestedEventArgs();
-        Windows::Foundation::Deferral GetDeferral();
-        Windows::Foundation::IAsyncAction WaitForCompletion();
-    private:
-        util::winrt::awaitable_event m_event;
-        std::atomic_uint32_t m_counter;
+    struct NewUriRequestedEventArgs : NewUriRequestedEventArgsT<NewUriRequestedEventArgs>,
+                                      deferrable_event_args<NewUriRequestedEventArgs>
+    {
+        // Nothing here
     };
 
     struct HttpRandomAccessStreamImpl {

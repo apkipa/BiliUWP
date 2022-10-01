@@ -91,10 +91,14 @@ namespace winrt::BiliUWP::implementation {
             return m_up_list;
         }
 
+        BiliUWP::AppCfgModel CfgModel() { return m_cfg_model; }
+
         static fire_forget_except final_release(std::unique_ptr<MediaPlayPage> ptr) noexcept;
 
     private:
         friend struct DetailedStatsContext;
+
+        BiliUWP::AppCfgModel m_cfg_model;
 
         Windows::Foundation::IAsyncAction NavHandleVideoPlay(uint64_t avid, hstring bvid);
         Windows::Foundation::IAsyncAction NavHandleAudioPlay(uint64_t auid);

@@ -97,6 +97,8 @@
                         <TextBlock x:Name="ClearCacheSuccessMark" Style="{StaticResource InlineCheckMarkTextBoxStyle}"/>
                     </StackPanel>
                     <TextBlock x:Uid="App/Page/SettingsPage/Log" Style="{StaticResource GroupHeaderTextBlockStyle}"/>
+                    <Button Content="Switch debug console" Click="SwitchDebugConsoleButton_Click"/>
+                    <ToggleSwitch Header="Open debug console when application starts" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_ShowDebugConsole,Mode=TwoWay}"/>
                     <ToggleSwitch x:Uid="App/Page/SettingsPage/App_StoreLogs" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_StoreLogs,Mode=TwoWay}"/>
                     <ToggleSwitch x:Uid="App/Page/SettingsPage/App_RedactLogs" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_RedactLogs,Mode=TwoWay}"/>
                     <ComboBox x:Name="LogLevelComboBox" x:Uid="App/Page/SettingsPage/App_LogLevel" Style="{StaticResource ItemComboBoxStyle}" SelectedIndex="{x:Bind CfgModel.App_LogLevel,Mode=TwoWay,Converter={StaticResource UInt32ToSelectedIndexConverter}}">

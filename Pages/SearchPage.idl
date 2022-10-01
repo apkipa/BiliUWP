@@ -1,4 +1,8 @@
 namespace BiliUWP {
+    struct SearchPageNavParam {
+        String text;
+    };
+
     [default_interface]
     runtimeclass SearchPage : Windows.UI.Xaml.Controls.Page {
         SearchPage();

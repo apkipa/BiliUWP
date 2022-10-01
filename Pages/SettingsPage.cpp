@@ -164,12 +164,12 @@ namespace winrt::BiliUWP::implementation {
                 auto local_cache_size = co_await util::winrt::calc_folder_size(local_cache_folder_path);
                 auto sys_cache_size = co_await util::winrt::calc_folder_size(ac_inetcache_folder_path);
                 result_text.Text(
-                    util::str::size_to_str(local_cache_size + sys_cache_size, cache_size_precision)
+                    util::str::byte_size_to_str(local_cache_size + sys_cache_size, cache_size_precision)
                 );
                 ToolTipService::SetToolTip(result_text, box_value(::BiliUWP::App::res_str(
                     L"App/Page/SettingsPage/CalculateCacheResultText_ToolTip",
-                    util::str::size_to_str(local_cache_size, cache_size_precision),
-                    util::str::size_to_str(sys_cache_size, cache_size_precision)
+                    util::str::byte_size_to_str(local_cache_size, cache_size_precision),
+                    util::str::byte_size_to_str(sys_cache_size, cache_size_precision)
                 )));
 
                 result_text.Visibility(Visibility::Visible);
@@ -218,5 +218,16 @@ namespace winrt::BiliUWP::implementation {
                 throw;
             }
         }, this);
+    }
+    void SettingsPage::SwitchDebugConsoleButton_Click(IInspectable const&, RoutedEventArgs const&) {
+        auto& dbg_con = ::BiliUWP::App::get()->debug_console();
+        if (dbg_con) {
+            dbg_con = nullptr;
+        }
+        else {
+            []() -> fire_forget_except {
+                ::BiliUWP::App::get()->debug_console() = co_await ::BiliUWP::DebugConsole::CreateAsync();
+            }();
+        }
     }
 }

@@ -5,9 +5,164 @@
     xmlns:local="using:BiliUWP"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d">
+    mc:Ignorable="d"
+    Background="{ThemeResource SystemControlBackgroundChromeMediumLowBrush}">
 
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-        <Button x:Name="Button" Click="ClickHandler">Click Me</Button>
-    </StackPanel>
+    <Page.Resources>
+        <Style TargetType="PivotItem" BasedOn="{StaticResource DefaultPivotItemStyle}">
+            <Setter Property="Margin" Value="0"/>
+        </Style>
+        <Style TargetType="PivotHeaderItem" BasedOn="{StaticResource DefaultPivotHeaderItemStyle}">
+            <Setter Property="Margin" Value="0,8"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="FontSize" Value="18"/>
+        </Style>
+    </Page.Resources>
+
+    <Grid x:Name="Container">
+        <Grid.Clip>
+            <RectangleGeometry Rect="0,0,100000,100000"/>
+        </Grid.Clip>
+        <Grid Name="HeaderBackground" Height="200" VerticalAlignment="Top" Background="{ThemeResource SystemControlBackgroundAltHighBrush}"/>
+        <Pivot x:Name="TabsPivot">
+            <PivotItem x:Uid="App/Page/UserPage/Tabs/Videos">
+                <local:AdaptiveGridView x:Name="VideosItemsGridView"
+                                    SelectionMode="None"
+                                    IsItemClickEnabled="True"
+                                    ItemClick="VideosItemsGridView_ItemClick"
+                                    StretchContentForSingleRow="False"
+                                    DesiredWidth="350"
+                                    ItemHeight="90">
+                    <local:AdaptiveGridView.ItemContainerStyle>
+                        <Style TargetType="GridViewItem">
+                            <Setter Property="Margin" Value="3"/>
+                        </Style>
+                    </local:AdaptiveGridView.ItemContainerStyle>
+                    <local:AdaptiveGridView.ItemTemplate>
+                        <DataTemplate x:DataType="local:UserVideosViewItem">
+                            <Grid Background="{ThemeResource SystemControlBackgroundAltHighBrush}" Padding="5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Image Grid.Column="0" Margin="0,0,10,0" Width="128">
+                                    <Image.Source>
+                                        <BitmapImage UriSource="{x:Bind CoverUrl}" AutoPlay="False"/>
+                                    </Image.Source>
+                                </Image>
+                                <Grid Grid.Column="1">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" TextLineBounds="Tight" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="1" Text="{x:Bind PublishTimeStr}" TextLineBounds="Tight" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Row="2" Orientation="Horizontal">
+                                        <TextBlock FontFamily="{ThemeResource SymbolThemeFontFamily}" Text="&#xE768; " FontSize="12" Margin="0,0,0,1" VerticalAlignment="Center" TextLineBounds="Tight"/>
+                                        <TextBlock Text="{x:Bind PlayCount}" TextLineBounds="Tight" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </DataTemplate>
+                    </local:AdaptiveGridView.ItemTemplate>
+                </local:AdaptiveGridView>
+            </PivotItem>
+            <PivotItem x:Uid="App/Page/UserPage/Tabs/Dynamics">
+                <ListView>
+                    <x:String>Item 1</x:String>
+                    <x:String>Item 2</x:String>
+                    <x:String>Item 3</x:String>
+                </ListView>
+            </PivotItem>
+            <PivotItem x:Uid="App/Page/UserPage/Tabs/Columns">
+                <ListView>
+                    <x:String>Item 1</x:String>
+                    <x:String>Item 2</x:String>
+                    <x:String>Item 3</x:String>
+                </ListView>
+            </PivotItem>
+            <PivotItem x:Uid="App/Page/UserPage/Tabs/Favourites">
+                <local:AdaptiveGridView x:Name="FavouritesItemsGridView"
+                                    SelectionMode="None"
+                                    IsItemClickEnabled="True"
+                                    ItemClick="FavouritesItemsGridView_ItemClick"
+                                    StretchContentForSingleRow="False"
+                                    DesiredWidth="350"
+                                    ItemHeight="90">
+                    <local:AdaptiveGridView.ItemContainerStyle>
+                        <Style TargetType="GridViewItem">
+                            <Setter Property="Margin" Value="3"/>
+                        </Style>
+                    </local:AdaptiveGridView.ItemContainerStyle>
+                    <local:AdaptiveGridView.ItemTemplate>
+                        <DataTemplate x:DataType="local:FavouritesUserPage_ViewItem">
+                            <Grid Background="{ThemeResource SystemControlBackgroundAltHighBrush}" Padding="5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Image Grid.Column="0" Margin="0,0,10,0" Width="128">
+                                    <Image.Source>
+                                        <BitmapImage UriSource="{x:Bind CoverUrl}" AutoPlay="False"/>
+                                    </Image.Source>
+                                </Image>
+                                <Grid Grid.Column="1">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" TextLineBounds="Tight" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="1" Text="{x:Bind AttrStr}" TextLineBounds="Tight" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Row="2" Orientation="Horizontal">
+                                        <TextBlock FontFamily="{ThemeResource SymbolThemeFontFamily}" Text="&#xEA69;  " FontSize="12" VerticalAlignment="Center" TextLineBounds="Tight"/>
+                                        <TextBlock Text="{x:Bind MediaCount}" TextLineBounds="Tight" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </DataTemplate>
+                    </local:AdaptiveGridView.ItemTemplate>
+                </local:AdaptiveGridView>
+            </PivotItem>
+            <PivotItem x:Uid="App/Page/UserPage/Tabs/Following">
+                <ListView>
+                    <x:String>Item 1</x:String>
+                    <x:String>Item 2</x:String>
+                    <x:String>Item 3</x:String>
+                </ListView>
+            </PivotItem>
+            <PivotItem x:Uid="App/Page/UserPage/Tabs/Fans">
+                <ListView>
+                    <x:String>Item 1</x:String>
+                    <x:String>Item 2</x:String>
+                    <x:String>Item 3</x:String>
+                </ListView>
+            </PivotItem>
+        </Pivot>
+        <Grid>
+            <Grid.Clip>
+                <RectangleGeometry Rect="0,56,100000,100000"/>
+            </Grid.Clip>
+            <Grid Name="Header" Height="200" VerticalAlignment="Top"/>
+        </Grid>
+        <Grid>
+            <Grid Name="Header2" Height="200" VerticalAlignment="Top">
+                <Grid VerticalAlignment="Bottom" Margin="10" ColumnSpacing="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <PersonPicture x:Name="UserFace" Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" Width="80" Height="80"/>
+                    <TextBlock x:Name="UserName" Grid.Row="0" Grid.Column="1" FontSize="28" Text="User name" VerticalAlignment="Center" HorizontalAlignment="Left" IsTextSelectionEnabled="True"/>
+                    <TextBlock x:Name="UserSign" Grid.Row="1" Grid.Column="1" FontSize="17" Text="User signature" VerticalAlignment="Center" IsTextSelectionEnabled="True" MaxLines="1"/>
+                </Grid>
+            </Grid>
+        </Grid>
+        <local:SimpleStateOverlay x:Name="MainStateOverlay"/>
+    </Grid>
 </Page>

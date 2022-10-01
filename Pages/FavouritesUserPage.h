@@ -110,4 +110,5 @@ namespace winrt::BiliUWP::implementation {
 
 namespace winrt::BiliUWP::factory_implementation {
     struct FavouritesUserPage : FavouritesUserPageT<FavouritesUserPage, implementation::FavouritesUserPage> {};
+    struct FavouritesUserPage_ViewItemSource : FavouritesUserPage_ViewItemSourceT<FavouritesUserPage_ViewItemSource, implementation::FavouritesUserPage_ViewItemSource> {};
 }

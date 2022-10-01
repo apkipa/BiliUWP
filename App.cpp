@@ -348,20 +348,25 @@ namespace BiliUWP {
             case util::debug::LogLevel::Info:   level_char = 'I';   break;
             case util::debug::LogLevel::Warn:   level_char = 'W';   break;
             case util::debug::LogLevel::Error:  level_char = 'E';   break;
-            default:                            level_char = 'U';   break;
+            default:                            level_char = '?';   break;
             }
-            return hstring{ std::format(
-                L"[{}] {} {}",
+            return hstring(std::format(
+                L"[{}] {} [{}] {}",
                 std::chrono::zoned_time{ std::chrono::current_zone(), ld.time },
                 level_char,
+                to_hstring(std::format("{}:{}:{}",
+                    ld.src_loc.file_name(), ld.src_loc.function_name(), ld.src_loc.line())),
                 ld.content
-            ) };
+            ));
         };
         if (m_cfg_model.App_RedactLogs()) {
             // TODO: Maybe optimize redaction regexes
             std::wstring result{ log_desc.content };
             // Url query params redaction
-            static std::wregex url_query_re{ L"((access|refresh)_(key|token)=)\\w+" };
+            static std::wregex url_query_re(
+                L"((access|refresh)_(key|token)=)\\w+",
+                std::regex::optimize
+            );
             result = std::regex_replace(result, url_query_re, L"$1<REDACTED>");
             // TODO: Redact token_info
             // TODO: Redact cookie_info
@@ -428,6 +433,9 @@ namespace BiliUWP {
                 // Send the log string again
                 m_logging_tx.send(std::move(log_str));
             }(str_from_logdesc_fn(log_desc));
+        }
+        if (m_dbg_con) {
+            m_dbg_con.AppendLog(log_desc.time, log_desc.level, log_desc.src_loc, log_desc.content);
         }
         m_app_logs.push_back(std::move(log_desc));
     }
@@ -992,9 +1000,6 @@ void winrt::BiliUWP::implementation::App::OnLaunched(LaunchActivatedEventArgs co
         if (!cur_window.Content()) {
             m_app_inst->init_current_window();
         }
-        // TODO: Remove this
-        util::debug::RAIIObserver observer;
-        util::debug::RAIIObserver xxx = observer;
 
         if (e.PreviousExecutionState() == ApplicationExecutionState::Terminated) {
             // Restore the saved session state only when appropriate, scheduling the
@@ -1032,6 +1037,12 @@ void winrt::BiliUWP::implementation::App::OnLaunched(LaunchActivatedEventArgs co
             cur_window.Activate();
 
             m_is_fully_launched = true;
+
+            if (m_app_inst->cfg_model().App_ShowDebugConsole()) {
+                [](auto* app_inst) -> fire_forget_except {
+                    app_inst->debug_console() = co_await ::BiliUWP::DebugConsole::CreateAsync();
+                }(m_app_inst);
+            }
         }
     }
     else {

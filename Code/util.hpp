@@ -130,7 +130,7 @@ namespace util {
             write_u32_hex_swap(n >> 32, buf + 8);
         }
 
-        inline std::wstring size_to_str(size_t size, double precision = 1) {
+        inline std::wstring byte_size_to_str(size_t size, double precision = 1) {
             double float_size = static_cast<double>(size);
             const wchar_t* size_postfix;
             uint64_t power_of_size = 0;
@@ -147,6 +147,30 @@ namespace util {
             case 4:     size_postfix = L"TiB";      break;
             case 5:     size_postfix = L"PiB";      break;
             case 6:     size_postfix = L"EiB";      break;
+            default:    size_postfix = L"<ERROR>";  break;
+            }
+            return std::format(L"{} {}",
+                std::round(float_size * precision) / precision,
+                size_postfix
+            );
+        }
+        inline std::wstring bit_size_to_str(size_t size, double precision = 1) {
+            double float_size = static_cast<double>(size);
+            const wchar_t* size_postfix;
+            uint64_t power_of_size = 0;
+
+            while (float_size >= 1000) {
+                float_size /= 1000;
+                power_of_size++;
+            }
+            switch (power_of_size) {
+            case 0:     size_postfix = L"b";        break;
+            case 1:     size_postfix = L"Kb";      break;
+            case 2:     size_postfix = L"Mb";      break;
+            case 3:     size_postfix = L"Gb";      break;
+            case 4:     size_postfix = L"Tb";      break;
+            case 5:     size_postfix = L"Pb";      break;
+            case 6:     size_postfix = L"Eb";      break;
             default:    size_postfix = L"<ERROR>";  break;
             }
             return std::format(L"{} {}",
@@ -173,9 +197,7 @@ namespace util {
             if (!static_cast<bool>(result.ec) && result.ptr == end) {
                 return val;
             }
-            else {
-                return std::nullopt;
-            }
+            return std::nullopt;
         }
         inline std::optional<double> try_parse_f64(std::wstring_view sv) {
             // TODO: Optimize performance by not creating std::wstring
@@ -183,9 +205,45 @@ namespace util {
             try {
                 return std::stod(std::wstring{ sv }, &count);
             }
-            catch (...) {
-                return std::nullopt;
+            catch (...) { return std::nullopt; }
+        }
+        inline std::optional<int64_t> try_parse_i64(std::string_view sv) {
+            auto begin = &*sv.begin();
+            auto end = &*sv.end();
+            int64_t val;
+            auto result = std::from_chars(begin, end, val);
+            if (!static_cast<bool>(result.ec) && result.ptr == end) {
+                return val;
             }
+            return std::nullopt;
+        }
+        inline std::optional<int64_t> try_parse_i64(std::wstring_view sv) {
+            static_assert(std::is_same_v<int64_t, long long>, "int64_t != long long");
+            // TODO: Optimize performance by not creating std::wstring
+            size_t count;
+            try {
+                return std::stoll(std::wstring{ sv }, &count);
+            }
+            catch (...) { return std::nullopt; }
+        }
+        inline std::optional<uint64_t> try_parse_u64(std::string_view sv) {
+            auto begin = &*sv.begin();
+            auto end = &*sv.end();
+            uint64_t val;
+            auto result = std::from_chars(begin, end, val);
+            if (!static_cast<bool>(result.ec) && result.ptr == end) {
+                return val;
+            }
+            return std::nullopt;
+        }
+        inline std::optional<uint64_t> try_parse_u64(std::wstring_view sv) {
+            static_assert(std::is_same_v<uint64_t, unsigned long long>, "uint64_t != long long");
+            // TODO: Optimize performance by not creating std::wstring
+            size_t count;
+            try {
+                return std::stoull(std::wstring{ sv }, &count);
+            }
+            catch (...) { return std::nullopt; }
         }
     }
 
@@ -456,6 +514,25 @@ namespace util {
             };
         };
 
+        template<typename Functor, typename T>
+        void run_when_loaded(Functor&& functor, T const& elem) {
+            if (elem.IsLoaded()) {
+                functor(elem);
+            }
+            else {
+                using ::winrt::Windows::UI::Xaml::RoutedEventArgs;
+                auto revoke_et = std::make_shared_for_overwrite<::winrt::event_token>();
+                // TODO: Maybe optimize logic (lvalue => copy, rvalue => move)
+                *revoke_et = elem.Loaded(
+                    [=](::winrt::Windows::Foundation::IInspectable const& sender, RoutedEventArgs const&) {
+                        auto elem = sender.as<T>();
+                        elem.Loaded(*revoke_et);
+                        functor(elem);
+                    }
+                );
+            }
+        }
+
         template<typename T>
         inline auto try_unbox_value(::winrt::Windows::Foundation::IInspectable const& value) {
             return value.try_as<T>();
@@ -470,6 +547,50 @@ namespace util {
             ::winrt::Windows::UI::Xaml::UIElement const& elem,
             int32_t idx = 0
         );
+        template<typename T = ::winrt::Windows::UI::Xaml::UIElement>
+        T get_first_descendant(
+            ::winrt::Windows::UI::Xaml::UIElement const& elem,
+            std::wstring_view name = L"",
+            std::wstring_view class_name = L""
+        ) {
+            using ::winrt::Windows::UI::Xaml::Media::VisualTreeHelper;
+            using ::winrt::Windows::UI::Xaml::FrameworkElement;
+            using ::winrt::Windows::UI::Xaml::UIElement;
+            int32_t child_elem_cnt;
+            if (!elem) { return nullptr; }
+            child_elem_cnt = VisualTreeHelper::GetChildrenCount(elem);
+            for (int32_t i = 0; i < child_elem_cnt; i++) {
+                bool is_name_match = false, is_class_match = false;
+                auto cur_elem = VisualTreeHelper::GetChild(elem, i).as<UIElement>();
+                if (auto target = cur_elem.try_as<T>()) {
+                    if (name != L"") {
+                        if (auto fe = target.try_as<FrameworkElement>()) {
+                            is_name_match = (fe.Name() == name);
+                        }
+                    }
+                    else {
+                        is_name_match = true;
+                    }
+                    if (class_name != L"") {
+                        is_class_match = (::winrt::get_class_name(target) == class_name);
+                    }
+                    else {
+                        is_class_match = true;
+                    }
+
+                    if (is_name_match && is_class_match) {
+                        return target;
+                    }
+                }
+                if (auto target = get_first_descendant<T>(cur_elem, name, class_name)) { return target; }
+            }
+            return nullptr;
+        }
+        inline ::winrt::Windows::UI::Xaml::Controls::ScrollViewer get_descendant_scrollviewer(
+            ::winrt::Windows::UI::Xaml::UIElement const& elem
+        ) {
+            return get_first_descendant<::winrt::Windows::UI::Xaml::Controls::ScrollViewer>(elem);
+        }
 
         inline ::winrt::Windows::Foundation::IInspectable get_app_res_as_object(::winrt::hstring key) {
             static auto cur_app_res = ::winrt::Windows::UI::Xaml::Application::Current().Resources();
@@ -518,7 +639,7 @@ namespace util {
             HANDLE os_handle() const noexcept {
                 return handle.get();
             }
-            ::winrt::handle handle{ ::winrt::check_pointer(CreateEvent(nullptr, true, false, nullptr)) };
+            ::winrt::handle handle{ ::winrt::check_pointer(CreateEventW(nullptr, true, false, nullptr)) };
         };
 
         inline bool update_popups_theme(
@@ -556,6 +677,43 @@ namespace util {
                     sender.RequestedTheme(theme_base.ActualTheme());
                 }
             }
+            );
+        }
+
+        // NOTE: This function discards Ctrl+Tab event for target elements by
+        //       temporarily shifting focus to helper element, then restoring
+        //       focus quickly
+        inline void discard_ctrl_tab_for_elem(
+            ::winrt::Windows::UI::Xaml::Controls::Control const& target,
+            ::winrt::Windows::UI::Xaml::Controls::Control const& helper_elem
+        ) {
+            using ::winrt::Windows::Foundation::IInspectable;
+            using ::winrt::Windows::UI::Xaml::FocusState;
+            using ::winrt::Windows::UI::Xaml::Input::KeyRoutedEventArgs;
+            using ::winrt::Windows::UI::Core::CoreVirtualKeyStates;
+            using ::winrt::Windows::UI::Core::CoreDispatcherPriority;
+            using ::winrt::Windows::System::VirtualKey;
+            target.PreviewKeyDown(
+                [weak_t = ::winrt::make_weak(target), weak_he = ::winrt::make_weak(helper_elem)]
+                (IInspectable const&, KeyRoutedEventArgs const& e) {
+                    auto strong_t = weak_t.get();
+                    auto strong_he = weak_he.get();
+                    if (!strong_t || !strong_he) { return; }
+                    auto cur_core_window = ::winrt::Windows::UI::Xaml::Window::Current().CoreWindow();
+                    bool is_ctrl_down = static_cast<bool>(
+                        cur_core_window.GetKeyState(VirtualKey::Control) & CoreVirtualKeyStates::Down);
+                    if (is_ctrl_down && e.OriginalKey() == VirtualKey::Tab) {
+                        // Routes event to parent elements
+                        // This should be a good enough workaround without apparent flaws
+                        auto is_tab_stop = strong_he.IsTabStop();
+                        if (!is_tab_stop) { strong_he.IsTabStop(true); }
+                        strong_he.Focus(FocusState::Programmatic);
+                        cur_core_window.Dispatcher().RunAsync(CoreDispatcherPriority::High, [=]() {
+                            strong_t.Focus(FocusState::Programmatic);
+                            if (!is_tab_stop) { strong_he.IsTabStop(false); }
+                        });
+                    }
+                }
             );
         }
 
@@ -1090,6 +1248,9 @@ namespace util {
             });
             co_return co_await read_as_buf_op;
         }
+
+        void persist_textbox_cc_clipboard(::winrt::Windows::UI::Xaml::Controls::TextBox const& tb);
+        void persist_autosuggestbox_clipboard(::winrt::Windows::UI::Xaml::Controls::AutoSuggestBox const& ctrl);
     }
 
     namespace sync {

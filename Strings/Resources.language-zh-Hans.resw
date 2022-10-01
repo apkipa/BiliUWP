@@ -129,6 +129,9 @@
   <data name="App.Common.Forward" xml:space="preserve">
     <value>前进</value>
   </data>
+  <data name="App.Common.IllegalNavParam" xml:space="preserve">
+    <value>页面导航参数非法</value>
+  </data>
   <data name="App.Common.LoadFailed" xml:space="preserve">
     <value>加载失败</value>
   </data>
@@ -240,9 +243,6 @@
   <data name="App.Page.LoginPage.TokenLoginWarn.Text" xml:space="preserve">
     <value>警告: 如果你不知道这意味着什么，请不要继续操作。</value>
   </data>
-  <data name="App.Page.MediaPlayPage.Error.IllegalNavParam" xml:space="preserve">
-    <value>页面导航参数非法</value>
-  </data>
   <data name="App.Page.MediaPlayPage.Error.ServerAPIFailed" xml:space="preserve">
     <value>服务器 API 调用失败，音/视频可能不存在或程序出现了 BUG</value>
   </data>
@@ -343,6 +343,30 @@
   </data>
   <data name="App.Page.SettingsPage.Title" xml:space="preserve">
     <value>设置</value>
+  </data>
+  <data name="App.Page.UserPage.Error.ServerAPIFailed" xml:space="preserve">
+    <value>服务器 API 调用失败，用户可能不存在或程序出现了 BUG</value>
+  </data>
+  <data name="App.Page.UserPage.Error.Unknown" xml:space="preserve">
+    <value>发生了未知错误</value>
+  </data>
+  <data name="App.Page.UserPage.Tabs.Columns.Header" xml:space="preserve">
+    <value>专栏</value>
+  </data>
+  <data name="App.Page.UserPage.Tabs.Dynamics.Header" xml:space="preserve">
+    <value>动态</value>
+  </data>
+  <data name="App.Page.UserPage.Tabs.Fans.Header" xml:space="preserve">
+    <value>粉丝</value>
+  </data>
+  <data name="App.Page.UserPage.Tabs.Favourites.Header" xml:space="preserve">
+    <value>收藏</value>
+  </data>
+  <data name="App.Page.UserPage.Tabs.Following.Header" xml:space="preserve">
+    <value>关注</value>
+  </data>
+  <data name="App.Page.UserPage.Tabs.Videos.Header" xml:space="preserve">
+    <value>视频</value>
   </data>
   <data name="App.XCommon.Cancel.Content" xml:space="preserve">
     <value>取消</value>

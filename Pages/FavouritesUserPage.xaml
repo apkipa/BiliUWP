@@ -71,7 +71,7 @@
                             </Grid.ColumnDefinitions>
                             <Image Grid.Column="0" Margin="0,0,10,0" Width="128">
                                 <Image.Source>
-                                    <BitmapImage UriSource="{x:Bind CoverUrl,Converter={StaticResource StrToUri}}" AutoPlay="False"/>
+                                    <BitmapImage UriSource="{x:Bind CoverUrl}" AutoPlay="False"/>
                                 </Image.Source>
                             </Image>
                             <Grid Grid.Column="1">

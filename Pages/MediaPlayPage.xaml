@@ -42,7 +42,7 @@
                 <MediaPlayerElement.ContextFlyout>
                     <MenuFlyout>
                         <ToggleMenuFlyoutItem x:Uid="App/Menu/MediaPlayer/UseSystemControls" IsChecked="{x:Bind MediaPlayerElem.AreTransportControlsEnabled,Mode=TwoWay}"/>
-                        <ToggleMenuFlyoutItem x:Name="MediaDetailedStatsToggleMenuItem" x:Uid="App/Menu/MediaPlayer/ShowDetailedStats"/>
+                        <ToggleMenuFlyoutItem x:Name="MediaDetailedStatsToggleMenuItem" x:Uid="App/Menu/MediaPlayer/ShowDetailedStats" Visibility="{x:Bind CfgModel.App_IsDeveloper,Mode=OneWay}"/>
                     </MenuFlyout>
                 </MediaPlayerElement.ContextFlyout>
             </MediaPlayerElement>

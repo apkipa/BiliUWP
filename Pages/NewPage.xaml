@@ -11,7 +11,6 @@
     <Grid>
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
             <AutoSuggestBox x:Uid="App/Page/NewPage/SearchBox" x:Name="SearchBox" QueryIcon="Find" MinWidth="350"
-                            PreviewKeyDown="SearchBox_PreviewKeyDown"
                             TextChanged="SearchBox_TextChanged" QuerySubmitted="SearchBox_QuerySubmitted"/>
             <ItemsControl x:Name="ButtonsPane" Margin="10" MaxWidth="400" IsTabStop="False">
                 <ItemsControl.ItemContainerStyle>

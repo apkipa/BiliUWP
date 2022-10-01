@@ -55,6 +55,9 @@
     <ClCompile Include="Code\HttpRandomAccessStream.cpp">
       <Filter>Code</Filter>
     </ClCompile>
+    <ClCompile Include="Code\DebugConsole.cpp">
+      <Filter>Code</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -85,6 +88,9 @@
     <ClInclude Include="Code\HttpRandomAccessStream.h">
       <Filter>Code</Filter>
     </ClInclude>
+    <ClInclude Include="Code\DebugConsole.hpp">
+      <Filter>Code</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest" />
@@ -113,6 +119,9 @@
     </Filter>
     <Filter Include="Controls\AdaptiveGridView">
       <UniqueIdentifier>{0744a6a9-1ce2-4581-ac89-65b06c241863}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets\Fonts">
+      <UniqueIdentifier>{f3a35851-c1b6-4a07-8a78-83e5bb744ef4}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -157,6 +166,9 @@
       <Filter>Pages</Filter>
     </Page>
     <Page Include="Pages\SearchPage.xaml">
+      <Filter>Pages</Filter>
+    </Page>
+    <Page Include="Pages\DebugConsoleWindowPage.xaml">
       <Filter>Pages</Filter>
     </Page>
   </ItemGroup>
@@ -319,5 +331,13 @@
     <Image Include="Assets\StoreLogo.scale-150.png">
       <Filter>Assets</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <Font Include="Assets\Fonts\iconfont.ttf">
+      <Filter>Assets\Fonts</Filter>
+    </Font>
+    <Font Include="Assets\Fonts\vanfont.ttf">
+      <Filter>Assets\Fonts</Filter>
+    </Font>
   </ItemGroup>
 </Project>

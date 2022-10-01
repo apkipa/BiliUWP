@@ -34,7 +34,9 @@
 #include <winrt/Windows.UI.Xaml.Markup.h>
 #include <winrt/Windows.UI.Xaml.Navigation.h>
 #include <winrt/Windows.UI.Xaml.Hosting.h>
+#include <winrt/Windows.UI.Input.h>
 #include <winrt/Windows.UI.Composition.h>
+#include <winrt/Windows.UI.Composition.Interactions.h>
 #include <winrt/Windows.ApplicationModel.Resources.h>
 #include <winrt/Windows.Web.Http.h>
 #include <winrt/Windows.Web.Http.Headers.h>

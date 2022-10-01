@@ -1,4 +1,5 @@
 import "IBiliResource.idl";
+import "AppCfgModel.idl";
 
 namespace BiliUWP{
     runtimeclass MediaPlayPage_UpItem {
@@ -28,5 +29,7 @@ namespace BiliUWP{
         String MediaCoverImageUrl{ get; };
         String MediaDescription{ get; };
         IObservableVector<IInspectable> UpList{ get; };
+
+        AppCfgModel CfgModel{ get; };
     }
 }

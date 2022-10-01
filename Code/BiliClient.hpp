@@ -390,6 +390,185 @@ namespace BiliUWP {
         uint64_t posts_count;
         uint64_t like_count;
     };
+    struct UserSpaceInfo_FansMedal_Medal {
+        uint64_t uid;
+        uint64_t target_uid;
+        uint64_t medal_id;
+        uint32_t level;
+        winrt::hstring medal_name;
+        uint32_t medal_color;
+        uint64_t cur_intimacy;
+        uint64_t next_intimacy;
+        uint64_t intimacy_day_limit;
+        uint32_t medal_color_start;
+        uint32_t medal_color_end;
+        uint32_t medal_color_border;
+        bool is_lighted;
+        uint32_t light_status;
+        uint32_t wearing_status;
+        uint64_t score;
+    };
+    struct UserSpaceInfoResult_SysNotice {
+        uint32_t id;
+        winrt::hstring content;
+        winrt::hstring url;
+        uint32_t notice_type;
+        winrt::hstring icon;
+        winrt::hstring text_color;
+        winrt::hstring bg_color;
+    };
+    struct UserSpaceInfoResult_School {
+        winrt::hstring name;
+    };
+    struct UserSpaceInfoResult {
+        uint64_t mid;
+        winrt::hstring name;
+        winrt::hstring sex;
+        winrt::hstring face_url;
+        bool is_face_nft;
+        winrt::hstring sign;
+        uint32_t level;
+        bool is_silenced;
+        uint64_t coin_count;
+        bool has_fans_badge;
+        struct {
+            bool show;
+            bool wear;
+            std::optional<UserSpaceInfo_FansMedal_Medal> medal;
+        } fans_medal;
+        struct {
+            uint32_t role;
+            winrt::hstring title;
+            winrt::hstring desc;
+            int32_t type;
+        } official;
+        struct {
+            uint32_t type;
+            bool is_vip;
+            uint64_t due_date;
+            uint32_t vip_pay_type;
+            struct {
+                winrt::hstring path;
+                winrt::hstring text;
+                winrt::hstring label_theme;
+                winrt::hstring text_color;
+                uint32_t bg_style;
+                winrt::hstring bg_color;
+                winrt::hstring border_color;
+            } label;
+            bool show_avatar_subscript;
+            winrt::hstring nickname_color;
+            uint32_t role;
+            winrt::hstring avatar_subscript_url;
+        } vip;
+        struct {
+            uint64_t pid;
+            winrt::hstring name;
+            winrt::hstring image_url;
+            uint64_t expire;
+            winrt::hstring image_enhance;
+            winrt::hstring image_enhance_frame;
+        } pendant;
+        struct {
+            uint64_t nid;
+            winrt::hstring name;
+            winrt::hstring image_url;
+            winrt::hstring image_small_url;
+            winrt::hstring level;
+            winrt::hstring condition;
+        } nameplate;
+        struct {
+            uint64_t mid;
+            std::optional<winrt::hstring> colour;
+            std::vector<winrt::hstring> tags;
+        } user_honour_info;
+        bool is_followed;
+        winrt::hstring top_photo_url;
+        std::optional<UserSpaceInfoResult_SysNotice> sys_notice;
+        struct {
+            uint32_t room_status;
+            uint32_t live_status;
+            winrt::hstring room_url;
+            winrt::hstring room_title;
+            winrt::hstring room_cover_url;
+            struct {
+                // switch: ?
+                bool is_switched;
+                uint64_t total_watched_users;
+                winrt::hstring text_small;
+                winrt::hstring text_large;
+                winrt::hstring icon_url;
+                winrt::hstring icon_location;
+                winrt::hstring icon_web_url;
+            } watched_show;
+            uint64_t room_id;
+            bool is_rounding;
+            uint32_t broadcast_type;
+        } live_room;
+        winrt::hstring birthday;
+        std::optional<UserSpaceInfoResult_School> school;
+        struct {
+            winrt::hstring name;
+            winrt::hstring department;
+            winrt::hstring title;
+            bool is_show;
+        } profession;
+        struct {
+            uint32_t user_upgrade_status;
+            bool show_upgrade_window;
+        } series;
+        bool is_senior_member;
+    };
+    struct UserSpaceUpStatInfoResult {
+        struct {
+            uint64_t view_count;
+        } archive;
+        struct {
+            uint64_t view_count;
+        } article;
+        uint64_t like_count;
+    };
+    struct UserSpacePublishedVideos_Type {
+        uint64_t count;
+        winrt::hstring type_name;
+        uint64_t tid;
+    };
+    struct UserSpacePublishedVideos_Video {
+        uint64_t avid;
+        winrt::hstring author;
+        winrt::hstring bvid;
+        uint64_t comment_count;
+        winrt::hstring copyright;
+        uint64_t publish_time;
+        winrt::hstring description;
+        bool is_pay;
+        bool is_union_video;
+        winrt::hstring length_str;
+        uint64_t mid;
+        winrt::hstring cover_url;
+        uint64_t play_count;
+        uint64_t review;
+        winrt::hstring subtitle;
+        winrt::hstring title;
+        uint64_t tid;
+        uint64_t danmaku_count;
+    };
+    struct UserSpacePublishedVideosResult {
+        struct {
+            // NOTE: type_id -> Type
+            std::map<uint64_t, UserSpacePublishedVideos_Type> tlist;
+            std::vector<UserSpacePublishedVideos_Video> vlist;
+        } list;
+        struct {
+            uint64_t count;
+            uint64_t pn;
+            uint64_t ps;
+        } page;
+        struct {
+            winrt::hstring text;
+            winrt::hstring uri;
+        } episodic_button;
+    };
     struct VideoViewInfo_Dimension {
         uint32_t width;
         uint32_t height;
@@ -721,6 +900,11 @@ namespace BiliUWP {
         uint32_t n;     // Starts from 1
         uint32_t size;  // Recommended value is 20
     };
+    enum class UserPublishedVideosOrderParam {
+        ByPublishTime,
+        ByClickCount,
+        ByFavouriteCount,
+    };
     struct FavItemLookupParam {
         uint64_t nid;
         ResItemType type;
@@ -758,6 +942,11 @@ namespace BiliUWP {
         util::winrt::task<MyAccountNavInfoResult> my_account_nav_info(void);
         util::winrt::task<MyAccountNavStatInfoResult> my_account_nav_stat_info(void);
         util::winrt::task<UserCardInfoResult> user_card_info(uint64_t mid);
+        util::winrt::task<UserSpaceInfoResult> user_space_info(uint64_t mid);
+        util::winrt::task<UserSpaceUpStatInfoResult> user_space_upstat_info(uint64_t mid);
+        util::winrt::task<UserSpacePublishedVideosResult> user_space_published_videos(
+            uint64_t mid, PageParam page, winrt::hstring search_keyword, UserPublishedVideosOrderParam order
+        );
 
         // Video information
         util::winrt::task<VideoViewInfoResult> video_view_info(std::variant<uint64_t, winrt::hstring> vid);

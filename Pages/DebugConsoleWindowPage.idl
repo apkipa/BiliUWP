@@ -1,0 +1,18 @@
+namespace BiliUWP {
+    runtimeclass DebugConsoleWindowPage_LogViewItem {
+        Windows.UI.Xaml.Media.Brush ColorBrush{ get; };
+        String Time{ get; };
+        String SourceLocation{ get; };
+        String Content{ get; };
+        String ContentShortened{ get; };
+    }
+
+    // NOTE: This page is only meant to be used by DebugConsole.cpp / .hpp
+    [default_interface]
+    runtimeclass DebugConsoleWindowPage : Windows.UI.Xaml.Controls.Page {
+        DebugConsoleWindowPage();
+
+        void AppendLog(DebugConsoleWindowPage_LogViewItem log_item);
+        void ClearLogs();
+    }
+}

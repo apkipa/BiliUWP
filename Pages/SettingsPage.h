@@ -27,6 +27,10 @@ namespace winrt::BiliUWP::implementation {
             Windows::Foundation::IInspectable const&,
             Windows::UI::Xaml::RoutedEventArgs const&
         );
+        void SwitchDebugConsoleButton_Click(
+            Windows::Foundation::IInspectable const&,
+            Windows::UI::Xaml::RoutedEventArgs const&
+        );
 
         BiliUWP::AppCfgModel CfgModel() { return m_cfg_model; }
 

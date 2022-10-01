@@ -1,4 +1,36 @@
 namespace BiliUWP {
+    runtimeclass UserVideosViewItem {
+        String Title{ get; };
+        // NOTE: If an item has no cover, this property will return a placeholder cover url
+        String CoverUrl{ get; };
+        String PublishTimeStr{ get; };
+        String Description{ get; };
+        UInt64 PlayCount{ get; };
+        UInt64 DanmakuCount{ get; };
+        UInt64 AvId{ get; };
+        Boolean IsUnionVideo{ get; };
+    };
+
+    [default_interface]
+    runtimeclass UserVideosViewItemSource :
+        IObservableVector<IInspectable>, Windows.UI.Xaml.Data.ISupportIncrementalLoading
+    {
+        // Param: true => Loading; false => Loaded
+        event Windows.Foundation.EventHandler<Boolean> LoadingStateChanged;
+        void Reload();
+        UInt32 TotalItemsCount{ get; };
+    };
+
+    enum UserPage_TargetPart {
+        PublishedVideos,
+        Followers,
+    };
+
+    struct UserPageNavParam {
+        UInt64 uid;
+        UserPage_TargetPart target_part;
+    };
+
     [default_interface]
     runtimeclass UserPage : Windows.UI.Xaml.Controls.Page {
         UserPage();

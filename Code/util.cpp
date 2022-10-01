@@ -617,5 +617,55 @@ namespace util {
                 return AppViewWindowingMode::Unknown;
             }
         }
+
+        void persist_textbox_copying_handler(
+            ::winrt::Windows::UI::Xaml::Controls::TextBox const& sender,
+            ::winrt::Windows::UI::Xaml::Controls::TextControlCopyingToClipboardEventArgs const& e
+        ) {
+            using namespace ::winrt::Windows::ApplicationModel::DataTransfer;
+            e.Handled(true);
+            auto data_package = DataPackage();
+            data_package.RequestedOperation(DataPackageOperation::Copy);
+            data_package.SetText(sender.SelectedText());
+            Clipboard::SetContent(data_package);
+            Clipboard::Flush();
+        }
+        void persist_textbox_cutting_handler(
+            ::winrt::Windows::UI::Xaml::Controls::TextBox const& sender,
+            ::winrt::Windows::UI::Xaml::Controls::TextControlCuttingToClipboardEventArgs const& e
+        ) {
+            using namespace ::winrt::Windows::ApplicationModel::DataTransfer;
+            e.Handled(true);
+            auto data_package = DataPackage();
+            data_package.RequestedOperation(DataPackageOperation::Move);
+            data_package.SetText(sender.SelectedText());
+            sender.SelectedText(L"");
+            Clipboard::SetContent(data_package);
+            Clipboard::Flush();
+        }
+        void persist_textbox_cc_clipboard(::winrt::Windows::UI::Xaml::Controls::TextBox const& tb) {
+            tb.CopyingToClipboard(persist_textbox_copying_handler);
+            tb.CuttingToClipboard(persist_textbox_cutting_handler);
+        }
+        void persist_autosuggestbox_clipboard(::winrt::Windows::UI::Xaml::Controls::AutoSuggestBox const& ctrl) {
+            using ::winrt::Windows::Foundation::IInspectable;
+            using ::winrt::Windows::UI::Xaml::RoutedEventArgs;
+            using ::winrt::Windows::UI::Xaml::Controls::AutoSuggestBox;
+            auto run_fn = [](::winrt::Windows::UI::Xaml::Controls::AutoSuggestBox const& ctrl) {
+                auto elem = get_child_elem(get_child_elem(ctrl, L"LayoutRoot"), L"TextBox");
+                persist_textbox_cc_clipboard(elem.as<::winrt::Windows::UI::Xaml::Controls::TextBox>());
+            };
+            if (ctrl.IsLoaded()) {
+                run_fn(ctrl);
+            }
+            else {
+                auto revoke_et = std::make_shared_for_overwrite<::winrt::event_token>();
+                *revoke_et = ctrl.Loaded([=](IInspectable const& sender, RoutedEventArgs const&) {
+                    auto ctrl = sender.as<AutoSuggestBox>();
+                    ctrl.Loaded(*revoke_et);
+                    run_fn(ctrl);
+                });
+            }
+        }
     }
 }

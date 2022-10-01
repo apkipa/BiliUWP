@@ -23,10 +23,11 @@ namespace winrt::BiliUWP::implementation {
 
         IInspectable Convert(
             IInspectable const& value,
-            TypeName const& target_type,
+            TypeName const& targetType,
             IInspectable const& parameter,
             hstring const& language
         ) {
+            (void)targetType; (void)language;
             if (value) {
                 auto grid_view = parameter.try_as<GridView>();
                 if (!grid_view) {
@@ -46,10 +47,11 @@ namespace winrt::BiliUWP::implementation {
         }
         IInspectable ConvertBack(
             IInspectable const& value,
-            TypeName const& target_type,
+            TypeName const& targetType,
             IInspectable const& parameter,
             hstring const& language
         ) {
+            (void)value; (void)targetType; (void)parameter; (void)language;
             throw hresult_not_implemented();
         }
 

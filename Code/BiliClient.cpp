@@ -288,6 +288,13 @@ namespace BiliUWP {
                 static_assert(util::misc::always_false_v<ParamType>, "Incorrect parameter type for functor");
             }
         }
+        template<typename Functor>
+        auto scope_enumerate(Functor&& func) {
+            // TODO: Maybe improve performance for scope_enumerate
+            for (auto&& kv : m_jo) {
+                this->scope(std::bind(func, kv.Key(), std::placeholders::_1), winrt::to_string(kv.Key()));
+            }
+        }
         template<typename T>
         void populate_inner(T& dst, JsonValueVisitor jvv) {
             jvv.populate(dst);
@@ -783,13 +790,63 @@ namespace BiliUWP {
         jov.populate(result.bvid, "bvid");
         return result;
     }
+    template<>
+    UserSpaceInfo_FansMedal_Medal JsonValueVisitor::as(void) {
+        UserSpaceInfo_FansMedal_Medal result;
+        auto jov = this->as<JsonObjectVisitor>();
+        jov.populate(result.uid, "uid");
+        jov.populate(result.target_uid, "target_id");
+        jov.populate(result.medal_id, "medal_id");
+        jov.populate(result.level, "level");
+        jov.populate(result.medal_name, "medal_name");
+        jov.populate(result.medal_color, "medal_color");
+        jov.populate(result.cur_intimacy, "intimacy");
+        jov.populate(result.next_intimacy, "next_intimacy");
+        jov.populate(result.intimacy_day_limit, "day_limit");
+        jov.populate(result.medal_color_start, "medal_color_start");
+        jov.populate(result.medal_color_end, "medal_color_end");
+        jov.populate(result.medal_color_border, "medal_color_border");
+        jov.scope(
+            adapter::assign_num_0_1_to_bool{ result.is_lighted }, "is_lighted");
+        jov.populate(result.light_status, "light_status");
+        jov.populate(result.wearing_status, "wearing_status");
+        jov.populate(result.score, "score");
+        return result;
+    }
+    template<>
+    UserSpaceInfoResult_School JsonValueVisitor::as(void) {
+        UserSpaceInfoResult_School result;
+        auto jov = this->as<JsonObjectVisitor>();
+        jov.populate(result.name, "name");
+        return result;
+    }
+    template<>
+    UserSpacePublishedVideos_Video JsonValueVisitor::as(void) {
+        UserSpacePublishedVideos_Video result;
+        auto jov = this->as<JsonObjectVisitor>();
+        jov.populate(result.avid, "aid");
+        jov.populate(result.author, "author");
+        jov.populate(result.bvid, "bvid");
+        jov.populate(result.comment_count, "comment");
+        jov.populate(result.copyright, "copyright");
+        jov.populate(result.publish_time, "created");
+        jov.populate(result.description, "description");
+        jov.scope(adapter::assign_num_0_1_to_bool{ result.is_pay }, "is_pay");
+        jov.scope(adapter::assign_num_0_1_to_bool{ result.is_union_video }, "is_union_video");
+        jov.populate(result.length_str, "length");
+        jov.populate(result.mid, "mid");
+        jov.populate(result.cover_url, "pic");
+        jov.populate(result.play_count, "play");
+        jov.populate(result.review, "review");
+        jov.populate(result.subtitle, "subtitle");
+        jov.populate(result.title, "title");
+        jov.populate(result.tid, "typeid");
+        jov.populate(result.danmaku_count, "video_review");
+        return result;
+    }
 
     BiliClient::BiliClient() :
-        m_bili_client(winrt::BiliUWP::BiliClientManaged()),
-        m_refresh_token()
-    {
-        //m_bili_client.data_user_agent(L"...");
-    }
+        m_bili_client(winrt::BiliUWP::BiliClientManaged()), m_refresh_token() {}
 
     winrt::hstring BiliClient::get_access_token(void) {
         return m_bili_client.data_access_token();
@@ -1095,6 +1152,219 @@ namespace BiliUWP {
             jov.populate(result.is_following, "following");
             jov.populate(result.posts_count, "archive_count");
             jov.populate(result.like_count, "like_num");
+        }, "data");
+
+        co_return result;
+    }
+    util::winrt::task<UserSpaceInfoResult> BiliClient::user_space_info(uint64_t mid) {
+        UserSpaceInfoResult result;
+
+        auto cancellation_token = co_await winrt::get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        auto jo = co_await m_bili_client.api_api_x_space_acc_info(mid);
+        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
+        check_json_code(jo);
+        JsonPropsWalkTree json_props_walk;
+        JsonObjectVisitor jov{ std::move(jo), json_props_walk };
+        jov.scope([&](JsonObjectVisitor jov) {
+            jov.populate(result.mid, "mid");
+            jov.populate(result.name, "name");
+            jov.populate(result.sex, "sex");
+            jov.populate(result.face_url, "face");
+            jov.scope(adapter::assign_num_0_1_to_bool{ result.is_face_nft }, "face_nft");
+            jov.populate(result.sign, "sign");
+            jov.populate(result.level, "level");
+            jov.scope(adapter::assign_num_0_1_to_bool{ result.is_silenced }, "silence");
+            jov.populate(result.coin_count, "coins");
+            jov.populate(result.has_fans_badge, "fans_badge");
+            jov.scope([&](JsonObjectVisitor jov) {
+                jov.populate(result.fans_medal.show, "show");
+                jov.populate(result.fans_medal.wear, "wear");
+                jov.scope(adapter::assign_value_or_null_to_optional{ result.fans_medal.medal }, "medal");
+            }, "fans_medal");
+            jov.scope([&](JsonObjectVisitor jov) {
+                jov.populate(result.official.role, "role");
+                jov.populate(result.official.title, "title");
+                jov.populate(result.official.desc, "desc");
+                jov.populate(result.official.type, "type");
+            }, "official");
+            jov.scope([&](JsonObjectVisitor jov) {
+                jov.populate(result.vip.type, "type");
+                jov.scope(adapter::assign_num_0_1_to_bool{ result.vip.is_vip }, "status");
+                jov.populate(result.vip.due_date, "due_date");
+                jov.populate(result.vip.vip_pay_type, "vip_pay_type");
+                jov.scope([&](JsonObjectVisitor jov) {
+                    jov.populate(result.vip.label.path, "path");
+                    jov.populate(result.vip.label.text, "text");
+                    jov.populate(result.vip.label.label_theme, "label_theme");
+                    jov.populate(result.vip.label.text_color, "text_color");
+                    jov.populate(result.vip.label.bg_style, "bg_style");
+                    jov.populate(result.vip.label.bg_color, "bg_color");
+                    jov.populate(result.vip.label.border_color, "border_color");
+                }, "label");
+                jov.scope(
+                    adapter::assign_num_0_1_to_bool{ result.vip.show_avatar_subscript }, "avatar_subscript");
+                jov.populate(result.vip.nickname_color, "nickname_color");
+                jov.populate(result.vip.role, "role");
+                jov.populate(result.vip.avatar_subscript_url, "avatar_subscript_url");
+            }, "vip");
+            jov.scope([&](JsonObjectVisitor jov) {
+                jov.populate(result.pendant.pid, "pid");
+                jov.populate(result.pendant.name, "name");
+                jov.populate(result.pendant.image_url, "image");
+                jov.populate(result.pendant.expire, "expire");
+                jov.populate(result.pendant.image_enhance, "image_enhance");
+                jov.populate(result.pendant.image_enhance_frame, "image_enhance_frame");
+            }, "pendant");
+            jov.scope([&](JsonObjectVisitor jov) {
+                jov.populate(result.nameplate.nid, "nid");
+                jov.populate(result.nameplate.name, "name");
+                jov.populate(result.nameplate.image_url, "image");
+                jov.populate(result.nameplate.image_small_url, "image_small");
+                jov.populate(result.nameplate.level, "level");
+                jov.populate(result.nameplate.condition, "condition");
+            }, "nameplate");
+            jov.scope([&](JsonObjectVisitor jov) {
+                jov.populate(result.user_honour_info.mid, "mid");
+                jov.scope(adapter::assign_value_or_null_to_optional{ result.user_honour_info.colour }, "colour");
+                jov.scope(adapter::assign_vec_or_null_as_empty{ result.user_honour_info.tags }, "tags");
+            }, "user_honour_info");
+            jov.populate(result.is_followed, "is_followed");
+            jov.populate(result.top_photo_url, "top_photo");
+            jov.scope([&](JsonObjectVisitor jov) {
+                if (!jov.has_key("id")) {
+                    result.sys_notice = std::nullopt;
+                    return;
+                }
+                UserSpaceInfoResult_SysNotice result_sn;
+                jov.populate(result_sn.id, "id");
+                jov.populate(result_sn.content, "content");
+                jov.populate(result_sn.url, "url");
+                jov.populate(result_sn.notice_type, "notice_type");
+                jov.populate(result_sn.icon, "icon");
+                jov.populate(result_sn.text_color, "text_color");
+                jov.populate(result_sn.bg_color, "bg_color");
+                result.sys_notice = std::move(result_sn);
+            }, "sys_notice");
+            jov.scope([&](JsonObjectVisitor jov) {
+                jov.populate(result.live_room.room_status, "roomStatus");
+                jov.populate(result.live_room.live_status, "liveStatus");
+                jov.populate(result.live_room.room_url, "url");
+                jov.populate(result.live_room.room_title, "title");
+                jov.populate(result.live_room.room_cover_url, "cover");
+                jov.scope([&](JsonObjectVisitor jov) {
+                    jov.populate(result.live_room.watched_show.is_switched, "switch");
+                    jov.populate(result.live_room.watched_show.total_watched_users, "num");
+                    jov.populate(result.live_room.watched_show.text_small, "text_small");
+                    jov.populate(result.live_room.watched_show.text_large, "text_large");
+                    jov.populate(result.live_room.watched_show.icon_url, "icon");
+                    jov.populate(result.live_room.watched_show.icon_location, "icon_location");
+                    jov.populate(result.live_room.watched_show.icon_web_url, "icon_web");
+                }, "watched_show");
+                jov.populate(result.live_room.room_id, "roomid");
+                jov.scope(adapter::assign_num_0_1_to_bool{ result.live_room.is_rounding }, "roundStatus");
+                jov.populate(result.live_room.broadcast_type, "broadcast_type");
+            }, "live_room");
+            jov.populate(result.birthday, "birthday");
+            jov.scope(adapter::assign_value_or_null_to_optional{ result.school }, "school");
+            jov.scope([&](JsonObjectVisitor jov) {
+                jov.populate(result.profession.name, "name");
+                jov.populate(result.profession.department, "department");
+                jov.populate(result.profession.title, "title");
+                jov.scope(adapter::assign_num_0_1_to_bool{ result.profession.is_show }, "is_show");
+            }, "profession");
+            jov.scope([&](JsonObjectVisitor jov) {
+                jov.populate(result.series.user_upgrade_status, "user_upgrade_status");
+                jov.populate(result.series.show_upgrade_window, "show_upgrade_window");
+            }, "series");
+            jov.scope(adapter::assign_num_0_1_to_bool{ result.is_senior_member }, "is_senior_member");
+        }, "data");
+
+        co_return result;
+    }
+    util::winrt::task<UserSpaceUpStatInfoResult> BiliClient::user_space_upstat_info(uint64_t mid) {
+        UserSpaceUpStatInfoResult result;
+
+        auto cancellation_token = co_await winrt::get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        auto jo = co_await m_bili_client.api_api_x_space_upstat(mid);
+        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
+        check_json_code(jo);
+        JsonPropsWalkTree json_props_walk;
+        JsonObjectVisitor jov{ std::move(jo), json_props_walk };
+        jov.scope([&](JsonObjectVisitor jov) {
+            jov.scope([&](JsonObjectVisitor jov) {
+                jov.populate(result.archive.view_count, "view");
+            }, "archive");
+            jov.scope([&](JsonObjectVisitor jov) {
+                jov.populate(result.article.view_count, "view");
+            }, "article");
+            jov.populate(result.like_count, "likes");
+        }, "data");
+
+        co_return result;
+    }
+    util::winrt::task<UserSpacePublishedVideosResult> BiliClient::user_space_published_videos(
+        uint64_t mid, PageParam page, winrt::hstring search_keyword, UserPublishedVideosOrderParam order
+    ) {
+        using winrt::BiliUWP::ApiParam_SpaceArcSearchOrder;
+
+        UserSpacePublishedVideosResult result;
+
+        auto cancellation_token = co_await winrt::get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        ApiParam_SpaceArcSearchOrder param_order;
+        switch (order) {
+        case UserPublishedVideosOrderParam::ByPublishTime:
+            param_order = ApiParam_SpaceArcSearchOrder::ByPublishTime;
+            break;
+        case UserPublishedVideosOrderParam::ByClickCount:
+            param_order = ApiParam_SpaceArcSearchOrder::ByClickCount;
+            break;
+        case UserPublishedVideosOrderParam::ByFavouriteCount:
+            param_order = ApiParam_SpaceArcSearchOrder::ByFavouriteCount;
+            break;
+        default:
+            throw winrt::hresult_invalid_argument();
+        }
+        auto jo = co_await m_bili_client.api_api_x_space_arc_search(
+            mid, winrt::BiliUWP::ApiParam_Page{ page.n, page.size }, search_keyword, 0, param_order
+        );
+        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
+        check_json_code(jo);
+        JsonPropsWalkTree json_props_walk;
+        JsonObjectVisitor jov{ std::move(jo), json_props_walk };
+        jov.scope([&](JsonObjectVisitor jov) {
+            jov.scope([&](JsonObjectVisitor jov) {
+                jov.scope([&](JsonObjectVisitor jov) {
+                    jov.scope_enumerate([&](winrt::hstring const& key, JsonObjectVisitor jov) {
+                        auto num_key = util::num::try_parse_u64(key);
+                        if (!num_key) {
+                            throw BiliApiParseException(BiliApiParseException::json_parse_user_defined,
+                                jov.get_props_walk_tree(), "Object does not reside in u64 key"
+                            );
+                        }
+                        UserSpacePublishedVideos_Type result_t;
+                        jov.populate(result_t.count, "count");
+                        jov.populate(result_t.type_name, "name");
+                        jov.populate(result_t.tid, "tid");
+                        result.list.tlist[*num_key] = std::move(result_t);
+                    });
+                }, "tlist");
+                jov.populate(result.list.vlist, "vlist");
+            }, "list");
+            jov.scope([&](JsonObjectVisitor jov) {
+                jov.populate(result.page.count, "count");
+                jov.populate(result.page.pn, "pn");
+                jov.populate(result.page.ps, "ps");
+            }, "page");
+            jov.scope([&](JsonObjectVisitor jov) {
+                jov.populate(result.episodic_button.text, "text");
+                jov.populate(result.episodic_button.uri, "uri");
+            }, "episodic_button");
         }, "data");
 
         co_return result;

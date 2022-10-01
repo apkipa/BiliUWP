@@ -25,6 +25,11 @@ namespace BiliUWP {
         UInt32 n;       // Starts from 1
         UInt32 size;    // Recommended value is 20
     };
+    enum ApiParam_SpaceArcSearchOrder {
+        ByPublishTime,
+        ByClickCount,
+        ByFavouriteCount,
+    };
     struct ApiParam_VideoPlayUrlPreference {
         Boolean prefer_dash;
         Boolean prefer_hdr;
@@ -88,6 +93,22 @@ namespace BiliUWP {
         Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_web_interface_card(
             UInt64 mid, Boolean get_photo
         );
+        //   https://api.bilibili.com/x/space/acc/info | cookies
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_space_acc_info(
+            UInt64 mid
+        );
+        //   https://api.bilibili.com/x/space/upstat | cookies
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_space_upstat(
+            UInt64 mid
+        );
+        //   https://api.bilibili.com/x/space/arc/search | cookies
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_space_arc_search(
+            UInt64 mid,
+            ApiParam_Page page,
+            String keyword,         // Optional
+            UInt64 tid,
+            ApiParam_SpaceArcSearchOrder order
+        );
 
         // Video information
         // NOTE: avid format: "<digits>"; bvid format: "BV<chars>"
@@ -139,7 +160,7 @@ namespace BiliUWP {
         Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_v3_fav_resource_list(
             UInt64 folder_id,
             ApiParam_Page page,
-            String keyword,
+            String keyword,         // Optional
             ApiParam_FavResSortOrder order
         );
     }
