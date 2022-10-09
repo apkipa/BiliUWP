@@ -3,11 +3,10 @@
 #if __has_include("UserPage.g.cpp")
 #include "UserPage.g.cpp"
 #endif
-#include "UserVideosViewItem.g.cpp"
-#include "UserVideosViewItemSource.g.cpp"
+#include "AppItemsCollection.h"
 #include "App.h"
-#include "FavouritesUserPage.h"
 #include <regex>
+
 
 // NOTE: Keep these values in sync with XAML!
 constexpr double HEADER_MAX_HEIGHT = 200;
@@ -312,70 +311,7 @@ namespace winrt::BiliUWP::implementation {
 }
 #endif
 
-// TODO: Try to abstract out GenericViewItemSource
-
 namespace winrt::BiliUWP::implementation {
-    UserVideosViewItemSource::UserVideosViewItemSource(uint64_t mid) :
-        m_vec(single_threaded_observable_vector<Windows::Foundation::IInspectable>()),
-        m_mid(mid), m_cur_page_n(0), m_has_more(true), m_total_items_count(0),
-        m_is_loading() {}
-    IAsyncOperation<LoadMoreItemsResult> UserVideosViewItemSource::LoadMoreItemsAsync(
-        uint32_t count
-    ) {
-        auto cancellation_token = co_await get_cancellation_token();
-        cancellation_token.enable_propagation();
-
-        // TODO: Should we store the async operation in order to cancel upon releasing self?
-
-        auto bili_client = ::BiliUWP::App::get()->bili_client();
-
-        auto weak_store = util::winrt::make_weak_storage(*this);
-
-        if (m_is_loading.exchange(true)) { co_return{}; }
-        m_loading_state_changed(*this, true);
-        deferred([&]() {
-            if (!weak_store.lock()) { return; }
-            weak_store->m_loading_state_changed(*weak_store, false);
-            weak_store->m_is_loading.store(false);
-        });
-
-        auto on_exception_cleanup_fn = [&] {
-            if (!weak_store.lock()) { return; }
-            weak_store->m_has_more = false;
-        };
-
-        try {
-            auto result = std::move(co_await weak_store.ual(bili_client->user_space_published_videos(
-                m_mid, { .n = m_cur_page_n + 1, .size = 20 },
-                L"", ::BiliUWP::UserPublishedVideosOrderParam::ByPublishTime
-            )));
-            m_total_items_count = static_cast<uint32_t>(result.page.count);
-            m_has_more = (m_cur_page_n + 1) * 20 < m_total_items_count;
-            if (m_vec.Size() == 0) {
-                std::vector<winrt::BiliUWP::UserVideosViewItem> vec;
-                for (auto& i : result.list.vlist) {
-                    vec.push_back(winrt::make<UserVideosViewItem>(i));
-                }
-                m_vec.ReplaceAll(std::move(vec));
-            }
-            else {
-                for (auto& i : result.list.vlist) {
-                    m_vec.Append(winrt::make<UserVideosViewItem>(i));
-                }
-            }
-
-            m_cur_page_n++;
-
-            co_return{ .Count = static_cast<uint32_t>(result.list.vlist.size()) };
-        }
-        catch (hresult_canceled const&) { on_exception_cleanup_fn(); }
-        catch (...) {
-            util::winrt::log_current_exception();
-            on_exception_cleanup_fn();
-        }
-
-        co_return{};
-    }
     UserPage::UserPage() : m_uid(0) {}
     void UserPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e) {
         auto tab = ::BiliUWP::App::get()->tab_from_page(*this);
@@ -463,30 +399,40 @@ namespace winrt::BiliUWP::implementation {
                         }
                         throw hresult_error(E_FAIL, L"Could not find tab index of given content");
                     };
-                    auto apply_monitor_for_items_src = [&](auto const& grid_view, auto const& items_src) {
+                    auto apply_items_src = [&](auto const& grid_view, auto const& items_src) {
                         auto idx = idx_of_content_fn(grid_view);
                         grid_view.ItemsSource(items_src);
                         auto weak_this = that->get_weak();
-                        items_src.LoadingStateChanged([=](IInspectable const& sender, bool is_loading) {
-                            auto strong_this = weak_this.get();
-                            if (!strong_this) { return; }
-                            if (sender.as<IVector<IInspectable>>().Size() == 0 && is_loading) {
-                                strong_this->m_view_is_volatile[idx] = true;
-                                util::debug::log_debug(std::format(L"Marked {} as volatile", idx));
+                        items_src.OnStartLoading(
+                            [=](BiliUWP::IncrementalLoadingCollection const& sender, IInspectable const&) {
+                                auto strong_this = weak_this.get();
+                                if (!strong_this) { return; }
+                                if (sender.Size() == 0) {
+                                    strong_this->m_view_is_volatile[idx] = true;
+                                    util::debug::log_debug(std::format(L"Marked {} as volatile", idx));
+                                }
                             }
-                            if (strong_this->m_view_is_volatile[idx] && !is_loading) {
-                                strong_this->m_view_is_volatile[idx] = false;
-                                util::debug::log_debug(std::format(L"Marked {} as non-volatile", idx));
+                        );
+                        items_src.OnEndLoading(
+                            [=](BiliUWP::IncrementalLoadingCollection const&, IInspectable const&) {
+                                auto strong_this = weak_this.get();
+                                if (!strong_this) { return; }
+                                if (strong_this->m_view_is_volatile[idx]) {
+                                    strong_this->m_view_is_volatile[idx] = false;
+                                    util::debug::log_debug(std::format(L"Marked {} as non-volatile", idx));
+                                }
                             }
-                        });
+                        );
                     };
-                    apply_monitor_for_items_src(
+                    apply_items_src(
                         that->VideosItemsGridView(),
-                        make<UserVideosViewItemSource>(that->m_uid)
+                        MakeIncrementalLoadingCollection(
+                            std::make_shared<::BiliUWP::UserVideosViewItemsSource>(that->m_uid))
                     );
-                    apply_monitor_for_items_src(
+                    apply_items_src(
                         that->FavouritesItemsGridView(),
-                        make<FavouritesUserPage_ViewItemSource>(that->m_uid)
+                        MakeIncrementalLoadingCollection(
+                            std::make_shared<::BiliUWP::FavouritesUserViewItemsSource>(that->m_uid))
                     );
                 }
                 catch (::BiliUWP::BiliApiException const&) {
@@ -501,7 +447,6 @@ namespace winrt::BiliUWP::implementation {
                     throw;
                 }
                 overlay.SwitchToHidden();
-                // TODO: Request an update for current tab (?)
             }, this);
         }
         else {
@@ -568,11 +513,11 @@ namespace winrt::BiliUWP::implementation {
     void UserPage::FavouritesItemsGridView_ItemClick(
         Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::ItemClickEventArgs const& e
     ) {
-        auto vi = e.ClickedItem().as<FavouritesUserPage_ViewItem>();
+        auto vi = e.ClickedItem().as<BiliUWP::FavouritesUserViewItem>();
         auto tab = ::BiliUWP::make<::BiliUWP::AppTab>();
         tab->navigate(
             xaml_typename<winrt::BiliUWP::FavouritesFolderPage>(),
-            box_value(FavouritesFolderPageNavParam{ vi->FolderId() })
+            box_value(FavouritesFolderPageNavParam{ vi.FolderId() })
         );
         ::BiliUWP::App::get()->add_tab(tab);
         tab->activate();
@@ -735,15 +680,16 @@ namespace winrt::BiliUWP::implementation {
                 UserSign().StartAnimation(m_ea_usersign_opacity);
             }
             if (!m_ea_pih_tl) {
-                auto pih_xoff = 40 + UserFace().ActualWidth() * 0.45 + UserName().ActualWidth() * 0.5;
                 auto pih = get_first_descendant<FrameworkElement>(TabsPivot(), L"HeaderClipper");
                 pih.HorizontalAlignment(HorizontalAlignment::Left);
-                pih.Width(this->ActualWidth() - pih_xoff);
-                static auto m_ea_pih_tl = compositor.CreateExpressionAnimation(std::format(
-                    //L"Lerp(0,{},1-Pow(1-cp.p,5))",
-                    L"Lerp(0,{},cp.p)",
-                    pih_xoff
-                ));
+                m_comp_props.InsertScalar(L"pih_xoff", 0);
+                UserName().SizeChanged([this](IInspectable const&, SizeChangedEventArgs const&) {
+                    auto pih_xoff = 40 + UserFace().ActualWidth() * 0.45 + UserName().ActualWidth() * 0.5;
+                    m_comp_props.InsertScalar(L"pih_xoff", static_cast<float>(pih_xoff));
+                });
+                m_ea_pih_tl = compositor.CreateExpressionAnimation(
+                    L"Lerp(0,cp.pih_xoff,cp.p)"
+                );
                 m_ea_pih_tl.SetReferenceParameter(L"cp", m_comp_props);
                 m_ea_pih_tl.Target(L"Translation.X");
                 pih.StartAnimation(m_ea_pih_tl);

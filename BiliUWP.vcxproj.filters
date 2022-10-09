@@ -23,6 +23,12 @@
     <Midl Include="Code\HttpRandomAccessStream.idl">
       <Filter>Code</Filter>
     </Midl>
+    <Midl Include="Code\IncrementalLoadingCollection.idl">
+      <Filter>Code</Filter>
+    </Midl>
+    <Midl Include="Code\AppItemsCollection.idl">
+      <Filter>Code</Filter>
+    </Midl>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
@@ -58,6 +64,12 @@
     <ClCompile Include="Code\DebugConsole.cpp">
       <Filter>Code</Filter>
     </ClCompile>
+    <ClCompile Include="Code\IncrementalLoadingCollection.cpp">
+      <Filter>Code</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\AppItemsCollection.cpp">
+      <Filter>Code</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -89,6 +101,12 @@
       <Filter>Code</Filter>
     </ClInclude>
     <ClInclude Include="Code\DebugConsole.hpp">
+      <Filter>Code</Filter>
+    </ClInclude>
+    <ClInclude Include="Code\IncrementalLoadingCollection.h">
+      <Filter>Code</Filter>
+    </ClInclude>
+    <ClInclude Include="Code\AppItemsCollection.h">
       <Filter>Code</Filter>
     </ClInclude>
   </ItemGroup>

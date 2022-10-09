@@ -1,24 +1,4 @@
 namespace BiliUWP {
-    runtimeclass FavouritesUserPage_ViewItem {
-        String Title{ get; };
-        // NOTE: If an item has no cover, this property will return a placeholder cover url
-        String CoverUrl{ get; };
-        String AttrStr{ get; };
-        UInt64 MediaCount{ get; };
-        UInt64 FolderId{ get; };
-    };
-
-    [default_interface]
-    runtimeclass FavouritesUserPage_ViewItemSource :
-        IObservableVector<IInspectable>, Windows.UI.Xaml.Data.ISupportIncrementalLoading
-    {
-        FavouritesUserPage_ViewItemSource(UInt64 user_mid);
-        // Param: true => Loading; false => Loaded
-        event Windows.Foundation.EventHandler<Boolean> LoadingStateChanged;
-        void Reload();
-        UInt32 TotalItemsCount{ get; };
-    };
-
     struct FavouritesUserPageNavParam {
         UInt64 uid;
     };
@@ -26,6 +6,5 @@ namespace BiliUWP {
     [default_interface]
     runtimeclass FavouritesUserPage : Windows.UI.Xaml.Controls.Page {
         FavouritesUserPage();
-        FavouritesUserPage_ViewItemSource ViewItemSource{ get; };
     }
 }

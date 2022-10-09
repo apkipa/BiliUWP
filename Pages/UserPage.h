@@ -1,87 +1,11 @@
 ﻿#pragma once
 
 #include "UserPage.g.h"
-#include "UserVideosViewItem.g.h"
-#include "UserVideosViewItemSource.g.h"
 #include "util.hpp"
 #include "AdaptiveGridView.h"
 #include "BiliClient.hpp"
 
 namespace winrt::BiliUWP::implementation {
-    struct UserVideosViewItem : UserVideosViewItemT<UserVideosViewItem> {
-        UserVideosViewItem(::BiliUWP::UserSpacePublishedVideos_Video const& data) : m_data(data) {}
-        hstring Title() { return m_data.title; }
-        hstring CoverUrl() {
-            if (m_data.cover_url != L"") {
-                return m_data.cover_url;
-            }
-            return L"https://s1.hdslb.com/bfs/static/jinkela/space/assets/playlistbg.png";
-        }
-        hstring PublishTimeStr() { return to_hstring(m_data.publish_time); }
-        hstring Description() { return m_data.description; }
-        uint64_t PlayCount() { return m_data.play_count; }
-        uint64_t DanmakuCount() { return m_data.danmaku_count; }
-        uint64_t AvId() { return m_data.avid; }
-        bool IsUnionVideo() { return m_data.is_union_video; }
-
-    private:
-        ::BiliUWP::UserSpacePublishedVideos_Video m_data;
-    };
-    struct UserVideosViewItemSource : UserVideosViewItemSourceT<UserVideosViewItemSource> {
-        UserVideosViewItemSource(uint64_t mid);
-        Windows::Foundation::Collections::IIterator<Windows::Foundation::IInspectable> First() { return m_vec.First(); }
-        Windows::Foundation::IInspectable GetAt(uint32_t index) { return m_vec.GetAt(index); }
-        uint32_t Size() { return m_vec.Size(); }
-        Windows::Foundation::Collections::IVectorView<Windows::Foundation::IInspectable> GetView() { return m_vec.GetView(); }
-        bool IndexOf(Windows::Foundation::IInspectable const& value, uint32_t& index) { return m_vec.IndexOf(value, index); }
-        void SetAt(uint32_t index, Windows::Foundation::IInspectable const& value) { m_vec.SetAt(index, value); }
-        void InsertAt(uint32_t index, Windows::Foundation::IInspectable const& value) { m_vec.InsertAt(index, value); }
-        void RemoveAt(uint32_t index) { m_vec.RemoveAt(index); }
-        void Append(Windows::Foundation::IInspectable const& value) { m_vec.Append(value); }
-        void RemoveAtEnd() { m_vec.RemoveAtEnd(); }
-        void Clear() { m_vec.Clear(); }
-        uint32_t GetMany(uint32_t startIndex, array_view<Windows::Foundation::IInspectable> items) {
-            return m_vec.GetMany(startIndex, items);
-        }
-        void ReplaceAll(array_view<Windows::Foundation::IInspectable const> items) { m_vec.ReplaceAll(items); }
-        event_token VectorChanged(
-            Windows::Foundation::Collections::VectorChangedEventHandler<Windows::Foundation::IInspectable> const& vhnd
-        ) {
-            return m_vec.VectorChanged(vhnd);
-        }
-        void VectorChanged(event_token const& token) noexcept { m_vec.VectorChanged(token); };
-        Windows::Foundation::IAsyncOperation<Windows::UI::Xaml::Data::LoadMoreItemsResult> LoadMoreItemsAsync(
-            uint32_t count
-        );
-        bool HasMoreItems() {
-            return m_has_more;
-        }
-
-        // true => Loading; false => Loaded
-        event_token LoadingStateChanged(Windows::Foundation::EventHandler<bool> const& handler) {
-            return m_loading_state_changed.add(handler);
-        }
-        void LoadingStateChanged(event_token const& token) noexcept {
-            m_loading_state_changed.remove(token);
-        }
-        void Reload(void) {
-            if (m_is_loading.load()) { return; }
-            m_cur_page_n = 0;
-            m_has_more = true;
-            m_vec.Clear();
-        }
-        uint32_t TotalItemsCount() { return m_total_items_count; }
-
-    private:
-        Windows::Foundation::Collections::IObservableVector<IInspectable> m_vec;
-        uint64_t m_mid;
-        uint32_t m_cur_page_n;  // Current page n after loading
-        bool m_has_more;
-        uint32_t m_total_items_count;
-
-        std::atomic_bool m_is_loading;
-        event<Windows::Foundation::EventHandler<bool>> m_loading_state_changed;
-    };
     struct UserPage : UserPageT<UserPage> {
         UserPage();
 

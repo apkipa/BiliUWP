@@ -96,7 +96,7 @@
                         </Style>
                     </local:AdaptiveGridView.ItemContainerStyle>
                     <local:AdaptiveGridView.ItemTemplate>
-                        <DataTemplate x:DataType="local:FavouritesUserPage_ViewItem">
+                        <DataTemplate x:DataType="local:FavouritesUserViewItem">
                             <Grid Background="{ThemeResource SystemControlBackgroundAltHighBrush}" Padding="5">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>

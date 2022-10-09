@@ -1,4 +1,11 @@
 namespace BiliUWP {
+    struct HttpRandomAccessStreamMetrics {
+        UInt64 ActiveConnectionsCount;
+        UInt64 SentRequestsDelta;
+        UInt64 InboundBitsPerSecond;
+        UInt64 DownloadedBytesDelta;
+    };
+
     enum HttpRandomAccessStreamBufferOptions {
         None,               // Disable cache
         Sized,              // [WIP] Limited cache capacity, populated on demand
@@ -27,7 +34,14 @@ namespace BiliUWP {
 
         // NOTE: New uris will be added to list
         void SupplyNewUri(Windows.Foundation.Uri[] new_uris);
+        // NOTE: max_events_count is a internal value; If 0 is passed, an optimal value will be chosen
+        void EnableMetricsCollection(Boolean enable, UInt64 max_events_count);
+        // NOTE: If clear_events is true, events will be cleared after getting metrics
+        // WARN: If metrics collection is not enabled, an exception will be thrown
+        HttpRandomAccessStreamMetrics GetMetrics(Boolean clear_events);
 
+        // WARN: The sender param is a special HttpRandomAccessStream that can only be used
+        //       to supply uris; holding sender forever will cause resource leak
         event Windows.Foundation.TypedEventHandler<HttpRandomAccessStream, NewUriRequestedEventArgs> NewUriRequested;
     }
 }

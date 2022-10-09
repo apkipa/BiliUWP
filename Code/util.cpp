@@ -618,6 +618,69 @@ namespace util {
             }
         }
 
+        ::winrt::Windows::Foundation::IAsyncOperationWithProgress<
+            ::winrt::Windows::Web::Http::IHttpContent, ::winrt::Windows::Web::Http::HttpProgress
+        > fetch_partial_http_content(
+            ::winrt::Windows::Foundation::Uri const& http_uri,
+            ::winrt::Windows::Web::Http::HttpClient const& http_client,
+            uint64_t pos, uint64_t size
+        ) {
+            auto cancellation_token = co_await ::winrt::get_cancellation_token();
+            cancellation_token.enable_propagation();
+            auto progress_token = co_await ::winrt::get_progress_token();
+
+            auto http_req_msg = ::winrt::Windows::Web::Http::HttpRequestMessage();
+            http_req_msg.Method(::winrt::Windows::Web::Http::HttpMethod::Get());
+            http_req_msg.RequestUri(http_uri);
+            http_req_msg.Headers().Append(L"Range", ::winrt::hstring(std::format(
+                L"bytes={}-{}", pos, pos + size - 1
+            )));
+            auto op = http_client.SendRequestAsync(
+                http_req_msg, ::winrt::Windows::Web::Http::HttpCompletionOption::ResponseHeadersRead
+            );
+            op.Progress([&](auto const&, auto const& progress) {
+                progress_token(progress);
+            });
+            auto http_resp = co_await std::move(op);
+            if (http_resp.StatusCode() != ::winrt::Windows::Web::Http::HttpStatusCode::PartialContent) {
+                throw ::winrt::hresult_error(
+                    E_FAIL, L"Requested resource does not support partial downloading"
+                );
+            }
+            co_return http_resp.Content();
+        }
+        ::winrt::Windows::Foundation::IAsyncOperationWithProgress<
+            ::winrt::Windows::Storage::Streams::IBuffer, uint64_t
+        > fetch_partial_http_as_buffer(
+            ::winrt::Windows::Foundation::Uri const& http_uri,
+            ::winrt::Windows::Web::Http::HttpClient const& http_client,
+            uint64_t pos, uint64_t size
+        ) {
+            auto cancellation_token = co_await ::winrt::get_cancellation_token();
+            cancellation_token.enable_propagation();
+            auto progress_token = co_await ::winrt::get_progress_token();
+
+            auto http_req_msg = ::winrt::Windows::Web::Http::HttpRequestMessage();
+            http_req_msg.Method(::winrt::Windows::Web::Http::HttpMethod::Get());
+            http_req_msg.RequestUri(http_uri);
+            http_req_msg.Headers().Append(L"Range", ::winrt::hstring(std::format(
+                L"bytes={}-{}", pos, pos + size - 1
+            )));
+            auto http_resp = co_await http_client.SendRequestAsync(
+                http_req_msg, ::winrt::Windows::Web::Http::HttpCompletionOption::ResponseHeadersRead
+            );
+            if (http_resp.StatusCode() != ::winrt::Windows::Web::Http::HttpStatusCode::PartialContent) {
+                throw ::winrt::hresult_error(
+                    E_FAIL, L"Requested resource does not support partial downloading"
+                );
+            }
+            auto read_as_buf_op = http_resp.Content().ReadAsBufferAsync();
+            read_as_buf_op.Progress([&](auto const&, uint64_t progress) {
+                progress_token(progress);
+            });
+            co_return co_await read_as_buf_op;
+        }
+
         void persist_textbox_copying_handler(
             ::winrt::Windows::UI::Xaml::Controls::TextBox const& sender,
             ::winrt::Windows::UI::Xaml::Controls::TextControlCopyingToClipboardEventArgs const& e

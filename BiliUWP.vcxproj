@@ -167,11 +167,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Code\AppCfgModel.h" />
+    <ClInclude Include="Code\AppItemsCollection.h" />
     <ClInclude Include="Code\BiliClient.hpp" />
     <ClInclude Include="Code\BiliClientManaged.h" />
     <ClInclude Include="Code\Converters.h" />
     <ClInclude Include="Code\DebugConsole.hpp" />
     <ClInclude Include="Code\HttpRandomAccessStream.h" />
+    <ClInclude Include="Code\IncrementalLoadingCollection.h" />
     <ClInclude Include="Code\json.h" />
     <ClInclude Include="Code\util.hpp" />
     <ClInclude Include="Controls\AdaptiveGridView.h" />
@@ -283,11 +285,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Code\AppCfgModel.cpp" />
+    <ClCompile Include="Code\AppItemsCollection.cpp" />
     <ClCompile Include="Code\BiliClient.cpp" />
     <ClCompile Include="Code\BiliClientManaged.cpp" />
     <ClCompile Include="Code\Converters.cpp" />
     <ClCompile Include="Code\DebugConsole.cpp" />
     <ClCompile Include="Code\HttpRandomAccessStream.cpp" />
+    <ClCompile Include="Code\IncrementalLoadingCollection.cpp" />
     <ClCompile Include="Code\json.cpp" />
     <ClCompile Include="Code\util.cpp" />
     <ClCompile Include="Controls\AdaptiveGridView.cpp" />
@@ -365,10 +369,12 @@
       <DependentUpon>App.xaml</DependentUpon>
     </Midl>
     <Midl Include="Code\AppCfgModel.idl" />
+    <Midl Include="Code\AppItemsCollection.idl" />
     <Midl Include="Code\BiliClientManaged.idl" />
     <Midl Include="Code\Converters.idl" />
     <Midl Include="Code\HttpRandomAccessStream.idl" />
     <Midl Include="Code\IBiliResource.idl" />
+    <Midl Include="Code\IncrementalLoadingCollection.idl" />
     <Midl Include="Controls\AdaptiveGridView.idl" />
     <Midl Include="Controls\SimpleContentDialog.idl">
       <DependentUpon>Controls\SimpleContentDialog.xaml</DependentUpon>

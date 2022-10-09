@@ -665,18 +665,18 @@ namespace util {
             // Prevent cyclic references causing resource leak
             auto revoker = theme_base.ActualThemeChanged(::winrt::auto_revoke,
                 [ref = ::winrt::make_weak(cd)](FrameworkElement const& sender, IInspectable const&) {
-                if (auto cd = ref.get()) {
-                    cd.RequestedTheme(sender.RequestedTheme());
+                    if (auto cd = ref.get()) {
+                        cd.RequestedTheme(sender.RequestedTheme());
+                    }
                 }
-            }
             );
             cd.Opened(
                 [revoker = std::move(revoker), ref = ::winrt::make_weak(theme_base)]
-            (ContentDialog const& sender, ContentDialogOpenedEventArgs const&) {
-                if (auto theme_base = ref.get()) {
-                    sender.RequestedTheme(theme_base.ActualTheme());
+                (ContentDialog const& sender, ContentDialogOpenedEventArgs const&) {
+                    if (auto theme_base = ref.get()) {
+                        sender.RequestedTheme(theme_base.ActualTheme());
+                    }
                 }
-            }
             );
         }
 
@@ -988,13 +988,14 @@ namespace util {
                 }
                 set_completed_handler_for_async(async);
             }
+            // NOTE: Returns whether new task is run
             template<typename Functor, typename... Args>
-            void run_if_idle(Functor&& functor, Args... args) {
+            bool run_if_idle(Functor&& functor, Args... args) {
                 std::scoped_lock method_call_guard{ m_method_lock };
                 {
                     std::scoped_lock guard{ m_data->lock };
                     // If m_data->async is nullptr, we are confident that everything's really idle
-                    if (m_data->async) { return; }
+                    if (m_data->async) { return false; }
                 }
                 auto async = std::invoke(std::forward<Functor>(functor), std::forward<Args>(args)...);
                 {
@@ -1002,6 +1003,7 @@ namespace util {
                     m_data->async = async;
                 }
                 set_completed_handler_for_async(async);
+                return true;
             }
 
             void cancel_running(void) {
@@ -1035,6 +1037,8 @@ namespace util {
                 else {
                     // TODO: Maybe optimize performance by not creating a new coroutine
                     return [](T&& async) -> ::winrt::Windows::Foundation::IAsyncAction {
+                        auto cancellation_token = co_await ::winrt::get_cancellation_token();
+                        cancellation_token.enable_propagation();
                         co_await async;
                     }(std::forward<T>(async));
                 }
@@ -1219,35 +1223,135 @@ namespace util {
             }
         }
 
-        inline ::winrt::Windows::Foundation::IAsyncOperationWithProgress<::winrt::Windows::Storage::Streams::IBuffer, uint64_t> fetch_partial_http_as_buffer(
+        ::winrt::Windows::Foundation::IAsyncOperationWithProgress<
+            ::winrt::Windows::Web::Http::IHttpContent, ::winrt::Windows::Web::Http::HttpProgress
+        > fetch_partial_http_content(
             ::winrt::Windows::Foundation::Uri const& http_uri,
             ::winrt::Windows::Web::Http::HttpClient const& http_client,
             uint64_t pos, uint64_t size
-        ) {
-            auto cancellation_token = co_await ::winrt::get_cancellation_token();
-            cancellation_token.enable_propagation();
-            auto progress_token = co_await ::winrt::get_progress_token();
+        );
+        ::winrt::Windows::Foundation::IAsyncOperationWithProgress<
+            ::winrt::Windows::Storage::Streams::IBuffer, uint64_t
+        > fetch_partial_http_as_buffer(
+            ::winrt::Windows::Foundation::Uri const& http_uri,
+            ::winrt::Windows::Web::Http::HttpClient const& http_client,
+            uint64_t pos, uint64_t size
+        );
 
-            auto http_req_msg = ::winrt::Windows::Web::Http::HttpRequestMessage();
-            http_req_msg.Method(::winrt::Windows::Web::Http::HttpMethod::Get());
-            http_req_msg.RequestUri(http_uri);
-            http_req_msg.Headers().Append(L"Range", ::winrt::hstring(std::format(
-                L"bytes={}-{}", pos, pos + size - 1
-            )));
-            auto http_resp = co_await http_client.SendRequestAsync(
-                http_req_msg, ::winrt::Windows::Web::Http::HttpCompletionOption::ResponseHeadersRead
-            );
-            if (http_resp.StatusCode() != ::winrt::Windows::Web::Http::HttpStatusCode::PartialContent) {
-                throw ::winrt::hresult_error(
-                    E_FAIL, L"Requested resource does not support partial downloading"
-                );
+        struct BufferBackedRandomAccessStream :
+            ::winrt::implements<BufferBackedRandomAccessStream,
+            ::winrt::Windows::Storage::Streams::IRandomAccessStream,
+            ::winrt::Windows::Foundation::IClosable,
+            ::winrt::Windows::Storage::Streams::IInputStream,
+            ::winrt::Windows::Storage::Streams::IOutputStream>
+        {
+            BufferBackedRandomAccessStream(::winrt::Windows::Storage::Streams::IBuffer const& buffer,
+                uint64_t start_pos = 0) : m_buffer(buffer), m_cur_pos(start_pos) {}
+            ~BufferBackedRandomAccessStream() { Close(); }
+            void Close() {
+                std::scoped_lock guard(m_mutex);
+                m_buffer = nullptr;
             }
-            auto read_as_buf_op = http_resp.Content().ReadAsBufferAsync();
-            read_as_buf_op.Progress([&](auto const&, uint64_t progress) {
-                progress_token(progress);
-            });
-            co_return co_await read_as_buf_op;
-        }
+            ::winrt::Windows::Foundation::IAsyncOperationWithProgress<::winrt::Windows::Storage::Streams::IBuffer, uint32_t> ReadAsync(
+                ::winrt::Windows::Storage::Streams::IBuffer buffer,
+                uint32_t count,
+                ::winrt::Windows::Storage::Streams::InputStreamOptions options
+            ) {
+                std::scoped_lock guard(m_mutex);
+                if (!m_buffer) { throw ::winrt::hresult_illegal_method_call(); }
+
+                auto buf_len = m_buffer.Length();
+                uint64_t actual_count = m_cur_pos >= buf_len ? 0 : buf_len - m_cur_pos;
+                actual_count = std::min(static_cast<uint64_t>(count), actual_count);
+
+                auto progress_token = co_await ::winrt::get_progress_token();
+                progress_token(0);
+                buffer.Length(static_cast<uint32_t>(actual_count));
+                memcpy(
+                    static_cast<void*>(buffer.data()),
+                    static_cast<void*>(m_buffer.data() + m_cur_pos),
+                    actual_count
+                );
+                m_cur_pos += actual_count;
+                progress_token(static_cast<uint32_t>(actual_count));
+
+                co_return buffer;
+            }
+            ::winrt::Windows::Foundation::IAsyncOperationWithProgress<uint32_t, uint32_t> WriteAsync(
+                ::winrt::Windows::Storage::Streams::IBuffer buffer
+            ) {
+                std::scoped_lock guard(m_mutex);
+                if (!m_buffer) { throw ::winrt::hresult_illegal_method_call(); }
+
+                auto buf_cap = m_buffer.Capacity();
+                uint64_t actual_count = m_cur_pos >= buf_cap ? 0 : buf_cap - m_cur_pos;
+                actual_count = std::min(static_cast<uint64_t>(buffer.Length()), actual_count);
+
+                auto progress_token = co_await ::winrt::get_progress_token();
+                progress_token(0);
+                m_buffer.Length(static_cast<uint32_t>(m_cur_pos + actual_count));
+
+                memcpy(
+                    static_cast<void*>(m_buffer.data() + m_cur_pos),
+                    static_cast<void*>(buffer.data()),
+                    actual_count
+                );
+                m_cur_pos += actual_count;
+                progress_token(static_cast<uint32_t>(actual_count));
+
+                co_return static_cast<uint32_t>(actual_count);
+            }
+            ::winrt::Windows::Foundation::IAsyncOperation<bool> FlushAsync() {
+                std::scoped_lock guard(m_mutex);
+                if (!m_buffer) { throw ::winrt::hresult_illegal_method_call(); }
+                co_return true;
+            }
+            uint64_t Size() {
+                std::scoped_lock guard(m_mutex);
+                if (!m_buffer) { throw ::winrt::hresult_illegal_method_call(); }
+                return m_buffer.Length();
+            }
+            void Size(uint64_t value) {
+                std::scoped_lock guard(m_mutex);
+                if (!m_buffer) { throw ::winrt::hresult_illegal_method_call(); }
+                if (value > m_buffer.Capacity()) {
+                    throw ::winrt::hresult_error(E_FAIL, L"IBuffer capacity exceeded");
+                }
+                m_buffer.Length(static_cast<uint32_t>(value));
+            }
+            ::winrt::Windows::Storage::Streams::IInputStream GetInputStreamAt(uint64_t position) {
+                std::scoped_lock guard(m_mutex);
+                if (!m_buffer) { throw ::winrt::hresult_illegal_method_call(); }
+                return ::winrt::make<BufferBackedRandomAccessStream>(m_buffer, position);
+            }
+            ::winrt::Windows::Storage::Streams::IOutputStream GetOutputStreamAt(uint64_t position) {
+                std::scoped_lock guard(m_mutex);
+                if (!m_buffer) { throw ::winrt::hresult_illegal_method_call(); }
+                return ::winrt::make<BufferBackedRandomAccessStream>(m_buffer, position);
+            }
+            uint64_t Position() {
+                std::scoped_lock guard(m_mutex);
+                if (!m_buffer) { throw ::winrt::hresult_illegal_method_call(); }
+                return m_cur_pos;
+            }
+            void Seek(uint64_t position) {
+                std::scoped_lock guard(m_mutex);
+                if (!m_buffer) { throw ::winrt::hresult_illegal_method_call(); }
+                m_cur_pos = position;
+            }
+            ::winrt::Windows::Storage::Streams::IRandomAccessStream CloneStream() {
+                std::scoped_lock guard(m_mutex);
+                if (!m_buffer) { throw ::winrt::hresult_illegal_method_call(); }
+                return ::winrt::make<BufferBackedRandomAccessStream>(m_buffer);
+            }
+            bool CanRead() { return true; }
+            bool CanWrite() { return true; }
+
+        private:
+            std::mutex m_mutex;
+            ::winrt::Windows::Storage::Streams::IBuffer m_buffer;
+            uint64_t m_cur_pos;
+        };
 
         void persist_textbox_cc_clipboard(::winrt::Windows::UI::Xaml::Controls::TextBox const& tb);
         void persist_autosuggestbox_clipboard(::winrt::Windows::UI::Xaml::Controls::AutoSuggestBox const& ctrl);

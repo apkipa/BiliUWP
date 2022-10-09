@@ -72,7 +72,7 @@ namespace winrt::BiliUWP::implementation {
             }
         });
     }
-    void SettingsPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e) {
+    void SettingsPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const&) {
         auto tab = ::BiliUWP::App::get()->tab_from_page(*this);
         tab->set_icon(Symbol::Setting);
         tab->set_title(::BiliUWP::App::res_str(L"App/Page/SettingsPage/Title"));

@@ -49,7 +49,6 @@
         </Grid>
         <Grid x:Name="ItemsPane" Grid.Row="1">
             <local:AdaptiveGridView x:Name="ItemsGridView"
-                                    ItemsSource="{x:Bind ViewItemSource}"
                                     Background="{ThemeResource SystemControlBackgroundChromeMediumLowBrush}"
                                     SelectionMode="None"
                                     IsItemClickEnabled="True"
@@ -63,7 +62,7 @@
                     </Style>
                 </local:AdaptiveGridView.ItemContainerStyle>
                 <local:AdaptiveGridView.ItemTemplate>
-                    <DataTemplate x:DataType="local:FavouritesFolderPage_ViewItem">
+                    <DataTemplate x:DataType="local:FavouritesFolderViewItem">
                         <Grid Background="{ThemeResource SystemControlBackgroundAltHighBrush}" Padding="5">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -82,19 +81,11 @@
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" TextLineBounds="Tight" VerticalAlignment="Center"/>
                                 <StackPanel Grid.Row="1" Orientation="Horizontal">
-                                    <!--
-                                    <PersonPicture Width="Auto" Height="Auto" Margin="0,2,6,2" ProfilePicture="{x:Bind UpFaceUrl}"/>
-                                    -->
-                                    <!-- TODO: Use custom control to implement profile image -->
-                                    <Ellipse Height="22" Width="22" Margin="0,0,6,0" Stroke="{ThemeResource SystemBaseMediumColor}" StrokeThickness="0.3">
-                                        <Ellipse.Fill>
-                                            <ImageBrush>
-                                                <ImageBrush.ImageSource>
-                                                    <BitmapImage UriSource="{x:Bind UpFaceUrl}" DecodePixelType="Logical" DecodePixelWidth="22" DecodePixelHeight="22" AutoPlay="False"/>
-                                                </ImageBrush.ImageSource>
-                                            </ImageBrush>
-                                        </Ellipse.Fill>
-                                    </Ellipse>
+                                    <PersonPicture Width="22" Height="22" Margin="0,0,6,0">
+                                        <PersonPicture.ProfilePicture>
+                                            <BitmapImage UriSource="{x:Bind UpFaceUrl}" DecodePixelType="Logical" DecodePixelWidth="22" DecodePixelHeight="22" AutoPlay="False"/>
+                                        </PersonPicture.ProfilePicture>
+                                    </PersonPicture>
                                     <TextBlock Text="{x:Bind UpName}" TextLineBounds="Tight" VerticalAlignment="Center"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="20">

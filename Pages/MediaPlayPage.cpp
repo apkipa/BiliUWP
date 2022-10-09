@@ -65,8 +65,7 @@ namespace winrt::BiliUWP::implementation {
         RowDefinitionCollection m_grid_rowdefs;
         UIElementCollection m_grid_children;
     };
-    struct DetailedStatsProvider {
-        virtual ~DetailedStatsProvider() = default;
+    struct DetailedStatsProvider : std::enable_shared_from_this<DetailedStatsProvider> {
         virtual void InitStats(DetailedStatsContext* ctx) {
             ctx->AddElement(L"Error", util::winrt::make_text_block(L"Detailed statistics not supported"));
         }
@@ -77,6 +76,50 @@ namespace winrt::BiliUWP::implementation {
         virtual void TimerStarted(void) {}
         virtual void TimerStopped(void) {}
         virtual void UpdateStats(DetailedStatsContext* ctx) { (void)ctx; }
+    };
+
+    // Extended items for DetailedStatsContext
+    struct PolylineWithTextElemForDetailedStats {
+        PolylineWithTextElemForDetailedStats() {
+            m_polyline.Stroke(SolidColorBrush(Colors::White()));
+            m_polyline.StrokeThickness(1);
+            m_polyline.HorizontalAlignment(HorizontalAlignment::Left);
+            m_polyline.Width(180);
+            m_polyline.Height(14);
+            m_text_block.Text(L"N/A");
+            m_sp.Orientation(Orientation::Horizontal);
+            m_sp.Spacing(4);
+            m_sp.Children().ReplaceAll({ m_polyline, m_text_block });
+        }
+        operator FrameworkElement() { return m_sp; }
+        // NOTE: text_fn(current_value, highest_value)
+        template<typename Functor, typename Container>
+        void update(Functor&& text_fn, Container&& container, uint64_t min_points) {
+            if (container.size() == 0) {
+                m_polyline.Points().Clear();
+                m_text_block.Text(L"N/A");
+                return;
+            }
+            auto& real_max_value = *std::max_element(container.begin(), container.end());
+            const auto max_value = real_max_value < DBL_EPSILON ? 1 : real_max_value;
+            const auto region_width = m_polyline.Width();
+            const auto region_height = m_polyline.Height();
+            const auto points_count = std::max(min_points, container.size());
+            auto pl_points = m_polyline.Points();
+            pl_points.Clear();
+            for (size_t i = 0; i < container.size(); i++) {
+                auto x = static_cast<double>(i) / points_count * region_width;
+                auto y = (1 - static_cast<double>(container[i]) / max_value) * region_height;
+                pl_points.Append(PointHelper::FromCoordinates(
+                    static_cast<float>(x), static_cast<float>(y)
+                ));
+            }
+            m_text_block.Text(text_fn(container.back(), real_max_value));
+        }
+    private:
+        StackPanel m_sp;
+        Polyline m_polyline;
+        TextBlock m_text_block;
     };
 }
 
@@ -820,38 +863,78 @@ namespace winrt::BiliUWP::implementation {
         auto http_stream = co_await weak_store.ual(HttpRandomAccessStream::CreateAsync(
             audio_uri,
             m_http_client,
-            HttpRandomAccessStreamBufferOptions::ImmediateFull,
+            HttpRandomAccessStreamBufferOptions::None,
             0, false
         ));
         auto media_src = MediaSource::CreateFromStream(http_stream, http_stream.ContentType());
 
         // Make DetailedStatsProvider
         struct DetailedStatsProvider_AudioHRAS : DetailedStatsProvider {
-            DetailedStatsProvider_AudioHRAS(hstring audio_host):
-                m_audio_host(std::move(audio_host)) {}
+            DetailedStatsProvider_AudioHRAS(BiliUWP::HttpRandomAccessStream hras, hstring audio_host):
+                m_hras(std::move(hras)), m_audio_host(std::move(audio_host)) {}
             void InitStats(DetailedStatsContext* ctx) {
                 using util::winrt::make_text_block;
-                // TODO...
                 ctx->AddElement(L"Player Type", make_text_block(
-                    L"NativePlayer <- NativeBuffering <- HRAS(FullBuffering)"
+                    L"NativePlayer <- NativeBuffering <- HRAS(None)"
                 ));
                 ctx->AddElement(L"Audio Host", make_text_block(m_audio_host));
-                ctx->AddElement(L"Network Activity", make_text_block(L"N/A"));
+                ctx->AddElement(L"Network Activity", m_net_activity);
+                ctx->AddElement(L"Connection Speed", m_conn_speed);
             }
             std::optional<TimeSpan> DesiredUpdateInterval(void) {
-                // TODO...
-                return std::nullopt;
+                return std::chrono::milliseconds(500);
             }
             void TimerStarted(void) {
-                // TODO...
+                m_hras.EnableMetricsCollection(true, 0);
+                m_hras.GetMetrics(true);
+            }
+            void TimerStopped(void) {
+                m_hras.EnableMetricsCollection(false, 0);
             }
             void UpdateStats(DetailedStatsContext* ctx) {
-                // TODO...
+                using util::str::byte_size_to_str;
+                using util::str::bit_size_to_str;
+                static constexpr size_t MAX_POINTS = 60;
+                auto metrics = m_hras.GetMetrics(true);
+                auto add_point_fn = [](auto& container, std::decay_t<decltype(container)>::value_type value) {
+                    if (container.size() >= MAX_POINTS) {
+                        container.pop_front();
+                    }
+                    container.push_back(std::move(value));
+                };
+                add_point_fn(m_net_activity_points, metrics.DownloadedBytesDelta);
+                m_net_activity.update([](uint64_t cur_val, uint64_t max_val) -> hstring {
+                    return hstring(
+                        byte_size_to_str(cur_val, 1e2) + L" / " +
+                        byte_size_to_str(max_val, 1e2)
+                    );
+                }, m_net_activity_points, MAX_POINTS);
+                if (metrics.ActiveConnectionsCount == 0 && metrics.DownloadedBytesDelta == 0) {
+                    add_point_fn(
+                        m_conn_speed_points,
+                        m_conn_speed_points.empty() ? 0 : m_conn_speed_points.back()
+                    );
+                }
+                else {
+                    add_point_fn(m_conn_speed_points, metrics.InboundBitsPerSecond);
+                }
+                m_conn_speed.update([](uint64_t cur_val, uint64_t max_val) -> hstring {
+                    return hstring(std::format(
+                        L"{}ps / {}ps",
+                        bit_size_to_str(cur_val),
+                        bit_size_to_str(max_val)
+                    ));
+                }, m_conn_speed_points, MAX_POINTS);
             }
         private:
+            BiliUWP::HttpRandomAccessStream m_hras;
             hstring m_audio_host;
+            PolylineWithTextElemForDetailedStats m_net_activity;
+            std::deque<uint64_t> m_net_activity_points;
+            PolylineWithTextElemForDetailedStats m_conn_speed;
+            std::deque<uint64_t> m_conn_speed_points;
         };
-        ds_provider = std::make_shared<DetailedStatsProvider_AudioHRAS>(audio_uri.Host());
+        ds_provider = std::make_shared<DetailedStatsProvider_AudioHRAS>(std::move(http_stream), audio_uri.Host());
 
         auto media_playback_item = MediaPlaybackItem(media_src);
         auto display_props = media_playback_item.GetDisplayProperties();

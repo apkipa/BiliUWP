@@ -1,0 +1,12 @@
+namespace BiliUWP {
+    // NOTE: A partial implementation of Microsoft.Toolkit.Uwp.IncrementalLoadingCollection
+    runtimeclass IncrementalLoadingCollection :
+        IObservableVector<IInspectable>, Windows.UI.Xaml.Data.ISupportIncrementalLoading
+    {
+        void Reload();
+        Boolean IsLoading{ get; };
+        event Windows.Foundation.TypedEventHandler<IncrementalLoadingCollection, IInspectable> OnStartLoading;
+        event Windows.Foundation.TypedEventHandler<IncrementalLoadingCollection, IInspectable> OnEndLoading;
+        event Windows.Foundation.TypedEventHandler<IncrementalLoadingCollection, IInspectable> OnError;
+    }
+}

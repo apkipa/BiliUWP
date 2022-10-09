@@ -8,7 +8,7 @@ namespace winrt::BiliUWP::implementation {
         SettingsPage();
         void InitializeComponent();
 
-        void OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e);
+        void OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const&);
         void ExportConfigToClipboardButton_Click(
             IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&
         );
