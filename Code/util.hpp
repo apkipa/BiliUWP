@@ -25,8 +25,10 @@ namespace util {
         template<typename>
         inline constexpr bool always_false_v = false;
 
+        template<typename T, typename>
+        using first_type = T;
         template<typename, typename U>
-        using discard_first_type = U;
+        using second_type = U;
     }
 
     namespace str {
@@ -254,12 +256,12 @@ namespace util {
         class LoggingProvider {
         public:
             virtual void set_log_level(LogLevel new_level) = 0;
-            virtual void log(std::wstring_view str, std::source_location loc) = 0;
-            virtual void log_trace(std::wstring_view str, std::source_location loc) = 0;
-            virtual void log_debug(std::wstring_view str, std::source_location loc) = 0;
-            virtual void log_info(std::wstring_view str, std::source_location loc) = 0;
-            virtual void log_warn(std::wstring_view str, std::source_location loc) = 0;
-            virtual void log_error(std::wstring_view str, std::source_location loc) = 0;
+            virtual void log(std::wstring_view str, std::source_location const& loc) = 0;
+            virtual void log_trace(std::wstring_view str, std::source_location const& loc) = 0;
+            virtual void log_debug(std::wstring_view str, std::source_location const& loc) = 0;
+            virtual void log_info(std::wstring_view str, std::source_location const& loc) = 0;
+            virtual void log_warn(std::wstring_view str, std::source_location const& loc) = 0;
+            virtual void log_error(std::wstring_view str, std::source_location const& loc) = 0;
             virtual ~LoggingProvider() {}
         };
         // Pass nullptr to disable logging
@@ -267,51 +269,49 @@ namespace util {
         LoggingProvider* get_log_provider(void);
         // TODO: std::source_location shows full file path, maybe change this?
         inline void log_trace(
-            std::wstring_view str, std::source_location loc = std::source_location::current()
+            std::wstring_view str, std::source_location const& loc = std::source_location::current()
         ) {
             if (auto provider = get_log_provider()) {
-                provider->log_trace(str, std::move(loc));
+                provider->log_trace(str, loc);
             }
         }
         inline void log_debug(
-            std::wstring_view str, std::source_location loc = std::source_location::current()
+            std::wstring_view str, std::source_location const& loc = std::source_location::current()
         ) {
             if (auto provider = get_log_provider()) {
-                provider->log_debug(str, std::move(loc));
+                provider->log_debug(str, loc);
             }
         }
         inline void log_info(
-            std::wstring_view str, std::source_location loc = std::source_location::current()
+            std::wstring_view str, std::source_location const& loc = std::source_location::current()
         ) {
             if (auto provider = get_log_provider()) {
-                provider->log_info(str, std::move(loc));
+                provider->log_info(str, loc);
             }
         }
         inline void log_warn(
-            std::wstring_view str, std::source_location loc = std::source_location::current()
+            std::wstring_view str, std::source_location const& loc = std::source_location::current()
         ) {
             if (auto provider = get_log_provider()) {
-                provider->log_warn(str, std::move(loc));
+                provider->log_warn(str, loc);
             }
         }
         inline void log_error(
-            std::wstring_view str, std::source_location loc = std::source_location::current()
+            std::wstring_view str, std::source_location const& loc = std::source_location::current()
         ) {
             if (auto provider = get_log_provider()) {
-                provider->log_error(str, std::move(loc));
+                provider->log_error(str, loc);
             }
         }
 
         class RAIIObserver {
         public:
-            RAIIObserver(std::source_location loc = std::source_location::current()) : m_loc(std::move(loc)) {
-                //this->line = (unsigned)location.line();
+            RAIIObserver(std::source_location const& loc = std::source_location::current()) : m_loc(loc) {
                 log_trace(std::format(L"Constructed RAIIObserver at line {}", m_loc.line()), m_loc);
             }
-            RAIIObserver(RAIIObserver const& s, std::source_location loc = std::source_location::current()) :
-                m_loc(std::move(loc))
+            RAIIObserver(RAIIObserver const& s, std::source_location const& loc = std::source_location::current()) :
+                m_loc(loc)
             {
-                //this->line = (unsigned)location.line();
                 log_trace(
                     std::format(L"Copied RAIIObserver at line {} from line {}", m_loc.line(), s.m_loc.line()),
                     m_loc
@@ -465,7 +465,7 @@ namespace util {
 #define co_safe_capture(val) co_safe_capture_val(val)
 
         // TODO: Check if this function should be placed in util::debug instead
-        inline void log_current_exception(std::source_location loc = std::source_location::current()) noexcept {
+        inline void log_current_exception(std::source_location const& loc = std::source_location::current()) noexcept {
             try { throw; }
             catch (::winrt::hresult_error const& e) {
                 auto error_message = e.message();
@@ -477,7 +477,6 @@ namespace util {
             }
             catch (std::exception const& e) {
                 auto error_message = e.what();
-                // %S: Microsoft-C++ specific
                 util::debug::log_error(std::format(
                     L"Uncaught async exception(std::exception): {}",
                     ::winrt::to_hstring(error_message)
@@ -721,6 +720,11 @@ namespace util {
             ::winrt::Windows::UI::Xaml::Controls::TextBlock tb;
             tb.Text(text);
             return tb;
+        }
+        inline auto make_symbol_icon(::winrt::Windows::UI::Xaml::Controls::Symbol symbol) {
+            ::winrt::Windows::UI::Xaml::Controls::SymbolIcon si;
+            si.Symbol(symbol);
+            return si;
         }
 
         // Source: https://rudyhuyn.azurewebsites.net/blog/2019/09/25/detect-the-display-mode-of-your-uwp-window/
@@ -1383,7 +1387,7 @@ namespace util {
         template<typename T>
         struct mpsc_channel_shared_ring_buffer {
             static_assert(
-                std::is_nothrow_move_constructible_v<T>&& std::is_nothrow_destructible_v<T>,
+                std::is_nothrow_move_constructible_v<T> && std::is_nothrow_destructible_v<T>,
                 "mpsc_channel requires non-throwing types to work correctly. "
                 "Consider wrapping the type in a std::shared_ptr."
             );
@@ -1397,6 +1401,7 @@ namespace util {
                 std::atomic<size_t> head2, tail2;   // Actual range
             std::atomic<size_t> sender_count, receiver_count;
 
+            // TODO: Maybe use std::construct_at & std::destroy_at
             mpsc_channel_shared_ring_buffer(size_t n) :
                 buffer{ new(operator new(n * sizeof(T), std::align_val_t(alignof(T)))) char[n * sizeof(T)] },
                 capacity(n), head1(0), tail1(0), head2(0), tail2(0),

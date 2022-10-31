@@ -3,6 +3,7 @@
 #include "HttpRandomAccessStream.g.cpp"
 #include "NewUriRequestedEventArgs.g.cpp"
 #include "util.hpp"
+#include <numeric>
 #include <deque>
 
 constexpr uint64_t DEFAULT_METRICS_EVENTS_COUNT = 16384;
@@ -11,6 +12,8 @@ using namespace winrt;
 using namespace Windows::Foundation;
 using namespace Windows::Web::Http;
 using namespace Windows::Storage::Streams;
+
+// TODO: Add timeout policy (and maybe modify hresult_canceled exception handler?)
 
 namespace winrt::BiliUWP::implementation {
     // No caching
@@ -41,7 +44,7 @@ namespace winrt::BiliUWP::implementation {
             return m_ev_new_uri_requested.add(handler);
         }
         void NewUriRequested(event_token const& token) noexcept { m_ev_new_uri_requested.remove(token); }
-        IAsyncOperationWithProgress<IBuffer, uint32_t> ReadAsync(
+        IAsyncOperationWithProgress<IBuffer, uint32_t> ReadAtAsync(
             IBuffer buffer,
             uint64_t start, uint64_t end,
             InputStreamOptions options
@@ -98,8 +101,8 @@ namespace winrt::BiliUWP::implementation {
                     uint64_t op_req_bytes = 0;
                     op.Progress([&](auto const&, auto progress) {
                         progress_token(static_cast<uint32_t>(progress));
-                        std::scoped_lock guard_metrics(m_mutex_metrics);
                         if (m_enable_metrics_collection.load()) {
+                            std::scoped_lock guard_metrics(m_mutex_metrics);
                             m_metrics.bytes_delta += progress - op_req_bytes;
                         }
                         op_req_bytes = progress;
@@ -107,7 +110,13 @@ namespace winrt::BiliUWP::implementation {
                     co_await std::move(op);
                     co_return buffer;
                 }
-                catch (hresult_error const&) {
+                catch (hresult_canceled const&) { throw; }
+                catch (hresult_error const& e) {
+                    util::debug::log_debug(std::format(
+                        L"HRAS: Failed to fetch `{}` with range {}-{} (0x{:08x}: {})",
+                        cur_uri.ToString(), start, end,
+                        static_cast<uint32_t>(e.code()), e.message()
+                    ));
                     // Fetch failed, drop current uri
                     std::unique_lock guard_uri(m_mutex_http_uris);
                     if (!m_http_uris.empty() && cur_uri == m_http_uris.front()) {
@@ -126,8 +135,10 @@ namespace winrt::BiliUWP::implementation {
                 m_metrics.last_start_ts = std::chrono::high_resolution_clock::now();
             }
             else {
-                m_metrics.connection_duration +=
-                    std::chrono::high_resolution_clock::now() - m_metrics.last_start_ts;
+                if (m_metrics.active_connections > 0) {
+                    m_metrics.connection_duration +=
+                        std::chrono::high_resolution_clock::now() - m_metrics.last_start_ts;
+                }
             }
         }
         HttpRandomAccessStreamMetrics GetMetrics(bool clear_events) {
@@ -140,15 +151,14 @@ namespace winrt::BiliUWP::implementation {
                 actual_duration += std::chrono::high_resolution_clock::now() - m_metrics.last_start_ts;
             }
             auto actual_dur_secs = std::chrono::duration<double>(actual_duration).count();
-            if (actual_dur_secs == 0) {
-                actual_dur_secs = 1;
-            }
             auto inbound_bytes_per_sec = actual_dur_secs == 0 ? 0 : m_metrics.bytes_delta / actual_dur_secs;
             HttpRandomAccessStreamMetrics result{
                 .ActiveConnectionsCount = m_metrics.active_connections,
                 .SentRequestsDelta = m_metrics.requests_delta,
                 .InboundBitsPerSecond = static_cast<uint64_t>(std::llround(inbound_bytes_per_sec * 8)),
                 .DownloadedBytesDelta = m_metrics.bytes_delta,
+                .AllocatedBufferSize = 0,
+                .UsedBufferSize = 0,
             };
             if (clear_events) {
                 m_metrics.last_start_ts = std::chrono::high_resolution_clock::now();
@@ -212,7 +222,7 @@ namespace winrt::BiliUWP::implementation {
             return m_ev_new_uri_requested.add(handler);
         }
         void NewUriRequested(event_token const& token) noexcept { m_ev_new_uri_requested.remove(token); }
-        IAsyncOperationWithProgress<IBuffer, uint32_t> ReadAsync(
+        IAsyncOperationWithProgress<IBuffer, uint32_t> ReadAtAsync(
             IBuffer buffer,
             uint64_t start, uint64_t end,
             InputStreamOptions options
@@ -228,11 +238,14 @@ namespace winrt::BiliUWP::implementation {
             if (!m_enable_metrics_collection.load()) {
                 throw hresult_error(E_FAIL, L"Metrics collection is not enabled");
             }
+            auto size = m_buf_stream.Size();
             return {
                 .ActiveConnectionsCount = 0,
                 .SentRequestsDelta = 0,
                 .InboundBitsPerSecond = 0,
                 .DownloadedBytesDelta = 0,
+                .AllocatedBufferSize = size,
+                .UsedBufferSize = size,
             };
         }
 
@@ -244,26 +257,334 @@ namespace winrt::BiliUWP::implementation {
 
     // Caching via memory stream
     struct HttpRandomAccessStreamImpl_StreamBased : HttpRandomAccessStreamImpl {
-        // TODO: Add mutex lock
         HttpRandomAccessStreamImpl_StreamBased(
             Uri http_uri,
             HttpClient http_client,
+            uint64_t size,
             bool extra_integrity_check
-        ) : m_http_uris{ std::move(http_uri) }, m_http_client(std::move(http_client)),
-            m_extra_integrity_check(extra_integrity_check)
+        ) : m_http_uris{ std::move(http_uri) }, m_http_client(std::move(http_client)), m_size(size),
+            m_extra_integrity_check(extra_integrity_check), m_enable_metrics_collection(false),
+            m_metrics(), m_buf_stream(InMemoryRandomAccessStream()),
+            m_unbuffered_intervals{ { 0, size } }
         {
             if (extra_integrity_check) {
                 throw hresult_not_implemented(
                     L"HttpRandomAccessStreamImpl_StreamBased: extra_integrity_check not implemented"
                 );
             }
+
+            m_buf_stream.Size(size);
+        }
+        void SupplyNewUri(array_view<Uri const> new_uris) {
+            // TODO: Introduce uri ranking
+            std::unique_lock guard(m_mutex_http_uris);
+            for (auto& i : new_uris) {
+                m_http_uris.push_back(i);
+            }
+        }
+        event_token NewUriRequested(EventHandlerType_NUR const& handler) {
+            return m_ev_new_uri_requested.add(handler);
+        }
+        void NewUriRequested(event_token const& token) noexcept { m_ev_new_uri_requested.remove(token); }
+        IAsyncOperationWithProgress<IBuffer, uint32_t> ReadAtAsync(
+            IBuffer buffer,
+            uint64_t start, uint64_t end,
+            InputStreamOptions options
+        ) {
+            auto cancellation_token = co_await get_cancellation_token();
+            cancellation_token.enable_propagation();
+            auto progress_token = co_await get_progress_token();
+
+            util::debug::log_trace(std::format(L"Fetching stream range {}-{}", start, end));
+
+            if (start > end) {
+                throw hresult_invalid_argument(L"Invalid read operation (negative-sized read)");
+            }
+            if (end > m_size) {
+                // NOTE: Silently clamp the range to be compatible with MediaPlayer out-of-range fetching
+                end = m_size;
+                if (start > end) { start = end; }
+            }
+
+            // NOTE: Never invoke multithreaded downloading, unless explicitly allowed (currently not considered)
+
+            // Fetch only a signle part in each iteration
+            while (true) {
+                std::optional<std::pair<uint64_t, uint64_t>> target_interval = std::nullopt;
+                auto get_its_pair_nolock_fn = [this](uint64_t start, uint64_t end) {
+                    auto itb = std::upper_bound(
+                        m_unbuffered_intervals.begin(), m_unbuffered_intervals.end(),
+                        start,
+                        [](uint64_t const& a, std::pair<uint64_t, uint64_t> const& b) { return a < b.second; }
+                    );
+                    auto ite = std::lower_bound(
+                        m_unbuffered_intervals.begin(), m_unbuffered_intervals.end(),
+                        end,
+                        [](std::pair<uint64_t, uint64_t> const& a, uint64_t const& b) { return a.first < b; }
+                    );
+                    return std::pair(itb, ite);
+                };
+                {   // Calculate and set interval to be fetched, if there's one
+                    std::shared_lock guard(m_mutex_unbuffered_intervals);
+                    auto [itb, ite] = get_its_pair_nolock_fn(start, end);
+                    if (itb < ite) {
+                        // Found intersecting intervals
+                        ite--;
+                        if (itb == ite) {
+                            target_interval = { std::max(start, itb->first), std::min(end, ite->second) };
+                        }
+                        else {
+                            target_interval = { std::max(start, itb->first), itb->second };
+                        }
+                    }
+                }
+                // All data are fetched, stop iteration
+                if (!target_interval) { break; }
+                // Try to fill buffer
+                try {
+                    auto op = populate_buf_stream(target_interval->first, target_interval->second);
+                    auto progress_start_pos = target_interval->first - start;
+                    op.Progress([&](auto const&, auto progress) {
+                        progress_token(static_cast<uint32_t>(progress_start_pos + progress));
+                    });
+                    co_await std::move(op);
+                }
+                catch (hresult_canceled const&) { throw; }
+                catch (hresult_error const&) {
+                    // Failed, just propagate the exception
+                    throw;
+                }
+                {   // Update unbuffered intervals
+                    std::unique_lock guard(m_mutex_unbuffered_intervals);
+                    auto [itb, ite] = get_its_pair_nolock_fn(target_interval->first, target_interval->second);
+                    if (itb < ite) {
+                        // Found intersecting intervals
+                        ite--;
+                        if (itb == ite) {
+                            uint64_t temp;
+                            // Split into multiple parts / one part / erase part
+                            switch (((target_interval->first > itb->first) << 1) |
+                                (target_interval->second < ite->second))
+                            {
+                            case 0b00:
+                                m_unbuffered_intervals.erase(itb);
+                                break;
+                            case 0b01:
+                                ite->first = target_interval->second;
+                                break;
+                            case 0b10:
+                                itb->second = target_interval->first;
+                                break;
+                            case 0b11:
+                                temp = itb->first;
+                                itb->first = target_interval->second;
+                                m_unbuffered_intervals.insert(itb, { temp, target_interval->first });
+                                break;
+                            }
+                        }
+                        else {
+                            if (target_interval->first > itb->first) {
+                                itb->second = target_interval->first;
+                                itb++;
+                            }
+                            if (target_interval->second < ite->second) {
+                                ite->first = target_interval->second;
+                            }
+                            else {
+                                ite++;
+                            }
+                            m_unbuffered_intervals.erase(itb, ite);
+                        }
+                        // Release intermediate memory when done
+                        if (m_unbuffered_intervals.empty()) { m_unbuffered_intervals.shrink_to_fit(); }
+                    }
+                }
+            }
+
+            co_return co_await m_buf_stream.GetInputStreamAt(start).ReadAsync(
+                std::move(buffer), static_cast<uint32_t>(end - start), options);
+        }
+        uint64_t Size() { return m_size; }
+        void EnableMetricsCollection(bool enable, uint64_t max_events_count) {
+            if (m_enable_metrics_collection.exchange(enable) == enable) {
+                return;
+            }
+            std::scoped_lock guard_metrics(m_mutex_metrics);
+            if (enable) {
+                m_metrics.last_start_ts = std::chrono::high_resolution_clock::now();
+            }
+            else {
+                if (m_metrics.active_connections > 0) {
+                    m_metrics.connection_duration +=
+                        std::chrono::high_resolution_clock::now() - m_metrics.last_start_ts;
+                }
+            }
+        }
+        HttpRandomAccessStreamMetrics GetMetrics(bool clear_events) {
+            if (!m_enable_metrics_collection.load()) {
+                throw hresult_error(E_FAIL, L"Metrics collection is not enabled");
+            }
+            std::scoped_lock guard(m_mutex_metrics);
+            auto actual_duration = m_metrics.connection_duration;
+            if (m_metrics.active_connections > 0) {
+                actual_duration += std::chrono::high_resolution_clock::now() - m_metrics.last_start_ts;
+            }
+            auto actual_dur_secs = std::chrono::duration<double>(actual_duration).count();
+            auto inbound_bytes_per_sec = actual_dur_secs == 0 ? 0 : m_metrics.bytes_delta / actual_dur_secs;
+            uint64_t unallocated_buf_total_size = 0;
+            {
+                std::shared_lock guard_buf_ints(m_mutex_unbuffered_intervals);
+                for (auto const& i : m_unbuffered_intervals) {
+                    unallocated_buf_total_size += i.second - i.first;
+                }
+            }
+            auto buf_total_size = m_buf_stream.Size();
+            HttpRandomAccessStreamMetrics result{
+                .ActiveConnectionsCount = m_metrics.active_connections,
+                .SentRequestsDelta = m_metrics.requests_delta,
+                .InboundBitsPerSecond = static_cast<uint64_t>(std::llround(inbound_bytes_per_sec * 8)),
+                .DownloadedBytesDelta = m_metrics.bytes_delta,
+                .AllocatedBufferSize = buf_total_size,
+                .UsedBufferSize = buf_total_size - unallocated_buf_total_size,
+            };
+            if (clear_events) {
+                m_metrics.last_start_ts = std::chrono::high_resolution_clock::now();
+                m_metrics.connection_duration = {};
+                m_metrics.requests_delta = 0;
+                m_metrics.bytes_delta = 0;
+            }
+            return result;
         }
 
     private:
-        std::vector<Uri> m_http_uris;
+        IAsyncAction trigger_new_uri_requested(void) {
+            com_ptr<NewUriRequestedEventArgs> ea_nur = nullptr;
+            bool owns_ea = false;
+            {
+                std::scoped_lock guard(m_mutex_ea_nur);
+                ea_nur = m_ea_nur;
+                if (!ea_nur) {
+                    ea_nur = m_ea_nur = make_self<NewUriRequestedEventArgs>();
+                    owns_ea = true;
+                }
+            }
+            deferred([&] {
+                if (owns_ea) {
+                    std::scoped_lock guard(m_mutex_ea_nur);
+                    m_ea_nur = nullptr;
+                }
+                });
+            if (owns_ea) {
+                m_ev_new_uri_requested(make<HttpRandomAccessStream>(shared_from_this(), L""), *ea_nur);
+            }
+            co_return co_await ea_nur->wait_for_deferrals();
+        }
+        // NOTE: This method only fills the specified part of buffer stream. Buffer ranges
+        //       should be managed outside the method.
+        IAsyncActionWithProgress<uint64_t> populate_buf_stream(uint64_t start, uint64_t end) {
+            auto cancellation_token = co_await get_cancellation_token();
+            cancellation_token.enable_propagation();
+            auto progress_token = co_await get_progress_token();
+
+            util::debug::log_trace(std::format(L"Fetching http range {}-{}", start, end));
+
+            if (end > m_size) {
+                throw hresult_invalid_argument(L"Invalid read operation (out-of-bounds read)");
+            }
+            if (start > end) {
+                throw hresult_invalid_argument(L"Invalid read operation (negative-sized read)");
+            }
+
+            while (true) {
+                // Check whether we have uris
+                Uri cur_uri = nullptr;
+                {
+                    std::shared_lock guard_uri(m_mutex_http_uris);
+                    if (!m_http_uris.empty()) {
+                        cur_uri = m_http_uris.front();
+                    }
+                }
+                if (cur_uri == nullptr) {
+                    // No uris, try to get some
+                    co_await trigger_new_uri_requested();
+                    // If we cannot get more uris, mark as failed
+                    std::shared_lock guard_uri(m_mutex_http_uris);
+                    if (m_http_uris.empty()) {
+                        throw hresult_error(E_FAIL, L"No uris available after NewUriRequested fired");
+                    }
+                    cur_uri = m_http_uris.front();
+                }
+                // Try to fetch content
+                try {
+                    {
+                        std::scoped_lock guard_metrics(m_mutex_metrics);
+                        if (m_enable_metrics_collection.load()) {
+                            m_metrics.requests_delta++;
+                        }
+                        if (m_metrics.active_connections++ == 0) {
+                            m_metrics.last_start_ts = std::chrono::high_resolution_clock::now();
+                        }
+                    }
+                    deferred([&] {
+                        std::scoped_lock guard_metrics(m_mutex_metrics);
+                        if (--m_metrics.active_connections == 0) {
+                            if (m_enable_metrics_collection.load()) {
+                                m_metrics.connection_duration +=
+                                    std::chrono::high_resolution_clock::now() - m_metrics.last_start_ts;
+                            }
+                        }
+                    });
+                    auto http_content = co_await util::winrt::fetch_partial_http_content(
+                        cur_uri, m_http_client, start, end - start);
+                    auto op = http_content.WriteToStreamAsync(m_buf_stream.GetOutputStreamAt(start));
+                    uint64_t op_req_bytes = 0;
+                    op.Progress([&](auto const&, auto progress) {
+                        progress_token(static_cast<uint32_t>(progress));
+                        if (m_enable_metrics_collection.load()) {
+                            std::scoped_lock guard_metrics(m_mutex_metrics);
+                            m_metrics.bytes_delta += progress - op_req_bytes;
+                        }
+                        op_req_bytes = progress;
+                    });
+                    co_await std::move(op);
+                    co_return;
+                }
+                catch (hresult_canceled const&) { throw; }
+                catch (hresult_error const& e) {
+                    util::debug::log_debug(std::format(
+                        L"HRAS: Failed to fetch `{}` with range {}-{} (0x{:08x}: {})",
+                        cur_uri.ToString(), start, end,
+                        static_cast<uint32_t>(e.code()), e.message()
+                    ));
+                    // Fetch failed, drop current uri
+                    std::unique_lock guard_uri(m_mutex_http_uris);
+                    if (!m_http_uris.empty() && cur_uri == m_http_uris.front()) {
+                        m_http_uris.pop_front();
+                    }
+                }
+            }
+        }
+
+        InMemoryRandomAccessStream m_buf_stream;
+        std::mutex m_mutex_ea_nur;
+        com_ptr<NewUriRequestedEventArgs> m_ea_nur;
+        std::shared_mutex m_mutex_http_uris;
+        std::deque<Uri> m_http_uris;
+        std::shared_mutex m_mutex_unbuffered_intervals;
+        std::vector<std::pair<uint64_t, uint64_t>> m_unbuffered_intervals;
         HttpClient m_http_client;
+        uint64_t m_size;
         bool m_extra_integrity_check;
         event<EventHandlerType_NUR> m_ev_new_uri_requested;
+        std::atomic_bool m_enable_metrics_collection;
+        std::mutex m_mutex_metrics;
+        struct {
+            uint64_t active_connections;
+            std::chrono::high_resolution_clock::time_point last_start_ts;
+            std::chrono::high_resolution_clock::duration connection_duration;
+            uint64_t requests_delta;
+            uint64_t bytes_delta;
+        } m_metrics;
     };
 }
 
@@ -304,6 +625,7 @@ namespace winrt::BiliUWP::implementation {
             auto http_resp = co_await http_client.GetAsync(http_uri, HttpCompletionOption::ResponseHeadersRead);
             http_resp.EnsureSuccessStatusCode();
             auto buf_mem_stream = InMemoryRandomAccessStream();
+            // TODO: Maybe optimize performance by explicitly setting stream size
             co_await http_resp.Content().WriteToStreamAsync(buf_mem_stream);
             buf_mem_stream.Seek(0);
             co_return make<HttpRandomAccessStream>(
@@ -320,7 +642,10 @@ namespace winrt::BiliUWP::implementation {
             http_req, HttpCompletionOption::ResponseHeadersRead
         );
         if (http_resp.StatusCode() != HttpStatusCode::PartialContent) {
-            throw hresult_error(E_FAIL, L"Requested resource does not support partial downloading");
+            throw hresult_error(E_FAIL, std::format(
+                L"Requested resource does not support partial downloading (HTTP {})",
+                std::to_underlying(http_resp.StatusCode())
+            ));
         }
 
         // Server supports ranges; proceed with creation
@@ -328,7 +653,7 @@ namespace winrt::BiliUWP::implementation {
         auto cont_type = http_resp_cont_hdrs.ContentType().MediaType();
         auto nullable_cont_len = http_resp_cont_hdrs.ContentLength();
         if (!nullable_cont_len) {
-            throw hresult_error(E_FAIL, L"Requested resource does not have Content-Length");
+            throw hresult_error(E_FAIL, L"HTTP partial response does not have Content-Length set");
         }
         auto cont_len = nullable_cont_len.Value();
 
@@ -336,6 +661,10 @@ namespace winrt::BiliUWP::implementation {
 
         if (buffer_options == HttpRandomAccessStreamBufferOptions::None) {
             co_return make<HttpRandomAccessStream>(std::make_shared<HttpRandomAccessStreamImpl_Direct>(
+                http_uri, http_client, cont_len, false), cont_type);
+        }
+        else if (buffer_options == HttpRandomAccessStreamBufferOptions::Full) {
+            co_return make<HttpRandomAccessStream>(std::make_shared<HttpRandomAccessStreamImpl_StreamBased>(
                 http_uri, http_client, cont_len, false), cont_type);
         }
         else {
@@ -400,7 +729,7 @@ namespace winrt::BiliUWP::implementation {
                     "consider cloning the stream"
                 );
             }
-            async = impl->ReadAsync(std::move(buffer), m_cur_pos, m_cur_pos + count, options);
+            async = impl->ReadAtAsync(std::move(buffer), m_cur_pos, m_cur_pos + count, options);
             m_pending_async = async;
         }
         auto weak_this = get_weak();

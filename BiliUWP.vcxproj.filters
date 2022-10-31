@@ -177,7 +177,7 @@
     <Page Include="Pages\FavouritesFolderPage.xaml">
       <Filter>Pages</Filter>
     </Page>
-    <Page Include="Controls\SimpleStateOverlay.xaml">
+    <Page Include="Controls\SimpleStateIndicator.xaml">
       <Filter>Controls</Filter>
     </Page>
     <Page Include="Pages\UserPage.xaml">

@@ -706,6 +706,7 @@ namespace util {
             Clipboard::SetContent(data_package);
             Clipboard::Flush();
         }
+        // NOTE: cc: copy & cut
         void persist_textbox_cc_clipboard(::winrt::Windows::UI::Xaml::Controls::TextBox const& tb) {
             tb.CopyingToClipboard(persist_textbox_copying_handler);
             tb.CuttingToClipboard(persist_textbox_cutting_handler);

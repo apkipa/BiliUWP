@@ -66,6 +66,12 @@ namespace winrt::BiliUWP::implementation {
             uint64_t cid,
             BiliUWP::ApiParam_VideoPlayUrlPreference prefers
         );
+        AsyncJsonObjectResult api_api_x_player_videoshot(
+            uint64_t avid,
+            hstring bvid,
+            uint64_t cid,
+            bool index
+        );
 
         // Audio information
         AsyncJsonObjectResult api_www_audio_music_service_c_web_song_info(

@@ -1,5 +1,5 @@
 ﻿<UserControl
-    x:Class="BiliUWP.SimpleStateOverlay"
+    x:Class="BiliUWP.SimpleStateIndicator"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:BiliUWP"
@@ -21,14 +21,28 @@
                 <VisualState x:Name="OnFailed">
                     <VisualState.Setters>
                         <Setter Target="LayoutRoot.Visibility" Value="Visible"/>
+                        <Setter Target="ErrorIcon.Visibility" Value="Visible"/>
                         <Setter Target="StateText.Foreground" Value="Red"/>
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+            <VisualStateGroup x:Name="LayoutStates">
+                <VisualState x:Name="Full"/>
+                <VisualState x:Name="Inline">
+                    <VisualState.Setters>
+                        <Setter Target="InnerStackPanel.Orientation" Value="Horizontal"/>
+                        <Setter Target="ProgRing.Width" Value="20"/>
+                        <Setter Target="ProgRing.Height" Value="20"/>
+                        <Setter Target="ErrorIcon.FontSize" Value="20"/>
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
         <Grid x:Name="LayoutRoot" Visibility="Collapsed">
-            <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center">
+            <StackPanel x:Name="InnerStackPanel" Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center">
                 <ProgressRing x:Name="ProgRing" Width="50" Height="50" IsActive="False" Visibility="Collapsed" Padding="10" HorizontalAlignment="Center"/>
+                <!-- OpticalMarginAlignment="TrimSideBearings" seemed to work only when CharacterSpacing is set -->
+                <TextBlock x:Name="ErrorIcon" Visibility="Collapsed" HorizontalAlignment="Center" OpticalMarginAlignment="TrimSideBearings" Text="&#xE783;" Foreground="Red" FontSize="48" Padding="10" FontFamily="{ThemeResource SymbolThemeFontFamily}" CharacterSpacing="-1"/>
                 <TextBlock x:Name="StateText" HorizontalAlignment="Center"/>
             </StackPanel>
         </Grid>

@@ -126,6 +126,9 @@
   <data name="App.Common.Cancel" xml:space="preserve">
     <value>取消</value>
   </data>
+  <data name="App.Common.Close" xml:space="preserve">
+    <value>关闭</value>
+  </data>
   <data name="App.Common.Forward" xml:space="preserve">
     <value>前进</value>
   </data>
@@ -194,6 +197,9 @@
   </data>
   <data name="App.Override.SR_TabViewCloseButtonTooltipWithKA" xml:space="preserve">
     <value>关闭选项卡(Ctrl+W)</value>
+  </data>
+  <data name="App.Page.FavouritesFolderPage.JumpToUpPage" xml:space="preserve">
+    <value>转到 UP 主页面</value>
   </data>
   <data name="App.Page.FavouritesFolderPage.Title" xml:space="preserve">
     <value>收藏夹详情</value>
@@ -278,13 +284,13 @@
     <value>感谢以下资源提供的帮助:</value>
   </data>
   <data name="App.Page.SettingsPage.About_DetailsLegal.Text" xml:space="preserve">
-    <value>此软件为哔哩哔哩的一个第三方客户端，与官方没有任何关联。该软件仅供学习与交流用途，不得用于侵犯合法权益。</value>
+    <value>此应用为哔哩哔哩的一个第三方客户端，与官方没有任何关联。该应用仅供学习与交流用途，不得用于侵犯合法权益。</value>
   </data>
   <data name="App.Page.SettingsPage.Appearance.Text" xml:space="preserve">
     <value>外观</value>
   </data>
   <data name="App.Page.SettingsPage.App_AlwaysSyncPlayingCfg.Header" xml:space="preserve">
-    <value>总是同步当前视频播放设置至全局</value>
+    <value>总是同步当前媒体播放设置至全局</value>
   </data>
   <data name="App.Page.SettingsPage.App_GlobalVolume.Header" xml:space="preserve">
     <value>全局音量</value>
@@ -300,6 +306,9 @@
   </data>
   <data name="App.Page.SettingsPage.App_RedactLogs.Header" xml:space="preserve">
     <value>尝试消去日志中的敏感信息(可能存在漏判误判)</value>
+  </data>
+  <data name="App.Page.SettingsPage.App_ShowTabThumbnails.Header" xml:space="preserve">
+    <value>当光标停留在非活跃标签页上时显示缩略图(可能会严重降低性能)</value>
   </data>
   <data name="App.Page.SettingsPage.App_StoreLogs.Header" xml:space="preserve">
     <value>保存日志文件</value>

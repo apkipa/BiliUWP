@@ -4,6 +4,7 @@ namespace BiliUWP {
         // NOTE: If an item has no cover, this property will return a placeholder cover url
         String CoverUrl{ get; };
         String Description{ get; };
+        UInt64 UpMid{ get; };
         String UpName{ get; };
         String UpFaceUrl{ get; };
         UInt64 PlayCount{ get; };

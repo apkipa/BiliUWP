@@ -493,6 +493,35 @@ namespace winrt::BiliUWP::implementation {
         util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
     }
+    AsyncJsonObjectResult BiliClientManaged::api_api_x_player_videoshot(
+        uint64_t avid,
+        hstring bvid,
+        uint64_t cid,
+        bool index
+    ) {
+        ApiParamMaker param_maker;
+
+        auto cancellation_token = co_await get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        if (bvid != L"") {
+            param_maker.add_param(L"bvid", bvid);
+        }
+        else {
+            param_maker.add_param(L"aid", to_hstring(avid));
+        }
+        param_maker.add_param(L"cid", to_hstring(cid));
+        if (index) {
+            param_maker.add_param(L"index", L"1");
+        }
+        auto uri = make_uri(
+            L"https://api.bilibili.com",
+            L"/x/player/videoshot",
+            param_maker.get_as_str()
+        );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
+        co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
+    }
 
     // Audio information
     AsyncJsonObjectResult BiliClientManaged::api_www_audio_music_service_c_web_song_info(

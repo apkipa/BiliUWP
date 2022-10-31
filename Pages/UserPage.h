@@ -9,6 +9,20 @@ namespace winrt::BiliUWP::implementation {
     struct UserPage : UserPageT<UserPage> {
         UserPage();
 
+        bool IsBiliResReady(void) { return m_bili_res_is_ready; }
+        hstring BiliResId() {
+            return m_bili_res_is_valid ? L"uid" + to_hstring(m_uid) : L"";
+        }
+        hstring BiliResUrl() {
+            return m_bili_res_is_valid ? L"https://space.bilibili.com/" + to_hstring(m_uid) : L"";
+        }
+        hstring BiliResId2() {
+            return L"";
+        }
+        hstring BiliResUrl2() {
+            return L"";
+        }
+
         void OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e);
 
         void VideosItemsGridView_ItemClick(
@@ -67,6 +81,7 @@ namespace winrt::BiliUWP::implementation {
         util::winrt::async_storage m_cur_async;
 
         uint64_t m_uid;
+        bool m_bili_res_is_ready, m_bili_res_is_valid;
     };
 }
 

@@ -129,8 +129,8 @@ namespace winrt::BiliUWP::implementation {
             }
         }, this);
     }
-    void SettingsPage::OpenStorageFolderButton_Click(IInspectable const&, RoutedEventArgs const&) {
-        Windows::System::Launcher::LaunchFolderAsync(
+    fire_forget_except SettingsPage::OpenStorageFolderButton_Click(IInspectable const&, RoutedEventArgs const&) {
+        co_await Windows::System::Launcher::LaunchFolderAsync(
             Windows::Storage::ApplicationData::Current().LocalFolder()
         );
     }
@@ -229,5 +229,106 @@ namespace winrt::BiliUWP::implementation {
                 ::BiliUWP::App::get()->debug_console() = co_await ::BiliUWP::DebugConsole::CreateAsync();
             }();
         }
+    }
+    fire_forget_except SettingsPage::ViewLicensesButton_Click(IInspectable const&, RoutedEventArgs const&) {
+        BiliUWP::SimpleContentDialog cd;
+        cd.Title(box_value(L"Open Source Licenses"));
+        cd.Content(box_value(L""
+            "QR Code generator library (C++)\n"
+            "\n"
+            "Copyright (c) Project Nayuki. (MIT License)\n"
+            "https://www.nayuki.io/page/qr-code-generator-library\n"
+            "\n"
+            "Permission is hereby granted, free of charge, to any person obtaining a copy of\n"
+            "this software and associated documentation files (the \"Software\"), to deal in\n"
+            "the Software without restriction, including without limitation the rights to\n"
+            "use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of\n"
+            "the Software, and to permit persons to whom the Software is furnished to do so,\n"
+            "subject to the following conditions:\n"
+            "- The above copyright notice and this permission notice shall be included in\n"
+            "  all copies or substantial portions of the Software.\n"
+            "- The Software is provided \"as is\", without warranty of any kind, express or\n"
+            "  implied, including but not limited to the warranties of merchantability,\n"
+            "  fitness for a particular purpose and noninfringement. In no event shall the\n"
+            "  authors or copyright holders be liable for any claim, damages or other\n"
+            "  liability, whether in an action of contract, tort or otherwise, arising from,\n"
+            "  out of or in connection with the Software or the use or other dealings in the\n"
+            "  Software.\n"
+            "\n"
+            "Microsoft.UI.Xaml\n"
+            "\n"
+            "MIT License\n"
+            "\n"
+            "Copyright (c) Microsoft Corporation. All rights reserved.\n"
+            "\n"
+            "Permission is hereby granted, free of charge, to any person obtaining a copy\n"
+            "of this software and associated documentation files (the \"Software\"), to deal\n"
+            "in the Software without restriction, including without limitation the rights\n"
+            "to use, copy, modify, merge, publish, distribute, sublicense, and/or sell\n"
+            "copies of the Software, and to permit persons to whom the Software is\n"
+            "furnished to do so, subject to the following conditions:\n"
+            "\n"
+            "The above copyright notice and this permission notice shall be included in all\n"
+            "copies or substantial portions of the Software.\n"
+            "\n"
+            "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n"
+            "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n"
+            "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\n"
+            "AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\n"
+            "LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\n"
+            "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\n"
+            "SOFTWARE\n"
+            "\n"
+            "Microsoft.Windows.CppWinRT\n"
+            "\n"
+            "MIT License\n"
+            "\n"
+            "Copyright (c) Microsoft Corporation. All rights reserved.\n"
+            "\n"
+            "Permission is hereby granted, free of charge, to any person obtaining a copy\n"
+            "of this software and associated documentation files (the \"Software\"), to deal\n"
+            "in the Software without restriction, including without limitation the rights\n"
+            "to use, copy, modify, merge, publish, distribute, sublicense, and/or sell\n"
+            "copies of the Software, and to permit persons to whom the Software is\n"
+            "furnished to do so, subject to the following conditions:\n"
+            "\n"
+            "The above copyright notice and this permission notice shall be included in all\n"
+            "copies or substantial portions of the Software.\n"
+            "\n"
+            "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n"
+            "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n"
+            "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\n"
+            "AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\n"
+            "LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\n"
+            "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\n"
+            "SOFTWARE\n"
+            "\n"
+            "Windows Community Toolkit\n"
+            "\n"
+            "MIT License\n"
+            "\n"
+            "Copyright © .NET Foundation and Contributors. All rights reserved.\n"
+            "\n"
+            "Permission is hereby granted, free of charge, to any person obtaining a copy\n"
+            "of this software and associated documentation files (the \"Software\"), to deal\n"
+            "in the Software without restriction, including without limitation the rights\n"
+            "to use, copy, modify, merge, publish, distribute, sublicense, and/or sell\n"
+            "copies of the Software, and to permit persons to whom the Software is\n"
+            "furnished to do so, subject to the following conditions:\n"
+            "\n"
+            "The above copyright notice and this permission notice shall be included in all\n"
+            "copies or substantial portions of the Software.\n"
+            "\n"
+            "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n"
+            "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n"
+            "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\n"
+            "AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\n"
+            "LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\n"
+            "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\n"
+            "SOFTWARE\n"
+            "\n"
+        ));
+        cd.CloseButtonText(::BiliUWP::App::res_str(L"App/Common/Close"));
+        co_await ::BiliUWP::App::get()->tab_from_page(*this)->show_dialog(cd);
     }
 }

@@ -132,6 +132,14 @@ namespace BiliUWP {
             UInt64 cid,
             ApiParam_VideoPlayUrlPreference prefers
         );
+        //   https://api.bilibili.com/x/player/videoshot | cookies
+        //   NOTE: bvid is preferred (avid will be used only when bvid is null)
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_player_videoshot(
+            UInt64 avid,
+            String bvid,
+            UInt64 cid,
+            Boolean index
+        );
 
         // Audio information
         //   https://www.bilibili.com/audio/music-service-c/web/song/info | cookies

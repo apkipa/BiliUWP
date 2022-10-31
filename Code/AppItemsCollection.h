@@ -18,6 +18,7 @@ namespace winrt::BiliUWP::implementation {
             return L"https://s1.hdslb.com/bfs/static/jinkela/space/assets/playlistbg.png";
         }
         hstring Description() { return m_data.intro; }
+        uint64_t UpMid() { return m_data.upper.mid; }
         hstring UpName() { return m_data.upper.name; }
         hstring UpFaceUrl() {
             if (m_data.upper.face_url != L"") {
@@ -59,7 +60,7 @@ namespace winrt::BiliUWP::implementation {
             }
             return L"https://s1.hdslb.com/bfs/static/jinkela/space/assets/playlistbg.png";
         }
-        hstring PublishTimeStr() { return to_hstring(m_data.publish_time); }
+        hstring PublishTimeStr();
         hstring Description() { return m_data.description; }
         uint64_t PlayCount() { return m_data.play_count; }
         uint64_t DanmakuCount() { return m_data.danmaku_count; }

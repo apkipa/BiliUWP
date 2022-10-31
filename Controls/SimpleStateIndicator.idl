@@ -1,0 +1,17 @@
+namespace BiliUWP {
+    enum SimpleStateIndicatorLayoutType {
+        Full,
+        Inline,
+    };
+
+    [default_interface]
+    runtimeclass SimpleStateIndicator : Windows.UI.Xaml.Controls.UserControl {
+        SimpleStateIndicator();
+
+        SimpleStateIndicatorLayoutType LayoutType();
+
+        void SwitchToHidden();
+        void SwitchToLoading(String text);
+        void SwitchToFailed(String text);
+    }
+}

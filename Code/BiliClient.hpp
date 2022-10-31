@@ -408,7 +408,7 @@ namespace BiliUWP {
         uint32_t wearing_status;
         uint64_t score;
     };
-    struct UserSpaceInfoResult_SysNotice {
+    struct UserSpaceInfo_SysNotice {
         uint32_t id;
         winrt::hstring content;
         winrt::hstring url;
@@ -417,7 +417,27 @@ namespace BiliUWP {
         winrt::hstring text_color;
         winrt::hstring bg_color;
     };
-    struct UserSpaceInfoResult_School {
+    struct UserSpaceInfo_LiveRoom {
+        uint32_t room_status;
+        uint32_t live_status;
+        winrt::hstring room_url;
+        winrt::hstring room_title;
+        winrt::hstring room_cover_url;
+        struct {
+            // switch: ?
+            bool is_switched;
+            uint64_t total_watched_users;
+            winrt::hstring text_small;
+            winrt::hstring text_large;
+            winrt::hstring icon_url;
+            winrt::hstring icon_location;
+            winrt::hstring icon_web_url;
+        } watched_show;
+        uint64_t room_id;
+        bool is_rounding;
+        uint32_t broadcast_type;
+    };
+    struct UserSpaceInfo_School {
         winrt::hstring name;
     };
     struct UserSpaceInfoResult {
@@ -484,29 +504,10 @@ namespace BiliUWP {
         } user_honour_info;
         bool is_followed;
         winrt::hstring top_photo_url;
-        std::optional<UserSpaceInfoResult_SysNotice> sys_notice;
-        struct {
-            uint32_t room_status;
-            uint32_t live_status;
-            winrt::hstring room_url;
-            winrt::hstring room_title;
-            winrt::hstring room_cover_url;
-            struct {
-                // switch: ?
-                bool is_switched;
-                uint64_t total_watched_users;
-                winrt::hstring text_small;
-                winrt::hstring text_large;
-                winrt::hstring icon_url;
-                winrt::hstring icon_location;
-                winrt::hstring icon_web_url;
-            } watched_show;
-            uint64_t room_id;
-            bool is_rounding;
-            uint32_t broadcast_type;
-        } live_room;
+        std::optional<UserSpaceInfo_SysNotice> sys_notice;
+        std::optional<UserSpaceInfo_LiveRoom> live_room;
         winrt::hstring birthday;
-        std::optional<UserSpaceInfoResult_School> school;
+        std::optional<UserSpaceInfo_School> school;
         struct {
             winrt::hstring name;
             winrt::hstring department;
@@ -553,6 +554,10 @@ namespace BiliUWP {
         uint64_t tid;
         uint64_t danmaku_count;
     };
+    struct UserSpacePublishedVideos_EpisodicButton {
+        winrt::hstring text;
+        winrt::hstring uri;
+    };
     struct UserSpacePublishedVideosResult {
         struct {
             // NOTE: type_id -> Type
@@ -564,10 +569,7 @@ namespace BiliUWP {
             uint64_t pn;
             uint64_t ps;
         } page;
-        struct {
-            winrt::hstring text;
-            winrt::hstring uri;
-        } episodic_button;
+        std::optional<UserSpacePublishedVideos_EpisodicButton> episodic_button;
     };
     struct VideoViewInfo_Dimension {
         uint32_t width;
@@ -743,6 +745,18 @@ namespace BiliUWP {
         std::optional<std::vector<VideoPlayUrl_DurlPart>> durl;
         std::optional<VideoPlayUrl_Dash> dash;
         std::vector<VideoPlayUrl_SupportFormat> support_formats;
+    };
+    struct VideoShotInfoResult {
+        // NOTE: Target url is an array of u16 storing image indices
+        // NOTE: You must manually handle the wrapping of u16 when
+        //       reading the bin file
+        winrt::hstring pvdata_url;
+        uint64_t img_x_len;
+        uint64_t img_y_len;
+        uint64_t img_x_size;
+        uint64_t img_y_size;
+        std::vector<winrt::hstring> images_url;
+        std::vector<uint64_t> indices;
     };
     struct AudioBasicInfoResult {
         uint64_t auid;
@@ -954,6 +968,10 @@ namespace BiliUWP {
         util::winrt::task<VideoPlayUrlResult> video_play_url(
             std::variant<uint64_t, winrt::hstring> vid, uint64_t cid,
             VideoPlayUrlPreferenceParam prefers
+        );
+        util::winrt::task<VideoShotInfoResult> video_shot_info(
+            std::variant<uint64_t, winrt::hstring> vid, uint64_t cid,
+            bool load_indices
         );
 
         // Audio information

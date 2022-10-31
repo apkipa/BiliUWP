@@ -312,7 +312,7 @@ namespace winrt::BiliUWP::implementation {
 #endif
 
 namespace winrt::BiliUWP::implementation {
-    UserPage::UserPage() : m_uid(0) {}
+    UserPage::UserPage() : m_uid(0), m_bili_res_is_ready(false), m_bili_res_is_valid(false) {}
     void UserPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e) {
         auto tab = ::BiliUWP::App::get()->tab_from_page(*this);
         tab->set_icon(Symbol::ContactInfo);
@@ -370,8 +370,15 @@ namespace winrt::BiliUWP::implementation {
                 auto overlay = that->MainStateOverlay();
                 overlay.SwitchToLoading(res_str(L"App/Common/Loading"));
                 try {
+                    that->m_bili_res_is_ready = false;
+                    deferred([&weak_store] {
+                        if (!weak_store.lock()) { return; }
+                        weak_store->m_bili_res_is_ready = true;
+                    });
                     auto client = ::BiliUWP::App::get()->bili_client();
                     auto result = std::move(co_await weak_store.ual(client->user_space_info(that->m_uid)));
+                    that->m_bili_res_is_valid = true;
+                    that->m_bili_res_is_ready = true;
 
                     auto bmp_img = BitmapImage(Uri(result.top_photo_url));
                     auto img_brush = ImageBrush();
@@ -498,21 +505,17 @@ namespace winrt::BiliUWP::implementation {
             this->ReconnectExpressionAnimations();
         });
     }
-    void UserPage::VideosItemsGridView_ItemClick(
-        Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::ItemClickEventArgs const& e
-    ) {
-        auto vi = e.ClickedItem().as<UserVideosViewItem>();
+    void UserPage::VideosItemsGridView_ItemClick(IInspectable const&, ItemClickEventArgs const& e) {
+        auto vi = e.ClickedItem().as<BiliUWP::UserVideosViewItem>();
         auto tab = ::BiliUWP::make<::BiliUWP::AppTab>();
         tab->navigate(
             xaml_typename<winrt::BiliUWP::MediaPlayPage>(),
-            box_value(MediaPlayPageNavParam{ winrt::BiliUWP::MediaPlayPage_MediaType::Video, vi->AvId(), L""})
+            box_value(MediaPlayPageNavParam{ winrt::BiliUWP::MediaPlayPage_MediaType::Video, vi.AvId(), L""})
         );
         ::BiliUWP::App::get()->add_tab(tab);
         tab->activate();
     }
-    void UserPage::FavouritesItemsGridView_ItemClick(
-        Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::ItemClickEventArgs const& e
-    ) {
+    void UserPage::FavouritesItemsGridView_ItemClick(IInspectable const&, ItemClickEventArgs const& e) {
         auto vi = e.ClickedItem().as<BiliUWP::FavouritesUserViewItem>();
         auto tab = ::BiliUWP::make<::BiliUWP::AppTab>();
         tab->navigate(

@@ -16,6 +16,13 @@ namespace winrt::BiliUWP::implementation {
             return ::BiliUWP::App::res_str(L"App/Page/FavouritesUserPage/Attributes/Public");
         }
     }
+    hstring UserVideosViewItem::PublishTimeStr() {
+        auto tp = std::chrono::round<std::chrono::seconds>(
+            std::chrono::system_clock::time_point(std::chrono::seconds(m_data.publish_time)));
+        return hstring(std::format(L"{0:%F} {0:%T}",
+            std::chrono::zoned_time{ std::chrono::current_zone(), tp }
+        ));
+    }
 }
 
 namespace BiliUWP {

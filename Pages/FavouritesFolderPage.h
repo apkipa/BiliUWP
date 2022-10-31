@@ -19,6 +19,10 @@ namespace winrt::BiliUWP::implementation {
         void ItemsGridView_ItemClick(
             Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::ItemClickEventArgs const& e
         );
+        void ItemsGridView_RightTapped(
+            Windows::Foundation::IInspectable const& sender,
+            Windows::UI::Xaml::Input::RightTappedRoutedEventArgs const& e
+        );
 
         static void final_release(std::unique_ptr<FavouritesFolderPage> ptr) {
             // Try to release memory which would otherwise be leaked by ItemsGridView

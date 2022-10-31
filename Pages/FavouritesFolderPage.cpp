@@ -72,14 +72,10 @@ namespace winrt::BiliUWP::implementation {
         m_items_collection.Reload();
         e.Handled(true);
     }
-    void FavouritesFolderPage::RefreshItem_Click(
-        Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&
-    ) {
+    void FavouritesFolderPage::RefreshItem_Click(IInspectable const&, RoutedEventArgs const&) {
         m_items_collection.Reload();
     }
-    void FavouritesFolderPage::ItemsGridView_ItemClick(
-        Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::ItemClickEventArgs const& e
-    ) {
+    void FavouritesFolderPage::ItemsGridView_ItemClick(IInspectable const&, ItemClickEventArgs const& e) {
         auto vi = e.ClickedItem().as<BiliUWP::FavouritesFolderViewItem>();
         auto tab = ::BiliUWP::make<::BiliUWP::AppTab>();
         auto res_item_type = static_cast<::BiliUWP::ResItemType>(vi.ResItemType());
@@ -104,5 +100,29 @@ namespace winrt::BiliUWP::implementation {
         );
         ::BiliUWP::App::get()->add_tab(tab);
         tab->activate();
+    }
+    void FavouritesFolderPage::ItemsGridView_RightTapped(
+        IInspectable const& sender, RightTappedRoutedEventArgs const& e
+    ) {
+        auto vi = e.OriginalSource().as<FrameworkElement>()
+            .DataContext().try_as<BiliUWP::FavouritesFolderViewItem>();
+        if (!vi) { return; }
+        e.Handled(true);
+        auto items_view = sender.as<BiliUWP::AdaptiveGridView>();
+        auto mf = MenuFlyout();
+        auto mfi_jump_to_up = MenuFlyoutItem();
+        mfi_jump_to_up.Icon(util::winrt::make_symbol_icon(Symbol::ContactInfo));
+        mfi_jump_to_up.Text(::BiliUWP::App::res_str(L"App/Page/FavouritesFolderPage/JumpToUpPage"));
+        mfi_jump_to_up.Click([mid = vi.UpMid()](IInspectable const&, RoutedEventArgs const&) {
+            auto tab = ::BiliUWP::make<::BiliUWP::AppTab>();
+            tab->navigate(
+                xaml_typename<winrt::BiliUWP::UserPage>(),
+                box_value(UserPageNavParam{ mid, UserPage_TargetPart::PublishedVideos })
+            );
+            ::BiliUWP::App::get()->add_tab(tab);
+            tab->activate();
+        });
+        mf.Items().Append(mfi_jump_to_up);
+        mf.ShowAt(items_view, e.GetPosition(items_view));
     }
 }

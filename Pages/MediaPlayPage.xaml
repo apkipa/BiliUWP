@@ -46,7 +46,7 @@
                     </MenuFlyout>
                 </MediaPlayerElement.ContextFlyout>
             </MediaPlayerElement>
-            <local:SimpleStateOverlay x:Name="MediaPlayerOverlay"/>
+            <local:SimpleStateIndicator x:Name="MediaPlayerStateOverlay"/>
             <Grid x:Name="MediaDetailedStatsOverlay" ColumnSpacing="10" RowSpacing="2" Background="#99000000" Margin="10,10,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" CornerRadius="4" Padding="8,6" Visibility="Collapsed">
                 <Grid.Resources>
                     <Style TargetType="TextBlock">
@@ -66,30 +66,26 @@
                 <Grid>
                     <ScrollViewer IsScrollInertiaEnabled="True"
                       VerticalScrollBarVisibility="Auto">
-                        <StackPanel Orientation="Vertical" Spacing="6" Padding="10,8,10,0">
+                        <StackPanel Orientation="Vertical" Spacing="5" Padding="10,8,10,0">
                             <Image Source="{x:Bind MediaCoverImageUrl}"/>
                             <TextBlock Text="{x:Bind MediaTitle}" FontSize="19" TextWrapping="WrapWholeWords" IsTextSelectionEnabled="True"/>
-                            <ListView x:Name="UpListView" ItemsSource="{x:Bind UpList}" SelectionMode="None">
+                            <ListView x:Name="UpListView" ItemsSource="{x:Bind UpList}" ItemClick="UpListView_ItemClick" SelectionMode="None" IsItemClickEnabled="True" ScrollViewer.VerticalScrollMode="Disabled">
                                 <ListView.ItemContainerTransitions>
                                     <TransitionCollection/>
                                 </ListView.ItemContainerTransitions>
                                 <ListView.ItemContainerStyle>
                                     <Style TargetType="ListViewItem">
-                                        <Setter Property="Padding" Value="0"/>
+                                        <Setter Property="Padding" Value="3,2"/>
                                     </Style>
                                 </ListView.ItemContainerStyle>
                                 <ListView.ItemTemplate>
                                     <DataTemplate x:DataType="local:MediaPlayPage_UpItem">
                                         <StackPanel Orientation="Horizontal">
-                                            <Ellipse Height="36" Width="36" Margin="0,0,8,0" Stroke="{ThemeResource SystemBaseMediumColor}" StrokeThickness="0.3">
-                                                <Ellipse.Fill>
-                                                    <ImageBrush>
-                                                        <ImageBrush.ImageSource>
-                                                            <BitmapImage UriSource="{x:Bind UpFaceUrl}" DecodePixelType="Logical" DecodePixelWidth="36" DecodePixelHeight="36" AutoPlay="False"/>
-                                                        </ImageBrush.ImageSource>
-                                                    </ImageBrush>
-                                                </Ellipse.Fill>
-                                            </Ellipse>
+                                            <PersonPicture Height="36" Width="36" Margin="0,0,8,0">
+                                                <PersonPicture.ProfilePicture>
+                                                    <BitmapImage UriSource="{x:Bind UpFaceUrl}" DecodePixelType="Logical" DecodePixelWidth="36" DecodePixelHeight="36" AutoPlay="False"/>
+                                                </PersonPicture.ProfilePicture>
+                                            </PersonPicture>
                                             <TextBlock Text="{x:Bind UpName}" TextLineBounds="Tight" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </DataTemplate>
@@ -98,7 +94,7 @@
                             <TextBlock Text="{x:Bind MediaDescription}" Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}" TextWrapping="WrapWholeWords" IsTextSelectionEnabled="True"/>
                         </StackPanel>
                     </ScrollViewer>
-                    <local:SimpleStateOverlay x:Name="MediaDetailsOverlay"/>
+                    <local:SimpleStateIndicator x:Name="MediaDetailsOverlay"/>
                 </Grid>
             </PivotItem>
             <PivotItem Header="Comments">

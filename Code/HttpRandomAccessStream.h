@@ -16,7 +16,7 @@ namespace winrt::BiliUWP::implementation {
         virtual void SupplyNewUri(array_view<Windows::Foundation::Uri const> new_uris) = 0;
         virtual event_token NewUriRequested(EventHandlerType_NUR const& handler) = 0;
         virtual void NewUriRequested(event_token const& token) noexcept = 0;
-        virtual Windows::Foundation::IAsyncOperationWithProgress<Windows::Storage::Streams::IBuffer, uint32_t> ReadAsync(
+        virtual Windows::Foundation::IAsyncOperationWithProgress<Windows::Storage::Streams::IBuffer, uint32_t> ReadAtAsync(
             Windows::Storage::Streams::IBuffer buffer,
             uint64_t start, uint64_t end,
             Windows::Storage::Streams::InputStreamOptions options

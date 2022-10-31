@@ -6,10 +6,11 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
+    KeyboardAcceleratorPlacementMode="Hidden"
     Background="{ThemeResource SystemControlBackgroundAltHighBrush}">
 
     <Page.KeyboardAccelerators>
-        <KeyboardAccelerator Key="F5" ScopeOwner="{x:Bind}" Invoked="AccKeyF5Invoked"/>
+        <KeyboardAccelerator Key="F5" ScopeOwner="{x:Bind}" Invoked="AccKeyF5Invoked" />
     </Page.KeyboardAccelerators>
 
     <Grid>
@@ -53,12 +54,14 @@
                                     SelectionMode="None"
                                     IsItemClickEnabled="True"
                                     ItemClick="ItemsGridView_ItemClick"
+                                    IsRightTapEnabled="True"
+                                    RightTapped="ItemsGridView_RightTapped"
                                     StretchContentForSingleRow="False"
                                     DesiredWidth="350"
                                     ItemHeight="90">
                 <local:AdaptiveGridView.ItemContainerStyle>
                     <Style TargetType="GridViewItem">
-                        <Setter Property="Margin" Value="3"/>
+                        <Setter Property="Margin" Value="3,6,3,0"/>
                     </Style>
                 </local:AdaptiveGridView.ItemContainerStyle>
                 <local:AdaptiveGridView.ItemTemplate>
@@ -90,7 +93,7 @@
                                 </StackPanel>
                                 <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="20">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock FontFamily="{ThemeResource SymbolThemeFontFamily}" Text="&#xE768; " FontSize="12" Margin="0,0,0,1" VerticalAlignment="Center" TextLineBounds="Tight"/>
+                                        <TextBlock FontFamily="{ThemeResource SymbolThemeFontFamily}" Text="&#xE768;  " FontSize="12" Margin="0,0,0,1" VerticalAlignment="Center" TextLineBounds="Tight"/>
                                         <TextBlock Text="{x:Bind PlayCount}" TextLineBounds="Tight" VerticalAlignment="Center"/>
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal">

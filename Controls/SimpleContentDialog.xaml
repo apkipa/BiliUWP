@@ -223,7 +223,7 @@
                             </Grid.RowDefinitions>
                             <ScrollViewer x:Name="ContentScrollViewer"
                                           HorizontalScrollBarVisibility="Disabled"
-                                          VerticalScrollBarVisibility="Disabled"
+                                          VerticalScrollBarVisibility="Auto"
                                           ZoomMode="Disabled"
                                           Margin="{ThemeResource ContentDialogContentScrollViewerMargin}"
                                           IsTabStop="False">

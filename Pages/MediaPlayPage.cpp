@@ -31,8 +31,6 @@ using ::BiliUWP::App::res_str;
 
 // TODO: Add support for App_AlwaysSyncPlayingCfg
 
-// TODO: Tidy up redundant code logic
-
 namespace winrt::BiliUWP::implementation {
     struct DetailedStatsContext {
         DetailedStatsContext(MediaPlayPage* page) :
@@ -85,7 +83,13 @@ namespace winrt::BiliUWP::implementation {
             m_polyline.StrokeThickness(1);
             m_polyline.HorizontalAlignment(HorizontalAlignment::Left);
             m_polyline.Width(180);
-            m_polyline.Height(14);
+            m_text_block.SizeChanged(
+                [weak_polyline = make_weak(m_polyline)](IInspectable const&, SizeChangedEventArgs const& e) {
+                    if (auto polyline = weak_polyline.get()) {
+                        polyline.Height(e.NewSize().Height);
+                    }
+                }
+            );
             m_text_block.Text(L"N/A");
             m_sp.Orientation(Orientation::Horizontal);
             m_sp.Spacing(4);
@@ -110,6 +114,8 @@ namespace winrt::BiliUWP::implementation {
             for (size_t i = 0; i < container.size(); i++) {
                 auto x = static_cast<double>(i) / points_count * region_width;
                 auto y = (1 - static_cast<double>(container[i]) / max_value) * region_height;
+                // Add 1px vertical padding
+                y = y / region_height * (region_height - 2) + 1;
                 pl_points.Append(PointHelper::FromCoordinates(
                     static_cast<float>(x), static_cast<float>(y)
                 ));
@@ -219,7 +225,7 @@ namespace winrt::BiliUWP::implementation {
 
         auto illegal_nav_fn = [this] {
             MediaSidebar().Visibility(Visibility::Collapsed);
-            MediaPlayerOverlay().SwitchToFailed(res_str(L"App/Common/IllegalNavParam"));
+            MediaPlayerStateOverlay().SwitchToFailed(res_str(L"App/Common/IllegalNavParam"));
         };
 
         if (auto opt = e.Parameter().try_as<MediaPlayPageNavParam>()) {
@@ -241,6 +247,16 @@ namespace winrt::BiliUWP::implementation {
             illegal_nav_fn();
         }
     }
+    void MediaPlayPage::UpListView_ItemClick(IInspectable const&, ItemClickEventArgs const& e) {
+        auto vi = e.ClickedItem().as<BiliUWP::MediaPlayPage_UpItem>();
+        auto tab = ::BiliUWP::make<::BiliUWP::AppTab>();
+        tab->navigate(
+            xaml_typename<winrt::BiliUWP::UserPage>(),
+            box_value(UserPageNavParam{ vi.UpMid(), UserPage_TargetPart::PublishedVideos })
+        );
+        ::BiliUWP::App::get()->add_tab(tab);
+        tab->activate();
+    }
     IAsyncAction MediaPlayPage::NavHandleVideoPlay(uint64_t avid, hstring bvid) {
         auto cancellation_token = co_await get_cancellation_token();
         cancellation_token.enable_propagation();
@@ -248,8 +264,8 @@ namespace winrt::BiliUWP::implementation {
         auto weak_store = util::winrt::make_weak_storage(*this);
 
         // Phase 1: Load media information
-        auto media_player_overlay = MediaPlayerOverlay();
-        media_player_overlay.SwitchToLoading(res_str(L"App/Common/Loading"));
+        auto media_player_state_overlay = MediaPlayerStateOverlay();
+        media_player_state_overlay.SwitchToLoading(res_str(L"App/Common/Loading"));
         try {
             if (bvid != L"") {
                 util::debug::log_trace(std::format(L"NavHandleVideoPlay with video {}...", bvid));
@@ -263,13 +279,13 @@ namespace winrt::BiliUWP::implementation {
         catch (::BiliUWP::BiliApiException const& e) {
             // TODO: We may transform some specific exceptions into user-friendly errors
             util::winrt::log_current_exception();
-            media_player_overlay.SwitchToFailed(res_str(L"App/Page/MediaPlayPage/Error/ServerAPIFailed"));
+            media_player_state_overlay.SwitchToFailed(res_str(L"App/Page/MediaPlayPage/Error/ServerAPIFailed"));
             throw;
         }
         catch (hresult_canceled const&) { throw; }
         catch (...) {
             util::winrt::log_current_exception();
-            media_player_overlay.SwitchToFailed(res_str(L"App/Page/MediaPlayPage/Error/Unknown"));
+            media_player_state_overlay.SwitchToFailed(res_str(L"App/Page/MediaPlayPage/Error/Unknown"));
             throw;
         }
 
@@ -282,16 +298,16 @@ namespace winrt::BiliUWP::implementation {
         catch (::BiliUWP::BiliApiException const& e) {
             // TODO: We may transform some specific exceptions into user-friendly errors
             util::winrt::log_current_exception();
-            media_player_overlay.SwitchToFailed(res_str(L"App/Page/MediaPlayPage/Error/ServerAPIFailed"));
+            media_player_state_overlay.SwitchToFailed(res_str(L"App/Page/MediaPlayPage/Error/ServerAPIFailed"));
             throw;
         }
         catch (hresult_canceled const&) { throw; }
         catch (...) {
             util::winrt::log_current_exception();
-            media_player_overlay.SwitchToFailed(res_str(L"App/Page/MediaPlayPage/Error/Unknown"));
+            media_player_state_overlay.SwitchToFailed(res_str(L"App/Page/MediaPlayPage/Error/Unknown"));
             throw;
         }
-        media_player_overlay.SwitchToHidden();
+        media_player_state_overlay.SwitchToHidden();
     }
     IAsyncAction MediaPlayPage::NavHandleAudioPlay(uint64_t auid) {
         auto cancellation_token = co_await get_cancellation_token();
@@ -300,8 +316,8 @@ namespace winrt::BiliUWP::implementation {
         auto weak_store = util::winrt::make_weak_storage(*this);
 
         // Phase 1: Load media information
-        auto media_player_overlay = MediaPlayerOverlay();
-        media_player_overlay.SwitchToLoading(res_str(L"App/Common/Loading"));
+        auto media_player_state_overlay = MediaPlayerStateOverlay();
+        media_player_state_overlay.SwitchToLoading(res_str(L"App/Common/Loading"));
         try {
             util::debug::log_trace(std::format(L"NavHandleAudioPlay with audio au{}...", auid));
             co_await this->UpdateAudioInfo(auid);
@@ -309,13 +325,13 @@ namespace winrt::BiliUWP::implementation {
         catch (::BiliUWP::BiliApiException const& e) {
             // TODO: We may transform some specific exceptions into user-friendly errors
             util::winrt::log_current_exception();
-            media_player_overlay.SwitchToFailed(res_str(L"App/Page/MediaPlayPage/Error/ServerAPIFailed"));
+            media_player_state_overlay.SwitchToFailed(res_str(L"App/Page/MediaPlayPage/Error/ServerAPIFailed"));
             throw;
         }
         catch (hresult_canceled const&) { throw; }
         catch (...) {
             util::winrt::log_current_exception();
-            media_player_overlay.SwitchToFailed(res_str(L"App/Page/MediaPlayPage/Error/Unknown"));
+            media_player_state_overlay.SwitchToFailed(res_str(L"App/Page/MediaPlayPage/Error/Unknown"));
             throw;
         }
 
@@ -336,7 +352,7 @@ namespace winrt::BiliUWP::implementation {
         deferred([&weak_store] {
             if (!weak_store.lock()) { return; }
             weak_store->m_bili_res_is_ready = true;
-        });
+            });
         m_media_info = std::monostate{};
 
         // Body
@@ -347,7 +363,7 @@ namespace winrt::BiliUWP::implementation {
         m_up_list.Clear();
         m_up_list.Append(make<MediaPlayPage_UpItem>(
             video_vinfo.owner.name, video_vinfo.owner.face_url, video_vinfo.owner.mid
-        ));
+            ));
 
         Bindings->Update();
     }
@@ -392,6 +408,8 @@ namespace winrt::BiliUWP::implementation {
         if (video_pinfo.dash) {
             auto* pvideo_stream = &video_pinfo.dash->video.at(0);
             auto* paudio_stream = &video_pinfo.dash->audio.at(0);
+            // TODO: Deal with videos without audio streams in the future
+            //auto* paudio_stream = video_pinfo.dash->audio.empty() ? nullptr : &video_pinfo.dash->audio[0];
             for (auto& i : video_pinfo.dash->video) {
                 // Skip avc codec
                 if (i.codecid == 7) { continue; }
@@ -406,21 +424,21 @@ namespace winrt::BiliUWP::implementation {
             // Generate Dash MPD from parsed dash info on the fly
             // Dash MPD specification: refer to ISO IEC 23009-1
             // NOTE: minBufferTime type: xs:duration ("PT<Time description>")
-            auto dash_mpd_str = std::format(LR"(<?xml version="1.0" encoding="utf-8"?>
-<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT{}S" type="static">
-<Period start="PT0S">
-<AdaptationSet contentType="video">
-<Representation id="{}" bandwidth="{}" mimeType="{}" codecs="{}" startWithSAP="{}" sar="{}" frame_rate="{}" width="{}" height="{}">
-<SegmentBase indexRange="{}"><Initialization range="{}"/></SegmentBase>
-</Representation>
-</AdaptationSet>
-<AdaptationSet contentType="audio">
-<Representation id="{}" bandwidth="{}" mimeType="{}" codecs="{}" startWithSAP="{}">
-<SegmentBase indexRange="{}"><Initialization range="{}"/></SegmentBase>
-</Representation>
-</AdaptationSet>
-</Period>
-</MPD>)",
+            auto dash_mpd_str = std::format(LR"(<?xml version="1.0" encoding="utf-8"?>)"
+                R"(<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT{}S" type="static">)"
+                R"(<Period start="PT0S">)"
+                R"(<AdaptationSet contentType="video">)"
+                R"(<Representation id="{}" bandwidth="{}" mimeType="{}" codecs="{}" startWithSAP="{}" sar="{}" frame_rate="{}" width="{}" height="{}">)"
+                R"(<SegmentBase indexRange="{}"><Initialization range="{}"/></SegmentBase>)"
+                R"(</Representation>)"
+                R"(</AdaptationSet>)"
+                R"(<AdaptationSet contentType="audio">)"
+                R"(<Representation id="{}" bandwidth="{}" mimeType="{}" codecs="{}" startWithSAP="{}">)"
+                R"(<SegmentBase indexRange="{}"><Initialization range="{}"/></SegmentBase>)"
+                R"(</Representation>)"
+                R"(</AdaptationSet>)"
+                R"(</Period>)"
+                R"(</MPD>)",
                 video_pinfo.dash->min_buffer_time,
                 video_stream.id, video_stream.bandwidth, video_stream.mime_type, video_stream.codecs,
                 video_stream.start_with_sap, video_stream.sar, video_stream.frame_rate,
@@ -454,21 +472,22 @@ namespace winrt::BiliUWP::implementation {
 
             // Make DetailedStatsProvider
             static constexpr auto UPDATE_INTERVAL = std::chrono::milliseconds(500);
-            //adaptive_media_src.InboundBitsPerSecondWindow(std::chrono::milliseconds(UPDATE_INTERVAL_MS));
-            struct shared_stats_data {
-                shared_stats_data() {}
-                std::atomic<uint64_t> downloaded_bytes;
+            struct shared_stats_data : std::enable_shared_from_this<shared_stats_data> {
+                void reset(void) {
+                    last_start_ts = std::chrono::high_resolution_clock::now();
+                    connection_duration = {};
+                    requests_delta = 0;
+                    bytes_delta = 0;
+                }
+                shared_stats_data() : is_monitoring(false), active_connections(0) { reset(); }
                 std::atomic_bool is_monitoring;
-                // Mutex-protected data below
                 std::mutex rw_mutex;
-                std::atomic<uint64_t> connections_count;
-                struct dl_ev {
-                    std::chrono::system_clock::time_point ts;
-                    uint64_t bytes_delta;
-                    bool is_start;
-                    bool is_final;
-                };
-                std::deque<dl_ev> download_events;
+                // NOTE: Mutex-protected data below
+                uint64_t active_connections;
+                std::chrono::high_resolution_clock::time_point last_start_ts;
+                std::chrono::high_resolution_clock::duration connection_duration;
+                uint64_t requests_delta;
+                uint64_t bytes_delta;
             };
             std::shared_ptr<shared_stats_data> shared_data = std::make_shared<shared_stats_data>();
             struct DetailedStatsProvider_AdaptiveMediaSource : DetailedStatsProvider {
@@ -487,15 +506,6 @@ namespace winrt::BiliUWP::implementation {
                     m_shared_data(std::move(shared_data)) {}
                 void InitStats(DetailedStatsContext* ctx) {
                     using util::winrt::make_text_block;
-                    auto init_polyline_fn = [](Polyline const& polyline) {
-                        polyline.Stroke(SolidColorBrush(Colors::White()));
-                        polyline.StrokeThickness(1);
-                        polyline.HorizontalAlignment(HorizontalAlignment::Left);
-                        polyline.Width(180);
-                        polyline.Height(14);
-                    };
-                    init_polyline_fn(m_net_activity_polyline);
-                    init_polyline_fn(m_conn_speed_polyline);
                     ctx->AddElement(L"Mime Type", make_text_block(hstring(std::format(
                         L"{};codecs=\"{}\" | {};codecs=\"{}\"",
                         m_video_mime, m_video_codec,
@@ -505,28 +515,17 @@ namespace winrt::BiliUWP::implementation {
                     ctx->AddElement(L"Resolution", make_text_block(m_resolution));
                     ctx->AddElement(L"Video Host", make_text_block(m_video_host));
                     ctx->AddElement(L"Audio Host", make_text_block(m_audio_host));
-                    auto make_curve_sp_fn = [](auto const& polyline, auto const& elem) {
-                        StackPanel sp;
-                        sp.Orientation(Orientation::Horizontal);
-                        sp.Spacing(4);
-                        sp.Children().ReplaceAll({ polyline, elem });
-                        return sp;
-                    };
-                    m_conn_speed_text.Text(L"N/A");
-                    ctx->AddElement(
-                        L"Connection Speed", make_curve_sp_fn(m_conn_speed_polyline, m_conn_speed_text)
-                    );
-                    m_net_activity_text.Text(L"N/A");
-                    ctx->AddElement(
-                        L"Network Activity", make_curve_sp_fn(m_net_activity_polyline, m_net_activity_text)
-                    );
+                    ctx->AddElement(L"Connection Speed", m_conn_speed);
+                    ctx->AddElement(L"Network Activity", m_net_activity);
+                    ctx->AddElement(L"Mystery Text", m_mystery_text_tb);
                 }
                 std::optional<TimeSpan> DesiredUpdateInterval(void) {
                     return UPDATE_INTERVAL;
                 }
                 void TimerStarted(void) {
-                    m_shared_data->downloaded_bytes.store(0);
                     m_shared_data->is_monitoring.store(true);
+                    std::scoped_lock guard(m_shared_data->rw_mutex);
+                    m_shared_data->reset();
                 }
                 void TimerStopped(void) {
                     m_shared_data->is_monitoring.store(false);
@@ -535,103 +534,58 @@ namespace winrt::BiliUWP::implementation {
                     using util::str::byte_size_to_str;
                     using util::str::bit_size_to_str;
                     static constexpr size_t MAX_POINTS = 60;
-                    auto update_polyline_fn = [](auto const& polyline, auto const& container) {
-                        auto real_max_value = *std::max_element(container.begin(), container.end());
-                        auto max_value = real_max_value < DBL_EPSILON ? 1 : real_max_value;
-                        auto region_width = polyline.Width();
-                        auto region_height = polyline.Height();
-                        auto pl_points = polyline.Points();
-                        pl_points.Clear();
-                        for (size_t i = 0; i < container.size(); i++) {
-                            auto x = static_cast<double>(i) / MAX_POINTS * region_width;
-                            auto y = (1 - static_cast<double>(container[i]) / max_value) * region_height;
-                            pl_points.Append(PointHelper::FromCoordinates(
-                                static_cast<float>(x), static_cast<float>(y)
-                            ));
+                    auto add_point_fn = [](auto& container, std::decay_t<decltype(container)>::value_type value) {
+                        if (container.size() >= MAX_POINTS) {
+                            container.pop_front();
                         }
-                        return real_max_value;
+                        container.push_back(std::move(value));
                     };
-                    // Network Activity
-                    /*
-                    auto ams = m_adaptive_media_src.get();
-                    if (!ams) { return; }
-                    */
-                    if (m_net_activity_points.size() >= MAX_POINTS) {
-                        m_net_activity_points.pop_front();
-                    }
-                    auto cur_downloaded_bytes = m_shared_data->downloaded_bytes.load();
-                    m_shared_data->downloaded_bytes.fetch_sub(cur_downloaded_bytes);
-                    // NOTE: InboundBitsPerSecond() is not always reliable
-                    //m_net_activity_points.push_back(ams.InboundBitsPerSecond() / 8);
-                    m_net_activity_points.push_back(cur_downloaded_bytes);
-                    m_net_activity_text.Text(hstring(
-                        byte_size_to_str(m_net_activity_points.back(), 1e2) + L" / " +
-                        byte_size_to_str(update_polyline_fn(m_net_activity_polyline, m_net_activity_points), 1e2)
-                    ));
-                    // Connection speed
-                    if (m_conn_speed_points.size() >= MAX_POINTS) {
-                        m_conn_speed_points.pop_front();
-                    }
-                    [&] {
-                        static constexpr auto CALC_INTERVAL = UPDATE_INTERVAL;
-                        auto cur_ts = std::chrono::system_clock::now();
+                    uint64_t cur_downloaded_bytes_delta, cur_active_connections_count;
+                    uint64_t cur_sent_requests_delta;
+                    uint64_t cur_inbound_bits_per_second;
+                    {   // Get & clear metrics
                         std::scoped_lock guard(m_shared_data->rw_mutex);
-                        while (!m_shared_data->download_events.empty()) {
-                            if (m_shared_data->download_events.front().ts < cur_ts - CALC_INTERVAL) {
-                                m_shared_data->download_events.pop_front();
-                                continue;
-                            }
-                            break;
+                        cur_active_connections_count = m_shared_data->active_connections;
+                        cur_downloaded_bytes_delta = m_shared_data->bytes_delta;
+                        auto actual_duration = m_shared_data->connection_duration;
+                        if (m_shared_data->active_connections > 0) {
+                            actual_duration +=
+                                std::chrono::high_resolution_clock::now() - m_shared_data->last_start_ts;
                         }
-                        if (m_shared_data->download_events.empty()) {
-                            if (m_shared_data->connections_count.load() == 0) {
-                                // No connections; reuse last result
-                                m_conn_speed_points.push_back(
-                                    m_conn_speed_points.empty() ? 0 : m_conn_speed_points.back()
-                                );
-                                return;
-                            }
-                            // Insert a fake start event
-                            m_shared_data->download_events.emplace_front(
-                                cur_ts - CALC_INTERVAL,
-                                0,
-                                true, false
-                            );
-                        }
-                        std::chrono::duration<double> accumulated_time{};
-                        uint64_t accumulated_bytes = 0;
-                        std::chrono::system_clock::time_point tp_start{};
-                        if (!m_shared_data->download_events.front().is_start) {
-                            // Insert a fake start event
-                            m_shared_data->download_events.emplace_front(
-                                cur_ts - CALC_INTERVAL,
-                                0,
-                                true, false
-                            );
-                        }
-                        for (auto const& i : m_shared_data->download_events) {
-                            accumulated_bytes += i.bytes_delta;
-                            if (i.is_final) {
-                                // End of fetch
-                                accumulated_time += i.ts - tp_start;
-                                tp_start = {};
-                            }
-                            else if (i.is_start) {
-                                // Start of fetch
-                                if (tp_start == decltype(tp_start){}) { tp_start = i.ts; }
-                            }
-                        }
-                        if (tp_start != decltype(tp_start){}) {
-                            accumulated_time += cur_ts - tp_start;
-                        }
-                        m_conn_speed_points.push_back(
-                            static_cast<uint64_t>(std::llround(accumulated_bytes * 8 / accumulated_time.count()))
+                        auto actual_dur_secs = std::chrono::duration<double>(actual_duration).count();
+                        auto inbound_bytes_per_sec = actual_dur_secs == 0 ? 0 :
+                            m_shared_data->bytes_delta / actual_dur_secs;
+                        cur_inbound_bits_per_second =
+                            static_cast<uint64_t>(std::llround(inbound_bytes_per_sec * 8));
+                        cur_sent_requests_delta = m_shared_data->requests_delta;
+                        m_shared_data->reset();
+                    }
+                    if (cur_active_connections_count == 0 && cur_downloaded_bytes_delta == 0) {
+                        add_point_fn(
+                            m_conn_speed_points,
+                            m_conn_speed_points.empty() ? 0 : m_conn_speed_points.back()
                         );
-                    }();
-                    m_conn_speed_text.Text(hstring(std::format(
-                        L"{}ps / {}ps",
-                        bit_size_to_str(m_conn_speed_points.back()),
-                        bit_size_to_str(update_polyline_fn(m_conn_speed_polyline, m_conn_speed_points))
+                    }
+                    else {
+                        add_point_fn(m_conn_speed_points, cur_inbound_bits_per_second);
+                    }
+                    m_conn_speed.update([](uint64_t cur_val, uint64_t max_val) -> hstring {
+                        return hstring(std::format(
+                            L"{}ps / {}ps",
+                            bit_size_to_str(cur_val),
+                            bit_size_to_str(max_val)
+                        ));
+                        }, m_conn_speed_points, MAX_POINTS);
+                    add_point_fn(m_net_activity_points, cur_downloaded_bytes_delta);
+                    m_net_activity.update([](uint64_t cur_val, uint64_t max_val) -> hstring {
+                        return hstring(
+                            byte_size_to_str(cur_val, 1e2) + L" / " +
+                            byte_size_to_str(max_val, 1e2)
+                        );
+                        }, m_net_activity_points, MAX_POINTS);
+                    // Update mystery text
+                    m_mystery_text_tb.Text(hstring(std::format(
+                        L"c:{} rd:{}", cur_active_connections_count, cur_sent_requests_delta
                     )));
                 }
             private:
@@ -643,12 +597,11 @@ namespace winrt::BiliUWP::implementation {
                 hstring m_video_host, m_audio_host;
 
                 std::shared_ptr<shared_stats_data> m_shared_data;
-                std::deque<uint64_t> m_net_activity_points;
-                Polyline m_net_activity_polyline;
-                TextBlock m_net_activity_text;
+                PolylineWithTextElemForDetailedStats m_conn_speed;
                 std::deque<uint64_t> m_conn_speed_points;
-                Polyline m_conn_speed_polyline;
-                TextBlock m_conn_speed_text;
+                PolylineWithTextElemForDetailedStats m_net_activity;
+                std::deque<uint64_t> m_net_activity_points;
+                TextBlock m_mystery_text_tb;
             };
             ds_provider = std::make_shared<DetailedStatsProvider_AdaptiveMediaSource>(
                 make_weak(adaptive_media_src),
@@ -657,7 +610,7 @@ namespace winrt::BiliUWP::implementation {
                 hstring(std::format(L"{}x{}@{}", video_stream.width, video_stream.height, video_stream.frame_rate)),
                 Uri(video_stream.base_url).Host(), Uri(audio_stream.base_url).Host(),
                 shared_data
-            );
+                );
 
             // TODO: Add support for DownloadFailed event (refresh urls)
 
@@ -665,7 +618,7 @@ namespace winrt::BiliUWP::implementation {
             // Use uri replacing
             adaptive_media_src.DownloadRequested(
                 [vuri = Uri(video_stream.base_url), auri = Uri(audio_stream.base_url)]
-                (AdaptiveMediaSource const&, AdaptiveMediaSourceDownloadRequestedEventArgs const& e) {
+            (AdaptiveMediaSource const&, AdaptiveMediaSourceDownloadRequestedEventArgs const& e) {
                     if (e.ResourceContentType().starts_with(L"video")) {
                         e.Result().ResourceUri(vuri);
                     }
@@ -679,10 +632,11 @@ namespace winrt::BiliUWP::implementation {
             );
 #else
             // Use buffer replacing (may waste some memory)
+            // TODO: Add option to switch to HRAS backend
             adaptive_media_src.DownloadRequested(
                 [http_client = m_http_client, vuri = Uri(video_stream.base_url), auri = Uri(audio_stream.base_url),
                 shared_data = std::move(shared_data)]
-                (AdaptiveMediaSource const&, AdaptiveMediaSourceDownloadRequestedEventArgs const& e) -> IAsyncAction {
+            (AdaptiveMediaSource const&, AdaptiveMediaSourceDownloadRequestedEventArgs const& e) -> IAsyncAction {
                     const Uri* target_uri;
                     if (e.ResourceContentType().starts_with(L"video")) { target_uri = &vuri; }
                     else if (e.ResourceContentType().starts_with(L"audio")) { target_uri = &auri; }
@@ -691,59 +645,53 @@ namespace winrt::BiliUWP::implementation {
                         co_return;
                     }
                     auto content_size = e.ResourceByteRangeLength().as<uint64_t>();
-                    uint64_t cur_progress = 0;
-                    shared_data->connections_count.fetch_add(1);
+                    {
+                        std::scoped_lock guard(shared_data->rw_mutex);
+                        if (shared_data->is_monitoring.load()) {
+                            shared_data->requests_delta++;
+                        }
+                        if (shared_data->active_connections++ == 0) {
+                            shared_data->last_start_ts = std::chrono::high_resolution_clock::now();
+                        }
+                    }
                     deferred([&] {
-                        if (shared_data->is_monitoring.load()) {
-                            std::scoped_lock guard(shared_data->rw_mutex);
-                            shared_data->download_events.emplace_back(
-                                std::chrono::system_clock::now(),
-                                content_size - cur_progress,
-                                false,
-                                shared_data->connections_count.fetch_sub(1) == 1
-                            );
+                        std::scoped_lock guard(shared_data->rw_mutex);
+                        if (--shared_data->active_connections == 0) {
+                            if (shared_data->is_monitoring.load()) {
+                                shared_data->connection_duration +=
+                                    std::chrono::high_resolution_clock::now() - shared_data->last_start_ts;
+                            }
                         }
-                        else { shared_data->connections_count.fetch_sub(1); }
-                    });
-                    // Assuming progress = 0 & progress = max are always passed
-                    auto update_progress_fn = [&](uint64_t progress, bool is_start) {
-                        auto delta = progress - cur_progress;
-                        cur_progress = progress;
-                        shared_data->downloaded_bytes.fetch_add(delta);
-                        if (shared_data->is_monitoring.load()) {
-                            std::scoped_lock guard(shared_data->rw_mutex);
-                            shared_data->download_events.emplace_back(
-                                std::chrono::system_clock::now(),
-                                delta,
-                                is_start, false
-                            );
-                        }
-                    };
-                    update_progress_fn(0, true);
+                        });
                     auto read_op = util::winrt::fetch_partial_http_as_buffer(
                         *target_uri, http_client,
                         e.ResourceByteRangeOffset().as<uint64_t>(),
                         content_size
                     );
+                    uint64_t cur_progress = 0;
                     read_op.Progress([&](auto const&, uint64_t progress) {
-                        update_progress_fn(progress, false);
-                    });
+                        if (shared_data->is_monitoring.load()) {
+                            std::scoped_lock guard(shared_data->rw_mutex);
+                            shared_data->bytes_delta += progress - cur_progress;
+                        }
+                        cur_progress = progress;
+                        });
                     auto deferral = e.GetDeferral();
                     deferred([&] { deferral.Complete(); });
                     e.Result().Buffer(co_await read_op);
-                    //update_progress_fn(content_size, false);
                 }
             );
 #endif
             media_src = MediaSource::CreateFromAdaptiveMediaSource(adaptive_media_src);
         }
         else if (video_pinfo.durl) {
-            BiliUWP::SimpleContentDialog cd;
-            cd.Title(box_value(L"Not Implemented"));
-            cd.Content(box_value(L"FLV demuxing not implemented"));
-            cd.CloseButtonText(L"Close");
-            auto app = ::BiliUWP::App::get();
-            app->tab_from_page(*this)->show_dialog(cd);
+            if (auto tab = ::BiliUWP::App::get()->tab_from_page(*this)) {
+                BiliUWP::SimpleContentDialog cd;
+                cd.Title(box_value(L"Not Implemented"));
+                cd.Content(box_value(L"FLV demuxing not implemented"));
+                cd.CloseButtonText(L"Close");
+                tab->show_dialog(cd);
+            }
             throw hresult_not_implemented(L"FLV demuxing not implemented");
         }
         else {
@@ -783,22 +731,22 @@ namespace winrt::BiliUWP::implementation {
         auto cancellation_token = co_await get_cancellation_token();
         cancellation_token.enable_propagation();
 
-        auto media_player_overlay = MediaPlayerOverlay();
-        media_player_overlay.SwitchToLoading(res_str(L"App/Common/Loading"));
+        auto media_player_state_overlay = MediaPlayerStateOverlay();
+        media_player_state_overlay.SwitchToLoading(res_str(L"App/Common/Loading"));
         try { co_await this->PlayVideoWithCidInner(cid); }
         catch (::BiliUWP::BiliApiException const& e) {
             // TODO: We may transform some specific exceptions into user-friendly errors
             util::winrt::log_current_exception();
-            media_player_overlay.SwitchToFailed(res_str(L"App/Page/MediaPlayPage/Error/ServerAPIFailed"));
+            media_player_state_overlay.SwitchToFailed(res_str(L"App/Page/MediaPlayPage/Error/ServerAPIFailed"));
             throw;
         }
         catch (hresult_canceled const&) { throw; }
         catch (...) {
             util::winrt::log_current_exception();
-            media_player_overlay.SwitchToFailed(res_str(L"App/Page/MediaPlayPage/Error/Unknown"));
+            media_player_state_overlay.SwitchToFailed(res_str(L"App/Page/MediaPlayPage/Error/Unknown"));
             throw;
         }
-        media_player_overlay.SwitchToHidden();
+        media_player_state_overlay.SwitchToHidden();
     }
     util::winrt::task<> MediaPlayPage::UpdateAudioInfoInner(uint64_t auid) {
         auto cancellation_token = co_await get_cancellation_token();
@@ -810,7 +758,7 @@ namespace winrt::BiliUWP::implementation {
         deferred([&weak_store] {
             if (!weak_store.lock()) { return; }
             weak_store->m_bili_res_is_ready = true;
-        });
+            });
         m_media_info = std::monostate{};
 
         // Body
@@ -822,7 +770,7 @@ namespace winrt::BiliUWP::implementation {
         m_up_list.Clear();
         m_up_list.Append(make<MediaPlayPage_UpItem>(
             audio_vinfo.author, up_card_info.card.face_url, audio_vinfo.uid
-        ));
+            ));
 
         Bindings->Update();
     }
@@ -863,23 +811,24 @@ namespace winrt::BiliUWP::implementation {
         auto http_stream = co_await weak_store.ual(HttpRandomAccessStream::CreateAsync(
             audio_uri,
             m_http_client,
-            HttpRandomAccessStreamBufferOptions::None,
+            HttpRandomAccessStreamBufferOptions::Full,
             0, false
         ));
         auto media_src = MediaSource::CreateFromStream(http_stream, http_stream.ContentType());
 
         // Make DetailedStatsProvider
         struct DetailedStatsProvider_AudioHRAS : DetailedStatsProvider {
-            DetailedStatsProvider_AudioHRAS(BiliUWP::HttpRandomAccessStream hras, hstring audio_host):
+            DetailedStatsProvider_AudioHRAS(BiliUWP::HttpRandomAccessStream hras, hstring audio_host) :
                 m_hras(std::move(hras)), m_audio_host(std::move(audio_host)) {}
             void InitStats(DetailedStatsContext* ctx) {
                 using util::winrt::make_text_block;
                 ctx->AddElement(L"Player Type", make_text_block(
-                    L"NativePlayer <- NativeBuffering <- HRAS(None)"
+                    L"NativePlayer <- NativeBuffering <- HRAS(Full)"
                 ));
                 ctx->AddElement(L"Audio Host", make_text_block(m_audio_host));
-                ctx->AddElement(L"Network Activity", m_net_activity);
                 ctx->AddElement(L"Connection Speed", m_conn_speed);
+                ctx->AddElement(L"Network Activity", m_net_activity);
+                ctx->AddElement(L"Mystery Text", m_mystery_text_tb);
             }
             std::optional<TimeSpan> DesiredUpdateInterval(void) {
                 return std::chrono::milliseconds(500);
@@ -902,13 +851,6 @@ namespace winrt::BiliUWP::implementation {
                     }
                     container.push_back(std::move(value));
                 };
-                add_point_fn(m_net_activity_points, metrics.DownloadedBytesDelta);
-                m_net_activity.update([](uint64_t cur_val, uint64_t max_val) -> hstring {
-                    return hstring(
-                        byte_size_to_str(cur_val, 1e2) + L" / " +
-                        byte_size_to_str(max_val, 1e2)
-                    );
-                }, m_net_activity_points, MAX_POINTS);
                 if (metrics.ActiveConnectionsCount == 0 && metrics.DownloadedBytesDelta == 0) {
                     add_point_fn(
                         m_conn_speed_points,
@@ -924,15 +866,29 @@ namespace winrt::BiliUWP::implementation {
                         bit_size_to_str(cur_val),
                         bit_size_to_str(max_val)
                     ));
-                }, m_conn_speed_points, MAX_POINTS);
+                    }, m_conn_speed_points, MAX_POINTS);
+                add_point_fn(m_net_activity_points, metrics.DownloadedBytesDelta);
+                m_net_activity.update([](uint64_t cur_val, uint64_t max_val) -> hstring {
+                    return hstring(
+                        byte_size_to_str(cur_val, 1e2) + L" / " +
+                        byte_size_to_str(max_val, 1e2)
+                    );
+                    }, m_net_activity_points, MAX_POINTS);
+                // Update mystery text
+                m_mystery_text_tb.Text(hstring(std::format(
+                    L"c:{} rd:{} hrasb:{}/{}",
+                    metrics.ActiveConnectionsCount, metrics.SentRequestsDelta,
+                    metrics.UsedBufferSize, metrics.AllocatedBufferSize
+                )));
             }
         private:
             BiliUWP::HttpRandomAccessStream m_hras;
             hstring m_audio_host;
-            PolylineWithTextElemForDetailedStats m_net_activity;
-            std::deque<uint64_t> m_net_activity_points;
             PolylineWithTextElemForDetailedStats m_conn_speed;
             std::deque<uint64_t> m_conn_speed_points;
+            PolylineWithTextElemForDetailedStats m_net_activity;
+            std::deque<uint64_t> m_net_activity_points;
+            TextBlock m_mystery_text_tb;
         };
         ds_provider = std::make_shared<DetailedStatsProvider_AudioHRAS>(std::move(http_stream), audio_uri.Host());
 
@@ -952,22 +908,22 @@ namespace winrt::BiliUWP::implementation {
         auto cancellation_token = co_await get_cancellation_token();
         cancellation_token.enable_propagation();
 
-        auto media_player_overlay = MediaPlayerOverlay();
-        media_player_overlay.SwitchToLoading(res_str(L"App/Common/Loading"));
+        auto media_player_state_overlay = MediaPlayerStateOverlay();
+        media_player_state_overlay.SwitchToLoading(res_str(L"App/Common/Loading"));
         try { co_await this->PlayAudioInner(); }
         catch (::BiliUWP::BiliApiException const& e) {
             // TODO: We may transform some specific exceptions into user-friendly errors
             util::winrt::log_current_exception();
-            media_player_overlay.SwitchToFailed(res_str(L"App/Page/MediaPlayPage/Error/ServerAPIFailed"));
+            media_player_state_overlay.SwitchToFailed(res_str(L"App/Page/MediaPlayPage/Error/ServerAPIFailed"));
             throw;
         }
         catch (hresult_canceled const&) { throw; }
         catch (...) {
             util::winrt::log_current_exception();
-            media_player_overlay.SwitchToFailed(res_str(L"App/Page/MediaPlayPage/Error/Unknown"));
+            media_player_state_overlay.SwitchToFailed(res_str(L"App/Page/MediaPlayPage/Error/Unknown"));
             throw;
         }
-        media_player_overlay.SwitchToHidden();
+        media_player_state_overlay.SwitchToHidden();
     }
 
     void MediaPlayPage::SubmitMediaPlaybackSourceToNativePlayer(

@@ -6,6 +6,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
+    KeyboardAcceleratorPlacementMode="Hidden"
     Background="{ThemeResource SystemControlBackgroundAltHighBrush}">
 
     <Page.KeyboardAccelerators>
@@ -58,7 +59,7 @@
                                     ItemHeight="90">
                 <local:AdaptiveGridView.ItemContainerStyle>
                     <Style TargetType="GridViewItem">
-                        <Setter Property="Margin" Value="3"/>
+                        <Setter Property="Margin" Value="3,6,3,0"/>
                     </Style>
                 </local:AdaptiveGridView.ItemContainerStyle>
                 <local:AdaptiveGridView.ItemTemplate>

@@ -141,50 +141,50 @@ namespace BiliUWP {
         };
         // NOTE: Higher the level, fewer the logs
         void set_log_level(util::debug::LogLevel new_level) { m_cur_log_level = new_level; }
-        void log_trace(winrt::hstring str, std::source_location loc) {
+        void log_trace(winrt::hstring str, std::source_location const& loc) {
             // TODO: Add mutex support
             constexpr auto this_level = util::debug::LogLevel::Trace;
             if (this_level < m_cur_log_level) {
                 return;
             }
             this->append_log_entry(
-                { std::chrono::system_clock::now(), this_level, std::move(loc), std::move(str) }
+                { std::chrono::system_clock::now(), this_level, loc, std::move(str) }
             );
         }
-        void log_debug(winrt::hstring str, std::source_location loc) {
+        void log_debug(winrt::hstring str, std::source_location const& loc) {
             constexpr auto this_level = util::debug::LogLevel::Debug;
             if (this_level < m_cur_log_level) {
                 return;
             }
             this->append_log_entry(
-                { std::chrono::system_clock::now(), this_level, std::move(loc), std::move(str) }
+                { std::chrono::system_clock::now(), this_level, loc, std::move(str) }
             );
         }
-        void log_info(winrt::hstring str, std::source_location loc) {
+        void log_info(winrt::hstring str, std::source_location const& loc) {
             constexpr auto this_level = util::debug::LogLevel::Info;
             if (this_level < m_cur_log_level) {
                 return;
             }
             this->append_log_entry(
-                { std::chrono::system_clock::now(), this_level, std::move(loc), std::move(str) }
+                { std::chrono::system_clock::now(), this_level, loc, std::move(str) }
             );
         }
-        void log_warn(winrt::hstring str, std::source_location loc) {
+        void log_warn(winrt::hstring str, std::source_location const& loc) {
             constexpr auto this_level = util::debug::LogLevel::Warn;
             if (this_level < m_cur_log_level) {
                 return;
             }
             this->append_log_entry(
-                { std::chrono::system_clock::now(), this_level, std::move(loc), std::move(str) }
+                { std::chrono::system_clock::now(), this_level, loc, std::move(str) }
             );
         }
-        void log_error(winrt::hstring str, std::source_location loc) {
+        void log_error(winrt::hstring str, std::source_location const& loc) {
             constexpr auto this_level = util::debug::LogLevel::Error;
             if (this_level < m_cur_log_level) {
                 return;
             }
             this->append_log_entry(
-                { std::chrono::system_clock::now(), this_level, std::move(loc), std::move(str) }
+                { std::chrono::system_clock::now(), this_level, loc, std::move(str) }
             );
         }
         void clear_log(void) { m_app_logs.clear(); };
@@ -257,6 +257,7 @@ namespace BiliUWP {
 
         // Configuration cache (for settings that can't be changed at run time)
         bool m_cfg_app_use_tab_view;
+        bool m_cfg_app_show_tab_thumbnails;
         bool m_cfg_app_store_logs;
 
         BiliClient* m_bili_client;
@@ -269,24 +270,24 @@ namespace BiliUWP {
         void set_log_level(util::debug::LogLevel new_level) {
             m_app_inst->set_log_level(new_level);
         }
-        void log(std::wstring_view str, std::source_location loc) {
-            // TODO: Maybe implement AppLoggingProvider::log()
-            m_app_inst->log_info(winrt::hstring{ str }, std::move(loc));
+        void log(std::wstring_view str, std::source_location const& loc) override {
+            // TODO: Maybe implement AppLoggingProvider::log() correctly
+            m_app_inst->log_info(winrt::hstring{ str }, loc);
         }
-        void log_trace(std::wstring_view str, std::source_location loc) {
-            m_app_inst->log_trace(winrt::hstring{ str }, std::move(loc));
+        void log_trace(std::wstring_view str, std::source_location const& loc) override {
+            m_app_inst->log_trace(winrt::hstring{ str }, loc);
         }
-        void log_debug(std::wstring_view str, std::source_location loc) {
-            m_app_inst->log_debug(winrt::hstring{ str }, std::move(loc));
+        void log_debug(std::wstring_view str, std::source_location const& loc) override {
+            m_app_inst->log_debug(winrt::hstring{ str }, loc);
         }
-        void log_info(std::wstring_view str, std::source_location loc) {
-            m_app_inst->log_info(winrt::hstring{ str }, std::move(loc));
+        void log_info(std::wstring_view str, std::source_location const& loc) override {
+            m_app_inst->log_info(winrt::hstring{ str }, loc);
         }
-        void log_warn(std::wstring_view str, std::source_location loc) {
-            m_app_inst->log_warn(winrt::hstring{ str }, std::move(loc));
+        void log_warn(std::wstring_view str, std::source_location const& loc) override {
+            m_app_inst->log_warn(winrt::hstring{ str }, loc);
         }
-        void log_error(std::wstring_view str, std::source_location loc) {
-            m_app_inst->log_error(winrt::hstring{ str }, std::move(loc));
+        void log_error(std::wstring_view str, std::source_location const& loc) override {
+            m_app_inst->log_error(winrt::hstring{ str }, loc);
         }
 
     private:

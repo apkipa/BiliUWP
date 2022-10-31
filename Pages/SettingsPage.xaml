@@ -70,6 +70,8 @@
                 <TextBlock Style="{StaticResource GroupHeaderTextBlockStyle}">选项组</TextBlock>
                 <TextBlock Style="{StaticResource ItemTextBlockStyle}">选项内容</TextBlock>
                 -->
+                <TextBlock x:Uid="App/Page/SettingsPage/Appearance" Style="{StaticResource RegionHeaderTextBlockStyle}"/>
+                <ToggleSwitch x:Uid="App/Page/SettingsPage/App_ShowTabThumbnails" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_ShowTabThumbnails,Mode=TwoWay}"/>
                 <TextBlock x:Uid="App/Page/SettingsPage/Playing" Style="{StaticResource RegionHeaderTextBlockStyle}"/>
                 <Slider x:Uid="App/Page/SettingsPage/App_GlobalVolume" Width="200" HorizontalAlignment="Left" Minimum="0" Maximum="100" StepFrequency="0.01" Style="{StaticResource ItemSliderStyle}" Value="{x:Bind CfgModel.App_GlobalVolume,Converter={StaticResource NumberScaleConverter},ConverterParameter=0.01,Mode=TwoWay}"/>
                 <ToggleSwitch x:Uid="App/Page/SettingsPage/App_AlwaysSyncPlayingCfg" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_AlwaysSyncPlayingCfg,Mode=TwoWay}"/>
@@ -132,6 +134,7 @@
                                  NavigateUri="https://github.com/CommunityToolkit/WindowsCommunityToolkit">
                     Windows Community Toolkit © Microsoft Corporation. (MIT License)
                 </HyperlinkButton>
+                <Button x:Name="ViewLicensesButton" Click="ViewLicensesButton_Click" Content="View licenses" Style="{StaticResource ItemButtonStyle}"/>
                 <TextBlock x:Uid="App/Page/SettingsPage/About_Details2" Style="{StaticResource ItemTextBlockStyle}"/>
                 <HyperlinkButton Style="{StaticResource TightHyperlinkButtonStyle}"
                                  NavigateUri="https://github.com/SocialSisterYi/bilibili-API-collect">

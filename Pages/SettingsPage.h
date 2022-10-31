@@ -15,7 +15,7 @@ namespace winrt::BiliUWP::implementation {
         void ImportConfigFromClipboardButton_Click(
             IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&
         );
-        void OpenStorageFolderButton_Click(
+        fire_forget_except OpenStorageFolderButton_Click(
             Windows::Foundation::IInspectable const&,
             Windows::UI::Xaml::RoutedEventArgs const&
         );
@@ -28,6 +28,10 @@ namespace winrt::BiliUWP::implementation {
             Windows::UI::Xaml::RoutedEventArgs const&
         );
         void SwitchDebugConsoleButton_Click(
+            Windows::Foundation::IInspectable const&,
+            Windows::UI::Xaml::RoutedEventArgs const&
+        );
+        fire_forget_except ViewLicensesButton_Click(
             Windows::Foundation::IInspectable const&,
             Windows::UI::Xaml::RoutedEventArgs const&
         );

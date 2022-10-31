@@ -1,3 +1,5 @@
+import "IBiliResource.idl"; 
+
 namespace BiliUWP {
     enum UserPage_TargetPart {
         PublishedVideos,
@@ -10,7 +12,7 @@ namespace BiliUWP {
     };
 
     [default_interface]
-    runtimeclass UserPage : Windows.UI.Xaml.Controls.Page {
+    runtimeclass UserPage : Windows.UI.Xaml.Controls.Page, IBiliResource {
         UserPage();
     }
 }

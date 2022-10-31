@@ -29,6 +29,7 @@ namespace BiliUWP {
         m_res_ldr(Windows::ApplicationModel::Resources::ResourceLoader::GetForViewIndependentUse()),
         m_cfg_model(winrt::BiliUWP::AppCfgModel()),
         m_cfg_app_use_tab_view(m_cfg_model.App_UseTabView()),
+        m_cfg_app_show_tab_thumbnails(m_cfg_model.App_ShowTabThumbnails()),
         m_cfg_app_store_logs(m_cfg_model.App_StoreLogs()),
         m_bili_client(new BiliClient())
     {
@@ -56,9 +57,16 @@ namespace BiliUWP {
             user_cookies.sid = m_cfg_model.User_Cookies_sid();
             m_bili_client->set_cookies(user_cookies);
         };
-        // TODO: Better listen to broadcast events ?
+        // Also set handlers to log originated `hresult_error`s
+        winrt_throw_hresult_handler = [](
+            uint32_t line, const char* file, const char* func, void* ret_addr, hresult herr) noexcept
+        {
+            util::debug::log_warn(to_hstring(std::format(
+                "Originated hresult 0x{:08x} in {}:{}:{} (addr={})",
+                static_cast<uint32_t>(herr), file, func, line, ret_addr
+            )));
+        };
         m_cfg_model.PropertyChanged([=](IInspectable const&, PropertyChangedEventArgs const& e) {
-            // TODO: Reduce update cost according to the property name
             auto prop_name = e.PropertyName();
             if (prop_name == L"User_AccessToken") {
                 m_bili_client->set_access_token(m_cfg_model.User_AccessToken());
@@ -324,7 +332,7 @@ namespace BiliUWP {
         auto run_fn = [](TabViewItem const& tvi) {
             auto elem = util::winrt::get_child_elem(tvi, L"LayoutRoot");
             elem = util::winrt::get_child_elem(elem, L"TabContainer");
-            Windows::UI::Xaml::Controls::ToolTipService::SetToolTip(
+            ToolTipService::SetToolTip(
                 util::winrt::get_child_elem(elem, L"CloseButton"),
                 box_value(App::res_str(L"App/Override/SR_TabViewCloseButtonTooltipWithKA"))
             );
@@ -588,8 +596,56 @@ namespace BiliUWP {
             auto root_grid = Grid();
             auto background_grid = Grid();
             background_grid.Background(SolidColorBrush(bg_normal_clr));
+            // TODO: Dynamically detect tab container height in the future
+            background_grid.Padding(ThicknessHelper::FromLengths(0, 40, 0, 0));
             root_grid.Children().Append(background_grid);
             root_grid.Children().Append(tab_view);
+
+            if (m_cfg_app_show_tab_thumbnails) {
+                // Generate thumbnails for tabs
+                auto capture_grid = Grid();
+                capture_grid.Background(SolidColorBrush(Colors::Transparent()));
+                background_grid.Children().Append(capture_grid);
+                tab_view.SelectionChanged(
+                    [=](IInspectable const&, SelectionChangedEventArgs const& e) -> fire_forget_except {
+                        co_safe_capture(capture_grid);
+                        auto removed_items = e.RemovedItems();
+                        auto added_items = e.AddedItems();
+                        if (removed_items.Size() > 0) {
+                            auto old_tvi = removed_items.GetAt(0).as<TabViewItem>();
+                            StackPanel sp_old;
+                            sp_old.Orientation(Orientation::Vertical);
+                            auto cp_old = ContentPresenter();
+                            cp_old.Padding(util::winrt::get_app_res<Thickness>(L"ToolTipBorderThemePadding"));
+                            cp_old.Content(old_tvi.Header());
+                            sp_old.Children().Append(cp_old);
+                            Windows::UI::Xaml::Media::Imaging::RenderTargetBitmap rtb;
+                            auto content_old = old_tvi.Content().as<FrameworkElement>();
+                            old_tvi.Content(nullptr);
+                            capture_grid.Children().Append(content_old);
+                            co_await rtb.RenderAsync(capture_grid);
+                            capture_grid.Children().Clear();
+                            old_tvi.Content(content_old);
+                            auto brd = Border();
+                            auto brd_cr = util::winrt::get_app_res<CornerRadius>(L"ControlCornerRadius");
+                            brd_cr.TopLeft = brd_cr.TopRight = 0;
+                            brd.CornerRadius(brd_cr);
+                            auto img = Image();
+                            img.Source(rtb);
+                            brd.Child(img);
+                            sp_old.Children().Append(brd);
+                            auto tooltip = ToolTip();
+                            tooltip.Padding(ThicknessHelper::FromUniformLength(0));
+                            tooltip.Content(sp_old);
+                            ToolTipService::SetToolTip(old_tvi, tooltip);
+                        }
+                        if (added_items.Size() > 0) {
+                            auto new_tvi = added_items.GetAt(0).as<TabViewItem>();
+                            ToolTipService::SetToolTip(new_tvi, new_tvi.Header());
+                        }
+                    }
+                );
+            }
 
             // TODO: Track system theme with ActualThemeChanged and change title & background color
             window.SetTitleBar(background_grid);

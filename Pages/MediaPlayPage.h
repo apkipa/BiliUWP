@@ -59,6 +59,10 @@ namespace winrt::BiliUWP::implementation {
 
         void OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e);
 
+        void UpListView_ItemClick(
+            Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::ItemClickEventArgs const& e
+        );
+
         hstring MediaTitle() {
             if (auto p = std::get_if<::BiliUWP::VideoViewInfoResult>(&m_media_info)) {
                 return p->title;

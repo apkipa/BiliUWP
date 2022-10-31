@@ -4,6 +4,8 @@ namespace BiliUWP {
         UInt64 SentRequestsDelta;
         UInt64 InboundBitsPerSecond;
         UInt64 DownloadedBytesDelta;
+        UInt64 AllocatedBufferSize;
+        UInt64 UsedBufferSize;
     };
 
     enum HttpRandomAccessStreamBufferOptions {

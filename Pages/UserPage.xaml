@@ -35,7 +35,7 @@
                                     ItemHeight="90">
                     <local:AdaptiveGridView.ItemContainerStyle>
                         <Style TargetType="GridViewItem">
-                            <Setter Property="Margin" Value="3"/>
+                            <Setter Property="Margin" Value="3,6,3,0"/>
                         </Style>
                     </local:AdaptiveGridView.ItemContainerStyle>
                     <local:AdaptiveGridView.ItemTemplate>
@@ -57,10 +57,19 @@
                                         <RowDefinition Height="*"/>
                                     </Grid.RowDefinitions>
                                     <TextBlock Grid.Row="0" Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" TextLineBounds="Tight" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="1" Text="{x:Bind PublishTimeStr}" TextLineBounds="Tight" VerticalAlignment="Center"/>
-                                    <StackPanel Grid.Row="2" Orientation="Horizontal">
-                                        <TextBlock FontFamily="{ThemeResource SymbolThemeFontFamily}" Text="&#xE768; " FontSize="12" Margin="0,0,0,1" VerticalAlignment="Center" TextLineBounds="Tight"/>
-                                        <TextBlock Text="{x:Bind PlayCount}" TextLineBounds="Tight" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Row="1" Orientation="Horizontal">
+                                        <TextBlock FontFamily="{ThemeResource SymbolThemeFontFamily}" Text="&#xED5A;  " FontSize="12" VerticalAlignment="Center" TextLineBounds="Tight"/>
+                                        <TextBlock Text="{x:Bind PublishTimeStr}" TextLineBounds="Tight" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="20">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock FontFamily="{ThemeResource SymbolThemeFontFamily}" Text="&#xE768;  " FontSize="12" Margin="0,0,0,1" VerticalAlignment="Center" TextLineBounds="Tight"/>
+                                            <TextBlock Text="{x:Bind PlayCount}" TextLineBounds="Tight" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock FontFamily="{ThemeResource SymbolThemeFontFamily}" Text="&#xEA55;  " FontSize="12" VerticalAlignment="Center" TextLineBounds="Tight"/>
+                                            <TextBlock Text="{x:Bind DanmakuCount}" TextLineBounds="Tight" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Grid>
                             </Grid>
@@ -92,7 +101,7 @@
                                     ItemHeight="90">
                     <local:AdaptiveGridView.ItemContainerStyle>
                         <Style TargetType="GridViewItem">
-                            <Setter Property="Margin" Value="3"/>
+                            <Setter Property="Margin" Value="3,6,3,0"/>
                         </Style>
                     </local:AdaptiveGridView.ItemContainerStyle>
                     <local:AdaptiveGridView.ItemTemplate>
@@ -163,6 +172,6 @@
                 </Grid>
             </Grid>
         </Grid>
-        <local:SimpleStateOverlay x:Name="MainStateOverlay"/>
+        <local:SimpleStateIndicator x:Name="MainStateOverlay"/>
     </Grid>
 </Page>

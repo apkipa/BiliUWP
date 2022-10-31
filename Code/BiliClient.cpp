@@ -44,15 +44,15 @@ namespace BiliUWP {
         struct BadFnParamType;
         template<typename Functor>
         static auto get_fn_param_helper(Functor func, int, int, int) ->
-            util::misc::discard_first_type<decltype(func(std::declval<JsonObjectVisitor>())), JsonObjectVisitor>;
+            util::misc::second_type<decltype(func(std::declval<JsonObjectVisitor>())), JsonObjectVisitor>;
         template<typename Functor>
         static auto get_fn_param_helper(Functor func, int, int, ...) ->
-            util::misc::discard_first_type<decltype(func(std::declval<JsonArrayVisitor>())), JsonArrayVisitor>;
+            util::misc::second_type<decltype(func(std::declval<JsonArrayVisitor>())), JsonArrayVisitor>;
         template<typename Functor>
         static auto get_fn_param_helper(Functor func, int, ...) ->
-            util::misc::discard_first_type<decltype(func(std::declval<JsonValueVisitor>())), JsonValueVisitor>;
+            util::misc::second_type<decltype(func(std::declval<JsonValueVisitor>())), JsonValueVisitor>;
         template<typename Functor>
-        static auto get_fn_param_helper(Functor func, ...)->BadFnParamType;
+        static auto get_fn_param_helper(Functor func, ...) -> BadFnParamType;
         static constexpr std::string_view stringify(winrt::Windows::Data::Json::JsonValueType jvt) {
             using winrt::Windows::Data::Json::JsonValueType;
             switch (jvt) {
@@ -702,7 +702,7 @@ namespace BiliUWP {
         jov.populate(result.duration, "duration");
         jov.populate(result.min_buffer_time, "min_buffer_time");
         jov.populate(result.video, "video");
-        jov.populate(result.audio, "audio");
+        jov.scope(adapter::assign_vec_or_null_as_empty{ result.audio }, "audio");
         return result;
     }
     template<>
@@ -814,8 +814,31 @@ namespace BiliUWP {
         return result;
     }
     template<>
-    UserSpaceInfoResult_School JsonValueVisitor::as(void) {
-        UserSpaceInfoResult_School result;
+    UserSpaceInfo_LiveRoom JsonValueVisitor::as(void) {
+        UserSpaceInfo_LiveRoom result;
+        auto jov = this->as<JsonObjectVisitor>();
+        jov.populate(result.room_status, "roomStatus");
+        jov.populate(result.live_status, "liveStatus");
+        jov.populate(result.room_url, "url");
+        jov.populate(result.room_title, "title");
+        jov.populate(result.room_cover_url, "cover");
+        jov.scope([&](JsonObjectVisitor jov) {
+            jov.populate(result.watched_show.is_switched, "switch");
+            jov.populate(result.watched_show.total_watched_users, "num");
+            jov.populate(result.watched_show.text_small, "text_small");
+            jov.populate(result.watched_show.text_large, "text_large");
+            jov.populate(result.watched_show.icon_url, "icon");
+            jov.populate(result.watched_show.icon_location, "icon_location");
+            jov.populate(result.watched_show.icon_web_url, "icon_web");
+        }, "watched_show");
+        jov.populate(result.room_id, "roomid");
+        jov.scope(adapter::assign_num_0_1_to_bool{ result.is_rounding }, "roundStatus");
+        jov.populate(result.broadcast_type, "broadcast_type");
+        return result;
+    }
+    template<>
+    UserSpaceInfo_School JsonValueVisitor::as(void) {
+        UserSpaceInfo_School result;
         auto jov = this->as<JsonObjectVisitor>();
         jov.populate(result.name, "name");
         return result;
@@ -842,6 +865,14 @@ namespace BiliUWP {
         jov.populate(result.title, "title");
         jov.populate(result.tid, "typeid");
         jov.populate(result.danmaku_count, "video_review");
+        return result;
+    }
+    template<>
+    UserSpacePublishedVideos_EpisodicButton JsonValueVisitor::as(void) {
+        UserSpacePublishedVideos_EpisodicButton result;
+        auto jov = this->as<JsonObjectVisitor>();
+        jov.populate(result.text, "text");
+        jov.populate(result.uri, "uri");
         return result;
     }
 
@@ -1237,7 +1268,7 @@ namespace BiliUWP {
                     result.sys_notice = std::nullopt;
                     return;
                 }
-                UserSpaceInfoResult_SysNotice result_sn;
+                UserSpaceInfo_SysNotice result_sn;
                 jov.populate(result_sn.id, "id");
                 jov.populate(result_sn.content, "content");
                 jov.populate(result_sn.url, "url");
@@ -1247,25 +1278,7 @@ namespace BiliUWP {
                 jov.populate(result_sn.bg_color, "bg_color");
                 result.sys_notice = std::move(result_sn);
             }, "sys_notice");
-            jov.scope([&](JsonObjectVisitor jov) {
-                jov.populate(result.live_room.room_status, "roomStatus");
-                jov.populate(result.live_room.live_status, "liveStatus");
-                jov.populate(result.live_room.room_url, "url");
-                jov.populate(result.live_room.room_title, "title");
-                jov.populate(result.live_room.room_cover_url, "cover");
-                jov.scope([&](JsonObjectVisitor jov) {
-                    jov.populate(result.live_room.watched_show.is_switched, "switch");
-                    jov.populate(result.live_room.watched_show.total_watched_users, "num");
-                    jov.populate(result.live_room.watched_show.text_small, "text_small");
-                    jov.populate(result.live_room.watched_show.text_large, "text_large");
-                    jov.populate(result.live_room.watched_show.icon_url, "icon");
-                    jov.populate(result.live_room.watched_show.icon_location, "icon_location");
-                    jov.populate(result.live_room.watched_show.icon_web_url, "icon_web");
-                }, "watched_show");
-                jov.populate(result.live_room.room_id, "roomid");
-                jov.scope(adapter::assign_num_0_1_to_bool{ result.live_room.is_rounding }, "roundStatus");
-                jov.populate(result.live_room.broadcast_type, "broadcast_type");
-            }, "live_room");
+            jov.scope(adapter::assign_value_or_null_to_optional{ result.live_room }, "live_room");
             jov.populate(result.birthday, "birthday");
             jov.scope(adapter::assign_value_or_null_to_optional{ result.school }, "school");
             jov.scope([&](JsonObjectVisitor jov) {
@@ -1361,10 +1374,7 @@ namespace BiliUWP {
                 jov.populate(result.page.pn, "pn");
                 jov.populate(result.page.ps, "ps");
             }, "page");
-            jov.scope([&](JsonObjectVisitor jov) {
-                jov.populate(result.episodic_button.text, "text");
-                jov.populate(result.episodic_button.uri, "uri");
-            }, "episodic_button");
+            jov.populate(result.episodic_button, "episodic_button");
         }, "data");
 
         co_return result;
@@ -1522,6 +1532,48 @@ namespace BiliUWP {
             jov.populate(result.durl, "durl");
             jov.populate(result.dash, "dash");
             jov.populate(result.support_formats, "support_formats");
+        }, "data");
+
+        co_return result;
+    }
+    util::winrt::task<VideoShotInfoResult> BiliClient::video_shot_info(
+        std::variant<uint64_t, winrt::hstring> vid, uint64_t cid,
+        bool load_indices
+    ) {
+        VideoShotInfoResult result;
+        uint64_t avid = 0;
+        winrt::hstring bvid = L"";
+        winrt::BiliUWP::ApiParam_VideoPlayUrlPreference api_prefers;
+
+        auto cancellation_token = co_await winrt::get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        std::visit([&](auto&& arg) {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, uint64_t>) {
+                avid = arg;
+            }
+            else if constexpr (std::is_same_v<T, winrt::hstring>) {
+                bvid = arg;
+            }
+            else {
+                static_assert(util::misc::always_false_v<T>, "Unknown video id type");
+            }
+        }, vid);
+
+        auto jo = co_await m_bili_client.api_api_x_player_videoshot(avid, bvid, cid, load_indices);
+        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
+        check_json_code(jo);
+        JsonPropsWalkTree json_props_walk;
+        JsonObjectVisitor jov{ std::move(jo), json_props_walk };
+        jov.scope([&](JsonObjectVisitor jov) {
+            jov.populate(result.pvdata_url, "pvdata");
+            jov.populate(result.img_x_len, "img_x_len");
+            jov.populate(result.img_y_len, "img_y_len");
+            jov.populate(result.img_x_size, "img_x_size");
+            jov.populate(result.img_y_size, "img_y_size");
+            jov.populate(result.images_url, "image");
+            jov.populate(result.indices, "index");
         }, "data");
 
         co_return result;
