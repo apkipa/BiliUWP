@@ -1,10 +1,12 @@
+import "IBiliResource.idl";
+
 namespace BiliUWP {
     struct FavouritesUserPageNavParam {
         UInt64 uid;
     };
 
     [default_interface]
-    runtimeclass FavouritesUserPage : Windows.UI.Xaml.Controls.Page {
+    runtimeclass FavouritesUserPage : Windows.UI.Xaml.Controls.Page, IBiliResource {
         FavouritesUserPage();
     }
 }

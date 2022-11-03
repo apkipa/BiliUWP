@@ -81,6 +81,7 @@ namespace BiliUWP {
         );
         void Reset(void);
 
+        uint64_t UpperId(void) { return m_upper_id; }
         winrt::hstring UpperName(void) { return m_upper_name; }
         winrt::hstring FolderName(void) { return m_folder_name; }
         uint32_t TotalItemsCount(void) { return m_total_items_count; }
@@ -88,6 +89,7 @@ namespace BiliUWP {
     private:
         uint64_t m_folder_id;
         uint32_t m_pn, m_ps;
+        uint64_t m_upper_id;
         winrt::hstring m_upper_name;
         winrt::hstring m_folder_name;
         uint32_t m_total_items_count;

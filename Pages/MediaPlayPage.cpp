@@ -4,6 +4,7 @@
 #include "MediaPlayPage.g.cpp"
 #endif
 #include "MediaPlayPage_UpItem.g.cpp"
+#include "MediaPlayPage_PartItem.g.cpp"
 #include "HttpRandomAccessStream.h"
 #include "App.h"
 #include <deque>
@@ -134,6 +135,7 @@ namespace winrt::BiliUWP::implementation {
         m_cfg_model(::BiliUWP::App::get()->cfg_model()),
         m_http_client(nullptr), m_bili_res_is_ready(false),
         m_up_list(single_threaded_observable_vector<IInspectable>()),
+        m_parts_list(single_threaded_observable_vector<IInspectable>()),
         m_detailed_stats_update_timer(nullptr)
     {
         using namespace Windows::Web::Http;
@@ -176,10 +178,10 @@ namespace winrt::BiliUWP::implementation {
                 }
             }
         );
+        MediaDetailedStatsToggleMenuItem().IsChecked(m_cfg_model.App_ShowDetailedStats());
     }
     fire_forget_except MediaPlayPage::final_release(std::unique_ptr<MediaPlayPage> ptr) noexcept {
-        // Perform time-consuming destruction of media player in background;
-        // prevents UI from freezing
+        // Gracefully release MediaPlayer and prevent UI from freezing
         using namespace std::chrono_literals;
         ptr->m_cur_async.cancel_running();
         util::debug::log_trace(L"Final release");
@@ -197,10 +199,11 @@ namespace winrt::BiliUWP::implementation {
             }
         };
         // Ensure we are on the UI thread (MediaPlayerElem may hold a reference
-        // in a non-UI thread)
+        // in a non-UI thread during media opening)
         co_await dispatcher;
         // Clean up UpListView
         ptr->UpListView().ItemsSource(nullptr);
+        ptr->PartsListView().ItemsSource(nullptr);
         // Clean up MediaPlayer
         cleanup_mediaplayer_fn();
         // Clean up DetailedStatsTimer
@@ -208,15 +211,6 @@ namespace winrt::BiliUWP::implementation {
             ptr->m_detailed_stats_update_timer.Stop();
             ptr->m_detailed_stats_provider->TimerStopped();
         }
-        // TODO: Is double check really needed?
-        // Try to wait for async operations to stop completely
-        /*
-        co_await 3s;
-        player = nullptr;
-        co_await dispatcher;
-        cleanup_mediaplayer_fn();
-        */
-        co_await resume_background();
     }
     void MediaPlayPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e) {
         auto tab = ::BiliUWP::App::get()->tab_from_page(*this);
@@ -257,6 +251,15 @@ namespace winrt::BiliUWP::implementation {
         ::BiliUWP::App::get()->add_tab(tab);
         tab->activate();
     }
+    void MediaPlayPage::PartsListView_SelectionChanged(
+        Windows::Foundation::IInspectable const&,
+        Windows::UI::Xaml::Controls::SelectionChangedEventArgs const& e
+    ) {
+        auto added_items = e.AddedItems();
+        if (added_items.Size() == 0) { return; }
+        auto cid = added_items.GetAt(0).as<BiliUWP::MediaPlayPage_PartItem>().PartCid();
+        m_cur_async.cancel_and_run(&MediaPlayPage::PlayVideoWithCid, this, cid);
+    }
     IAsyncAction MediaPlayPage::NavHandleVideoPlay(uint64_t avid, hstring bvid) {
         auto cancellation_token = co_await get_cancellation_token();
         cancellation_token.enable_propagation();
@@ -291,6 +294,7 @@ namespace winrt::BiliUWP::implementation {
 
         // Phase 2: Play media
         if (!weak_store.lock()) { co_return; }
+        /*
         try {
             auto& video_vinfo = std::get<::BiliUWP::VideoViewInfoResult>(m_media_info);
             co_await weak_store.ual(this->PlayVideoWithCidInner(video_vinfo.cid_1p));
@@ -308,6 +312,9 @@ namespace winrt::BiliUWP::implementation {
             throw;
         }
         media_player_state_overlay.SwitchToHidden();
+        */
+        // Simply select the corresponding part item in list
+        PartsListView().SelectedIndex(0);
     }
     IAsyncAction MediaPlayPage::NavHandleAudioPlay(uint64_t auid) {
         auto cancellation_token = co_await get_cancellation_token();
@@ -352,7 +359,7 @@ namespace winrt::BiliUWP::implementation {
         deferred([&weak_store] {
             if (!weak_store.lock()) { return; }
             weak_store->m_bili_res_is_ready = true;
-            });
+        });
         m_media_info = std::monostate{};
 
         // Body
@@ -362,8 +369,12 @@ namespace winrt::BiliUWP::implementation {
         m_bili_res_is_ready = true;
         m_up_list.Clear();
         m_up_list.Append(make<MediaPlayPage_UpItem>(
-            video_vinfo.owner.name, video_vinfo.owner.face_url, video_vinfo.owner.mid
-            ));
+            video_vinfo.owner.name, video_vinfo.owner.face_url, video_vinfo.owner.mid));
+        for (uint64_t idx = 0; auto const& page : video_vinfo.pages) {
+            m_parts_list.Append(make<MediaPlayPage_PartItem>(
+                idx + 1, page.part_title, page.cid));
+            idx++;
+        }
 
         Bindings->Update();
     }
@@ -407,9 +418,6 @@ namespace winrt::BiliUWP::implementation {
         // NOTE: Optimize control flow for dash streams
         if (video_pinfo.dash) {
             auto* pvideo_stream = &video_pinfo.dash->video.at(0);
-            auto* paudio_stream = &video_pinfo.dash->audio.at(0);
-            // TODO: Deal with videos without audio streams in the future
-            //auto* paudio_stream = video_pinfo.dash->audio.empty() ? nullptr : &video_pinfo.dash->audio[0];
             for (auto& i : video_pinfo.dash->video) {
                 // Skip avc codec
                 if (i.codecid == 7) { continue; }
@@ -417,37 +425,62 @@ namespace winrt::BiliUWP::implementation {
                 break;
             }
             auto& video_stream = *pvideo_stream;
-            auto& audio_stream = *paudio_stream;
             util::debug::log_trace(std::format(L"Selecting video stream {}", video_stream.id));
-            util::debug::log_trace(std::format(L"Selecting audio stream {}", audio_stream.id));
-            // TODO: Add support for backup url
+            bool video_only_res = video_pinfo.dash->audio.empty();
+            auto* paudio_stream = video_only_res ? nullptr : &video_pinfo.dash->audio.at(0);
+            std::wstring dash_mpd_str;
             // Generate Dash MPD from parsed dash info on the fly
+            // TODO: Add support for backup url
             // Dash MPD specification: refer to ISO IEC 23009-1
             // NOTE: minBufferTime type: xs:duration ("PT<Time description>")
-            auto dash_mpd_str = std::format(LR"(<?xml version="1.0" encoding="utf-8"?>)"
-                R"(<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT{}S" type="static">)"
-                R"(<Period start="PT0S">)"
-                R"(<AdaptationSet contentType="video">)"
-                R"(<Representation id="{}" bandwidth="{}" mimeType="{}" codecs="{}" startWithSAP="{}" sar="{}" frame_rate="{}" width="{}" height="{}">)"
-                R"(<SegmentBase indexRange="{}"><Initialization range="{}"/></SegmentBase>)"
-                R"(</Representation>)"
-                R"(</AdaptationSet>)"
-                R"(<AdaptationSet contentType="audio">)"
-                R"(<Representation id="{}" bandwidth="{}" mimeType="{}" codecs="{}" startWithSAP="{}">)"
-                R"(<SegmentBase indexRange="{}"><Initialization range="{}"/></SegmentBase>)"
-                R"(</Representation>)"
-                R"(</AdaptationSet>)"
-                R"(</Period>)"
-                R"(</MPD>)",
-                video_pinfo.dash->min_buffer_time,
-                video_stream.id, video_stream.bandwidth, video_stream.mime_type, video_stream.codecs,
-                video_stream.start_with_sap, video_stream.sar, video_stream.frame_rate,
-                video_stream.width, video_stream.height,
-                video_stream.segment_base.index_range, video_stream.segment_base.initialization,
-                audio_stream.id, audio_stream.bandwidth, audio_stream.mime_type, audio_stream.codecs,
-                audio_stream.start_with_sap,
-                audio_stream.segment_base.index_range, audio_stream.segment_base.initialization
-            );
+            if (!video_only_res) {
+                // Normal (video + audio)
+                util::debug::log_trace(std::format(L"Selecting audio stream {}", paudio_stream->id));
+                dash_mpd_str = std::format(LR"(<?xml version="1.0" encoding="utf-8"?>)"
+                    R"(<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT{}S" type="static">)"
+                    R"(<Period start="PT0S">)"
+                    R"(<AdaptationSet contentType="video">)"
+                    R"(<Representation id="{}" bandwidth="{}" mimeType="{}" codecs="{}" startWithSAP="{}" sar="{}" frame_rate="{}" width="{}" height="{}">)"
+                    R"(<SegmentBase indexRange="{}"><Initialization range="{}"/></SegmentBase>)"
+                    R"(</Representation>)"
+                    R"(</AdaptationSet>)"
+                    R"(<AdaptationSet contentType="audio">)"
+                    R"(<Representation id="{}" bandwidth="{}" mimeType="{}" codecs="{}" startWithSAP="{}">)"
+                    R"(<SegmentBase indexRange="{}"><Initialization range="{}"/></SegmentBase>)"
+                    R"(</Representation>)"
+                    R"(</AdaptationSet>)"
+                    R"(</Period>)"
+                    R"(</MPD>)",
+                    video_pinfo.dash->min_buffer_time,
+                    video_stream.id, video_stream.bandwidth, video_stream.mime_type, video_stream.codecs,
+                    video_stream.start_with_sap, video_stream.sar, video_stream.frame_rate,
+                    video_stream.width, video_stream.height,
+                    video_stream.segment_base.index_range, video_stream.segment_base.initialization,
+                    paudio_stream->id, paudio_stream->bandwidth, paudio_stream->mime_type, paudio_stream->codecs,
+                    paudio_stream->start_with_sap,
+                    paudio_stream->segment_base.index_range, paudio_stream->segment_base.initialization
+                );
+            }
+            else {
+                // Video only
+                util::debug::log_trace(L"No audio stream available, skipping");
+                dash_mpd_str = std::format(LR"(<?xml version="1.0" encoding="utf-8"?>)"
+                    R"(<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT{}S" type="static">)"
+                    R"(<Period start="PT0S">)"
+                    R"(<AdaptationSet contentType="video">)"
+                    R"(<Representation id="{}" bandwidth="{}" mimeType="{}" codecs="{}" startWithSAP="{}" sar="{}" frame_rate="{}" width="{}" height="{}">)"
+                    R"(<SegmentBase indexRange="{}"><Initialization range="{}"/></SegmentBase>)"
+                    R"(</Representation>)"
+                    R"(</AdaptationSet>)"
+                    R"(</Period>)"
+                    R"(</MPD>)",
+                    video_pinfo.dash->min_buffer_time,
+                    video_stream.id, video_stream.bandwidth, video_stream.mime_type, video_stream.codecs,
+                    video_stream.start_with_sap, video_stream.sar, video_stream.frame_rate,
+                    video_stream.width, video_stream.height,
+                    video_stream.segment_base.index_range, video_stream.segment_base.initialization
+                );
+            }
             util::debug::log_trace(std::format(L"Generated dash: {}", dash_mpd_str));
             auto dash_mpd_mem_stream = InMemoryRandomAccessStream();
             co_await dash_mpd_mem_stream.WriteAsync(
@@ -493,24 +526,18 @@ namespace winrt::BiliUWP::implementation {
             struct DetailedStatsProvider_AdaptiveMediaSource : DetailedStatsProvider {
                 DetailedStatsProvider_AdaptiveMediaSource(
                     weak_ref<AdaptiveMediaSource> adaptive_media_src,
-                    hstring video_mime, hstring audio_mime,
-                    hstring video_codec, hstring audio_codec,
+                    hstring mime_type,
                     hstring resolution,
                     hstring video_host, hstring audio_host,
                     std::shared_ptr<shared_stats_data> shared_data
                 ) : m_adaptive_media_src(std::move(adaptive_media_src)),
-                    m_video_mime(std::move(video_mime)), m_audio_mime(std::move(audio_mime)),
-                    m_video_codec(std::move(video_codec)), m_audio_codec(std::move(audio_codec)),
+                    m_mime_type(std::move(mime_type)),
                     m_resolution(std::move(resolution)),
                     m_video_host(std::move(video_host)), m_audio_host(std::move(audio_host)),
                     m_shared_data(std::move(shared_data)) {}
                 void InitStats(DetailedStatsContext* ctx) {
                     using util::winrt::make_text_block;
-                    ctx->AddElement(L"Mime Type", make_text_block(hstring(std::format(
-                        L"{};codecs=\"{}\" | {};codecs=\"{}\"",
-                        m_video_mime, m_video_codec,
-                        m_audio_mime, m_audio_codec
-                    ))));
+                    ctx->AddElement(L"Mime Type", make_text_block(m_mime_type));
                     ctx->AddElement(L"Player Type", make_text_block(L"NativeDashPlayer <- NativeBuffering"));
                     ctx->AddElement(L"Resolution", make_text_block(m_resolution));
                     ctx->AddElement(L"Video Host", make_text_block(m_video_host));
@@ -575,14 +602,14 @@ namespace winrt::BiliUWP::implementation {
                             bit_size_to_str(cur_val),
                             bit_size_to_str(max_val)
                         ));
-                        }, m_conn_speed_points, MAX_POINTS);
+                    }, m_conn_speed_points, MAX_POINTS);
                     add_point_fn(m_net_activity_points, cur_downloaded_bytes_delta);
                     m_net_activity.update([](uint64_t cur_val, uint64_t max_val) -> hstring {
                         return hstring(
                             byte_size_to_str(cur_val, 1e2) + L" / " +
                             byte_size_to_str(max_val, 1e2)
                         );
-                        }, m_net_activity_points, MAX_POINTS);
+                    }, m_net_activity_points, MAX_POINTS);
                     // Update mystery text
                     m_mystery_text_tb.Text(hstring(std::format(
                         L"c:{} rd:{}", cur_active_connections_count, cur_sent_requests_delta
@@ -591,8 +618,7 @@ namespace winrt::BiliUWP::implementation {
             private:
                 weak_ref<AdaptiveMediaSource> m_adaptive_media_src;
 
-                hstring m_video_mime, m_audio_mime;
-                hstring m_video_codec, m_audio_codec;
+                hstring m_mime_type;
                 hstring m_resolution;
                 hstring m_video_host, m_audio_host;
 
@@ -603,45 +629,40 @@ namespace winrt::BiliUWP::implementation {
                 std::deque<uint64_t> m_net_activity_points;
                 TextBlock m_mystery_text_tb;
             };
+
+            auto vuri = Uri(video_stream.base_url);
+            auto auri = paudio_stream ? Uri(paudio_stream->base_url) : nullptr;
             ds_provider = std::make_shared<DetailedStatsProvider_AdaptiveMediaSource>(
                 make_weak(adaptive_media_src),
-                video_stream.mime_type, audio_stream.mime_type,
-                video_stream.codecs, audio_stream.codecs,
+                hstring(paudio_stream ? std::format(
+                    L"{};codecs=\"{}\" | {};codecs=\"{}\"",
+                    video_stream.mime_type, video_stream.codecs,
+                    paudio_stream->mime_type, paudio_stream->codecs) : std::format(
+                    L"{};codecs=\"{}\"",
+                    video_stream.mime_type, video_stream.codecs
+                )),
                 hstring(std::format(L"{}x{}@{}", video_stream.width, video_stream.height, video_stream.frame_rate)),
-                Uri(video_stream.base_url).Host(), Uri(audio_stream.base_url).Host(),
+                vuri.Host(), auri ? auri.Host() : L"N/A",
                 shared_data
-                );
+            );
 
             // TODO: Add support for DownloadFailed event (refresh urls)
 
-#if 0
-            // Use uri replacing
-            adaptive_media_src.DownloadRequested(
-                [vuri = Uri(video_stream.base_url), auri = Uri(audio_stream.base_url)]
-            (AdaptiveMediaSource const&, AdaptiveMediaSourceDownloadRequestedEventArgs const& e) {
-                    if (e.ResourceContentType().starts_with(L"video")) {
-                        e.Result().ResourceUri(vuri);
-                    }
-                    else if (e.ResourceContentType().starts_with(L"audio")) {
-                        e.Result().ResourceUri(auri);
-                    }
-                    else {
-                        util::debug::log_error(L"Suspicious: Hacked nothing");
-                    }
-                }
-            );
-#else
             // Use buffer replacing (may waste some memory)
             // TODO: Add option to switch to HRAS backend
             adaptive_media_src.DownloadRequested(
-                [http_client = m_http_client, vuri = Uri(video_stream.base_url), auri = Uri(audio_stream.base_url),
+                [http_client = m_http_client, vuri = std::move(vuri), auri = std::move(auri),
                 shared_data = std::move(shared_data)]
             (AdaptiveMediaSource const&, AdaptiveMediaSourceDownloadRequestedEventArgs const& e) -> IAsyncAction {
                     const Uri* target_uri;
                     if (e.ResourceContentType().starts_with(L"video")) { target_uri = &vuri; }
                     else if (e.ResourceContentType().starts_with(L"audio")) { target_uri = &auri; }
                     else {
-                        util::debug::log_error(L"Suspicious: Hacked nothing");
+                        util::debug::log_error(L"DownloadRequested: Suspicious: Hacked nothing");
+                        co_return;
+                    }
+                    if (!*target_uri) {
+                        util::debug::log_error(L"DownloadRequested: Cannot fetch a non-existent uri");
                         co_return;
                     }
                     auto content_size = e.ResourceByteRangeLength().as<uint64_t>();
@@ -662,7 +683,7 @@ namespace winrt::BiliUWP::implementation {
                                     std::chrono::high_resolution_clock::now() - shared_data->last_start_ts;
                             }
                         }
-                        });
+                    });
                     auto read_op = util::winrt::fetch_partial_http_as_buffer(
                         *target_uri, http_client,
                         e.ResourceByteRangeOffset().as<uint64_t>(),
@@ -675,13 +696,12 @@ namespace winrt::BiliUWP::implementation {
                             shared_data->bytes_delta += progress - cur_progress;
                         }
                         cur_progress = progress;
-                        });
+                    });
                     auto deferral = e.GetDeferral();
                     deferred([&] { deferral.Complete(); });
                     e.Result().Buffer(co_await read_op);
                 }
             );
-#endif
             media_src = MediaSource::CreateFromAdaptiveMediaSource(adaptive_media_src);
         }
         else if (video_pinfo.durl) {
@@ -934,8 +954,18 @@ namespace winrt::BiliUWP::implementation {
         auto media_player_elem = MediaPlayerElem();
 
         if (source == nullptr) {
+            // Release MediaPlayer and related resources
+            media_player_elem.AreTransportControlsEnabled(false);
+            auto player = media_player_elem.MediaPlayer();
             media_player_elem.SetMediaPlayer(nullptr);
+            if (player && player.Source()) {
+                auto session = player.PlaybackSession();
+                if (session && session.CanPause()) {
+                    player.Pause();
+                }
+            }
             media_player_elem.PosterSource(nullptr);
+            // Release detailed stats provider
             if (m_detailed_stats_update_timer) {
                 m_detailed_stats_update_timer.Stop();
                 m_detailed_stats_provider->TimerStopped();

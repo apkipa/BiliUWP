@@ -1,11 +1,17 @@
 import "IBiliResource.idl";
 import "AppCfgModel.idl";
 
-namespace BiliUWP{
+namespace BiliUWP {
     runtimeclass MediaPlayPage_UpItem {
         String UpName{ get; };
         String UpFaceUrl{ get; };
         UInt64 UpMid{ get; };
+    }
+    runtimeclass MediaPlayPage_PartItem {
+        UInt64 PartNo{ get; };
+        String PartNoText{ get; };
+        String PartName{ get; };
+        UInt64 PartCid{ get; };
     }
 
     enum MediaPlayPage_MediaType {
@@ -29,6 +35,8 @@ namespace BiliUWP{
         String MediaCoverImageUrl{ get; };
         String MediaDescription{ get; };
         IObservableVector<IInspectable> UpList{ get; };
+        Boolean ShouldShowPartsList{ get; };
+        IObservableVector<IInspectable> PartsList{ get; };
 
         AppCfgModel CfgModel{ get; };
     }

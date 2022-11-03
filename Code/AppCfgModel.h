@@ -32,6 +32,8 @@ namespace winrt::BiliUWP::implementation {
         void App_SimplifyVisualsLevel(double value);
         bool App_IsDeveloper();
         void App_IsDeveloper(bool value);
+        bool App_ShowDetailedStats();
+        void App_ShowDetailedStats(bool value);
         bool App_RedactLogs();
         void App_RedactLogs(bool value);
         bool App_StoreLogs();

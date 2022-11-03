@@ -8,6 +8,22 @@
 namespace winrt::BiliUWP::implementation {
     struct FavouritesUserPage : FavouritesUserPageT<FavouritesUserPage> {
         FavouritesUserPage();
+
+        bool IsBiliResReady(void) { return m_bili_res_is_ready; }
+        hstring BiliResId() {
+            return m_bili_res_is_valid ? L"fuid" + to_hstring(m_uid) : L"";
+        }
+        hstring BiliResUrl() {
+            return m_bili_res_is_valid ?
+                hstring(std::format(L"https://space.bilibili.com/{}/favlist", m_uid)) : L"";
+        }
+        hstring BiliResId2() {
+            return L"";
+        }
+        hstring BiliResUrl2() {
+            return L"";
+        }
+
         void OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e);
         void AccKeyF5Invoked(
             Windows::UI::Xaml::Input::KeyboardAccelerator const&,
@@ -27,7 +43,11 @@ namespace winrt::BiliUWP::implementation {
 
     private:
         BiliUWP::IncrementalLoadingCollection m_items_collection;
-        std::atomic_bool m_items_load_error;
+        bool m_items_load_error;
+        bool m_bili_res_is_ready;
+        bool m_bili_res_is_valid;
+
+        uint64_t m_uid;
 
         util::winrt::async_storage m_cur_async;
     };

@@ -80,6 +80,7 @@
                 <StackPanel x:Name="DeveloperPane" Visibility="{x:Bind CfgModel.App_IsDeveloper,Mode=OneWay}">
                     <TextBlock x:Uid="App/Page/SettingsPage/Dev" Style="{StaticResource RegionHeaderTextBlockStyle}"/>
                     <ToggleSwitch x:Uid="App/Page/SettingsPage/App_IsDeveloper" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_IsDeveloper,Mode=TwoWay}"/>
+                    <ToggleSwitch x:Uid="App/Page/SettingsPage/App_ShowDetailedStats" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_ShowDetailedStats,Mode=TwoWay}"/>
                     <TextBlock x:Uid="App/Page/SettingsPage/Config" Style="{StaticResource GroupHeaderTextBlockStyle}"/>
                     <StackPanel Orientation="Horizontal">
                         <Button x:Uid="App/Page/SettingsPage/ExportConfigToClipboard" x:Name="ExportConfigToClipboardButton" Click="ExportConfigToClipboardButton_Click" Style="{StaticResource ItemButtonStyle}"/>

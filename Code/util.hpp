@@ -1041,7 +1041,7 @@ namespace util {
                 }
                 else {
                     // TODO: Maybe optimize performance by not creating a new coroutine
-                    return [](T&& async) -> ::winrt::Windows::Foundation::IAsyncAction {
+                    return [](T async) -> ::winrt::Windows::Foundation::IAsyncAction {
                         auto cancellation_token = co_await ::winrt::get_cancellation_token();
                         cancellation_token.enable_propagation();
                         co_await async;
@@ -1369,6 +1369,10 @@ namespace util {
             mutex() {}
             void lock(void) { m_mutex.lock(); }
             ::winrt::Windows::Foundation::IAsyncAction lock_async(void) {
+                // Fast path for light contention
+                for (size_t i = 0; i < MAX_SPIN_COUNT; i++) {
+                    if (try_lock()) { co_return; }
+                }
                 co_await ::winrt::resume_background();
                 m_mutex.lock();
             }
@@ -1381,6 +1385,8 @@ namespace util {
             ::winrt::Windows::Foundation::IAsyncOperation<bool> try_lock_for_async(
                 const std::chrono::duration<Rep, Period>& timeout_duration
             ) {
+                // Fast path for light contention
+                if (try_lock()) { co_return true; }
                 co_await ::winrt::resume_background();
                 co_return m_mutex.try_lock_for(timeout_duration);
             }
@@ -1389,15 +1395,21 @@ namespace util {
                 return m_mutex.try_lock_until(timeout_time);
             }
             template<class Clock, class Duration>
-            ::winrt::Windows::Foundation::IAsyncOperation<bool> try_lock_until(
+            ::winrt::Windows::Foundation::IAsyncOperation<bool> try_lock_until_async(
                 const std::chrono::time_point<Clock, Duration>& timeout_time
             ) {
+                // Fast path for light contention
+                if (try_lock()) { co_return true; }
                 co_await ::winrt::resume_background();
                 co_return m_mutex.try_lock_until(timeout_time);
             }
             void unlock(void) { m_mutex.unlock(); }
             void lock_shared(void) { m_mutex.lock_shared(); }
             ::winrt::Windows::Foundation::IAsyncAction lock_shared_async(void) {
+                // Fast path for light contention
+                for (size_t i = 0; i < MAX_SPIN_COUNT; i++) {
+                    if (try_lock_shared()) { co_return; }
+                }
                 co_await ::winrt::resume_background();
                 m_mutex.lock_shared();
             }
@@ -1410,6 +1422,8 @@ namespace util {
             ::winrt::Windows::Foundation::IAsyncOperation<bool> try_lock_shared_for_async(
                 const std::chrono::duration<Rep, Period>& timeout_duration
             ) {
+                // Fast path for light contention
+                if (try_lock_shared()) { co_return true; }
                 co_await ::winrt::resume_background();
                 co_return m_mutex.try_lock_shared_for(timeout_duration);
             }
@@ -1418,14 +1432,17 @@ namespace util {
                 return m_mutex.try_lock_shared_until(timeout_time);
             }
             template<class Clock, class Duration>
-            ::winrt::Windows::Foundation::IAsyncOperation<bool> try_lock_shared_until(
+            ::winrt::Windows::Foundation::IAsyncOperation<bool> try_lock_shared_until_async(
                 const std::chrono::time_point<Clock, Duration>& timeout_time
             ) {
+                // Fast path for light contention
+                if (try_lock_shared()) { co_return true; }
                 co_await ::winrt::resume_background();
                 co_return m_mutex.try_lock_shared_until(timeout_time);
             }
             void unlock_shared(void) { m_mutex.unlock_shared(); }
         private:
+            static constexpr size_t MAX_SPIN_COUNT = 40;
             std::shared_timed_mutex m_mutex;
         };
     }

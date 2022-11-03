@@ -317,7 +317,7 @@ namespace winrt::BiliUWP::implementation {
     void UserPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e) {
         auto tab = ::BiliUWP::App::get()->tab_from_page(*this);
         tab->set_icon(Symbol::ContactInfo);
-        tab->set_title(L"UserPage");
+        tab->set_title(res_str(L"App/Page/UserPage/Title"));
 
         /*
         util::winrt::run_when_loaded([=](ListView const& items_list) {

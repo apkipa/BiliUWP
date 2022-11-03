@@ -16,7 +16,9 @@ using namespace Windows::Foundation;
 using namespace Windows::Foundation::Collections;
 
 namespace winrt::BiliUWP::implementation {
-    FavouritesFolderPage::FavouritesFolderPage() : m_items_collection(nullptr), m_items_load_error(false) {}
+    FavouritesFolderPage::FavouritesFolderPage() :
+        m_items_collection(nullptr), m_items_load_error(false),
+        m_bili_res_is_ready(false), m_bili_res_is_valid(false) {}
     void FavouritesFolderPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e) {
         auto app = ::BiliUWP::App::get();
         auto tab = app->tab_from_page(*this);
@@ -24,6 +26,7 @@ namespace winrt::BiliUWP::implementation {
         tab->set_title(::BiliUWP::App::res_str(L"App/Page/FavouritesFolderPage/Title"));
         if (auto opt = e.Parameter().try_as<FavouritesFolderPageNavParam>()) {
             auto folder_id = opt->folder_id;
+            m_fid = folder_id;
             m_items_collection = MakeIncrementalLoadingCollection(
                 std::make_shared<::BiliUWP::FavouritesFolderViewItemsSource>(folder_id));
             m_items_collection.OnStartLoading(
@@ -37,10 +40,13 @@ namespace winrt::BiliUWP::implementation {
                 [weak_this = get_weak()](BiliUWP::IncrementalLoadingCollection const&, IInspectable const&) {
                     auto strong_this = weak_this.get();
                     if (!strong_this) { return; }
-                    if (strong_this->m_items_load_error.load()) { return; }
+                    strong_this->m_bili_res_is_ready = true;
+                    if (strong_this->m_items_load_error) { return; }
                     strong_this->BottomState().SwitchToDone(::BiliUWP::App::res_str(L"App/Common/AllLoaded"));
                     auto src = std::dynamic_pointer_cast<::BiliUWP::FavouritesFolderViewItemsSource>(
                         IncrementalSourceFromCollection(strong_this->m_items_collection));
+                    strong_this->m_uid = src->UpperId();
+                    strong_this->m_bili_res_is_valid = true;
                     strong_this->TopTextInfoTitle().Text(::BiliUWP::App::res_str(
                         L"App/Page/FavouritesFolderPage/TopTextInfoTitle",
                         src->UpperName(), src->FolderName()
@@ -55,7 +61,7 @@ namespace winrt::BiliUWP::implementation {
                 [weak_this = get_weak()](BiliUWP::IncrementalLoadingCollection const&, IInspectable const&) {
                     auto strong_this = weak_this.get();
                     if (!strong_this) { return; }
-                    strong_this->m_items_load_error.store(true);
+                    strong_this->m_items_load_error = true;
                     strong_this->BottomState().SwitchToFailed(::BiliUWP::App::res_str(L"App/Common/LoadFailed"));
                 }
             );
@@ -69,10 +75,12 @@ namespace winrt::BiliUWP::implementation {
         KeyboardAccelerator const&,
         KeyboardAcceleratorInvokedEventArgs const& e
     ) {
+        m_items_load_error = false;
         m_items_collection.Reload();
         e.Handled(true);
     }
     void FavouritesFolderPage::RefreshItem_Click(IInspectable const&, RoutedEventArgs const&) {
+        m_items_load_error = false;
         m_items_collection.Reload();
     }
     void FavouritesFolderPage::ItemsGridView_ItemClick(IInspectable const&, ItemClickEventArgs const& e) {

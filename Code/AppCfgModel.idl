@@ -23,6 +23,7 @@ namespace BiliUWP {
         Double App_SimplifyVisualsLevel;    // Range: [0, 1]
         // Developer options
         Boolean App_IsDeveloper;
+        Boolean App_ShowDetailedStats;
         Boolean App_RedactLogs;
         Boolean App_StoreLogs;
         UInt32 App_LogLevel;

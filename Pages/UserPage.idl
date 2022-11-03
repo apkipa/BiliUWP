@@ -1,4 +1,4 @@
-import "IBiliResource.idl"; 
+import "IBiliResource.idl";
 
 namespace BiliUWP {
     enum UserPage_TargetPart {

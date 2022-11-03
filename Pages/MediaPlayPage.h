@@ -2,6 +2,7 @@
 
 #include "MediaPlayPage.g.h"
 #include "MediaPlayPage_UpItem.g.h"
+#include "MediaPlayPage_PartItem.g.h"
 #include "util.hpp"
 #include "BiliClient.hpp"
 
@@ -11,7 +12,7 @@ namespace winrt::BiliUWP::implementation {
 
     struct MediaPlayPage_UpItem : MediaPlayPage_UpItemT<MediaPlayPage_UpItem> {
         MediaPlayPage_UpItem(hstring up_name, hstring up_face_url, uint64_t up_mid) :
-            m_up_name(up_name), m_up_face_url(up_face_url), m_up_mid(up_mid) {}
+            m_up_name(std::move(up_name)), m_up_face_url(std::move(up_face_url)), m_up_mid(up_mid) {}
         hstring UpName() { return m_up_name; }
         hstring UpFaceUrl() { return m_up_face_url; }
         uint64_t UpMid() { return m_up_mid; }
@@ -19,6 +20,18 @@ namespace winrt::BiliUWP::implementation {
         hstring m_up_name;
         hstring m_up_face_url;
         uint64_t m_up_mid;
+    };
+    struct MediaPlayPage_PartItem : MediaPlayPage_PartItemT<MediaPlayPage_PartItem> {
+        MediaPlayPage_PartItem(uint64_t no, hstring part_name, uint64_t cid) :
+            m_no(no), m_part_name(std::move(part_name)), m_cid(cid) {}
+        uint64_t PartNo() { return m_no; }
+        hstring PartNoText() { return L"P" + to_hstring(m_no); }
+        hstring PartName() { return m_part_name; }
+        uint64_t PartCid() { return m_cid; }
+    private:
+        uint64_t m_no;
+        hstring m_part_name;
+        uint64_t m_cid;
     };
 
     struct MediaPlayPage : MediaPlayPageT<MediaPlayPage> {
@@ -62,6 +75,10 @@ namespace winrt::BiliUWP::implementation {
         void UpListView_ItemClick(
             Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::ItemClickEventArgs const& e
         );
+        void PartsListView_SelectionChanged(
+            Windows::Foundation::IInspectable const&,
+            Windows::UI::Xaml::Controls::SelectionChangedEventArgs const& e
+        );
 
         hstring MediaTitle() {
             if (auto p = std::get_if<::BiliUWP::VideoViewInfoResult>(&m_media_info)) {
@@ -93,6 +110,12 @@ namespace winrt::BiliUWP::implementation {
         }
         Windows::Foundation::Collections::IObservableVector<Windows::Foundation::IInspectable> UpList() {
             return m_up_list;
+        }
+        bool ShouldShowPartsList() {
+            return m_parts_list.Size() > 0;
+        }
+        Windows::Foundation::Collections::IObservableVector<Windows::Foundation::IInspectable> PartsList() {
+            return m_parts_list;
         }
 
         BiliUWP::AppCfgModel CfgModel() { return m_cfg_model; }
@@ -131,9 +154,9 @@ namespace winrt::BiliUWP::implementation {
         bool m_bili_res_is_ready;
 
         Windows::Foundation::Collections::IObservableVector<Windows::Foundation::IInspectable> m_up_list;
-        std::variant<
-            std::monostate, ::BiliUWP::VideoViewInfoResult, ::BiliUWP::AudioBasicInfoResult
-        > m_media_info;
+        Windows::Foundation::Collections::IObservableVector<Windows::Foundation::IInspectable> m_parts_list;
+        std::variant<std::monostate, ::BiliUWP::VideoViewInfoResult, ::BiliUWP::AudioBasicInfoResult>
+            m_media_info;
 
         Windows::Media::Playback::MediaPlayer::VolumeChanged_revoker m_volume_changed_revoker;
         BiliUWP::AppCfgModel::PropertyChanged_revoker m_cfg_changed_revoker;

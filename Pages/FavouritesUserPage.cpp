@@ -18,7 +18,9 @@ using namespace Windows::Foundation::Collections;
 // TODO: We may use ItemsReorderAnimation for ItemsGridView in XAML
 
 namespace winrt::BiliUWP::implementation {
-    FavouritesUserPage::FavouritesUserPage() : m_items_collection(nullptr), m_items_load_error(false) {}
+    FavouritesUserPage::FavouritesUserPage() :
+        m_items_collection(nullptr), m_items_load_error(false),
+        m_bili_res_is_ready(false), m_bili_res_is_valid(false) {}
     void FavouritesUserPage::OnNavigatedTo(NavigationEventArgs const& e) {
         auto app = ::BiliUWP::App::get();
         auto tab = app->tab_from_page(*this);
@@ -26,6 +28,7 @@ namespace winrt::BiliUWP::implementation {
         tab->set_title(::BiliUWP::App::res_str(L"App/Page/FavouritesUserPage/Title"));
         if (auto opt = e.Parameter().try_as<FavouritesUserPageNavParam>()) {
             auto uid = opt->uid;
+            m_uid = uid;
             if (to_hstring(uid) == app->cfg_model().User_Cookies_DedeUserID()) {
                 tab->set_title(::BiliUWP::App::res_str(L"App/Page/FavouritesUserPage/MyTitle"));
             }
@@ -63,7 +66,9 @@ namespace winrt::BiliUWP::implementation {
                 [weak_this = get_weak()](BiliUWP::IncrementalLoadingCollection const&, IInspectable const&) {
                     auto strong_this = weak_this.get();
                     if (!strong_this) { return; }
-                    if (strong_this->m_items_load_error.load()) { return; }
+                    strong_this->m_bili_res_is_ready = true;
+                    if (strong_this->m_items_load_error) { return; }
+                    strong_this->m_bili_res_is_valid = true;
                     strong_this->BottomState().SwitchToDone(::BiliUWP::App::res_str(L"App/Common/AllLoaded"));
                     auto src = std::dynamic_pointer_cast<::BiliUWP::FavouritesUserViewItemsSource>(
                         IncrementalSourceFromCollection(strong_this->m_items_collection));
@@ -77,7 +82,7 @@ namespace winrt::BiliUWP::implementation {
                 [weak_this = get_weak()](BiliUWP::IncrementalLoadingCollection const&, IInspectable const&) {
                     auto strong_this = weak_this.get();
                     if (!strong_this) { return; }
-                    strong_this->m_items_load_error.store(true);
+                    strong_this->m_items_load_error = true;
                     strong_this->BottomState().SwitchToFailed(::BiliUWP::App::res_str(L"App/Common/LoadFailed"));
                 }
             );
@@ -91,14 +96,14 @@ namespace winrt::BiliUWP::implementation {
         KeyboardAccelerator const&,
         KeyboardAcceleratorInvokedEventArgs const& e
     ) {
-        m_items_load_error.store(false);
+        m_items_load_error = false;
         m_items_collection.Reload();
         e.Handled(true);
     }
     void FavouritesUserPage::RefreshItem_Click(
         Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&
     ) {
-        m_items_load_error.store(false);
+        m_items_load_error = false;
         m_items_collection.Reload();
     }
     void FavouritesUserPage::ItemsGridView_ItemClick(

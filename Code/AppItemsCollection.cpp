@@ -41,6 +41,7 @@ namespace BiliUWP {
             L"", ::BiliUWP::FavResSortOrderParam::ByFavouriteTime
         ));
         m_total_items_count = static_cast<uint32_t>(result.info.media_count);
+        m_upper_id = result.info.upper.mid;
         m_upper_name = result.info.upper.name;
         m_folder_name = result.info.title;
         std::vector<IInspectable> vec;

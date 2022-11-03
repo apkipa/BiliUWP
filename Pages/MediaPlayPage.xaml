@@ -66,7 +66,7 @@
                 <Grid>
                     <ScrollViewer IsScrollInertiaEnabled="True"
                       VerticalScrollBarVisibility="Auto">
-                        <StackPanel Orientation="Vertical" Spacing="5" Padding="10,8,10,0">
+                        <StackPanel Orientation="Vertical" Spacing="5" Padding="10,8,10,8">
                             <Image Source="{x:Bind MediaCoverImageUrl}"/>
                             <TextBlock Text="{x:Bind MediaTitle}" FontSize="19" TextWrapping="WrapWholeWords" IsTextSelectionEnabled="True"/>
                             <ListView x:Name="UpListView" ItemsSource="{x:Bind UpList}" ItemClick="UpListView_ItemClick" SelectionMode="None" IsItemClickEnabled="True" ScrollViewer.VerticalScrollMode="Disabled">
@@ -92,6 +92,28 @@
                                 </ListView.ItemTemplate>
                             </ListView>
                             <TextBlock Text="{x:Bind MediaDescription}" Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}" TextWrapping="WrapWholeWords" IsTextSelectionEnabled="True"/>
+                            <StackPanel Visibility="{x:Bind ShouldShowPartsList}" Spacing="5">
+                                <TextBlock x:Uid="App/Page/MediaPlayPage/Sidebar/Parts"/>
+                                <ListView x:Name="PartsListView" ItemsSource="{x:Bind PartsList}" SelectionChanged="PartsListView_SelectionChanged" SelectionMode="Single" ScrollViewer.VerticalScrollMode="Disabled">
+                                    <ListView.ItemContainerStyle>
+                                        <Style TargetType="ListViewItem">
+                                            <Setter Property="Padding" Value="8,2"/>
+                                        </Style>
+                                    </ListView.ItemContainerStyle>
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate x:DataType="local:MediaPlayPage_PartItem">
+                                            <Grid ColumnSpacing="4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{x:Bind PartNoText}" Foreground="Gray" TextLineBounds="Tight"/>
+                                                <TextBlock Grid.Column="1" Text="{x:Bind PartName}" TextTrimming="CharacterEllipsis" TextLineBounds="Tight"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </StackPanel>
                         </StackPanel>
                     </ScrollViewer>
                     <local:SimpleStateIndicator x:Name="MediaDetailsOverlay"/>
