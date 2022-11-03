@@ -25,6 +25,11 @@
                         <Setter Target="StateText.Foreground" Value="Red"/>
                     </VisualState.Setters>
                 </VisualState>
+                <VisualState x:Name="OnDone">
+                    <VisualState.Setters>
+                        <Setter Target="LayoutRoot.Visibility" Value="Visible"/>
+                    </VisualState.Setters>
+                </VisualState>
             </VisualStateGroup>
             <VisualStateGroup x:Name="LayoutStates">
                 <VisualState x:Name="Full"/>
@@ -33,17 +38,19 @@
                         <Setter Target="InnerStackPanel.Orientation" Value="Horizontal"/>
                         <Setter Target="ProgRing.Width" Value="20"/>
                         <Setter Target="ProgRing.Height" Value="20"/>
+                        <Setter Target="ProgRing.Margin" Value="0,0,8,0"/>
                         <Setter Target="ErrorIcon.FontSize" Value="20"/>
+                        <Setter Target="ErrorIcon.Margin" Value="0,0,8,0"/>
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
         <Grid x:Name="LayoutRoot" Visibility="Collapsed">
             <StackPanel x:Name="InnerStackPanel" Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center">
-                <ProgressRing x:Name="ProgRing" Width="50" Height="50" IsActive="False" Visibility="Collapsed" Padding="10" HorizontalAlignment="Center"/>
-                <!-- OpticalMarginAlignment="TrimSideBearings" seemed to work only when CharacterSpacing is set -->
-                <TextBlock x:Name="ErrorIcon" Visibility="Collapsed" HorizontalAlignment="Center" OpticalMarginAlignment="TrimSideBearings" Text="&#xE783;" Foreground="Red" FontSize="48" Padding="10" FontFamily="{ThemeResource SymbolThemeFontFamily}" CharacterSpacing="-1"/>
-                <TextBlock x:Name="StateText" HorizontalAlignment="Center"/>
+                <ProgressRing x:Name="ProgRing" Width="50" Height="50" IsActive="False" Visibility="Collapsed" Margin="0,0,0,10" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <!-- OpticalMarginAlignment="TrimSideBearings" seemed to work correctly only when CharacterSpacing is set -->
+                <TextBlock x:Name="ErrorIcon" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" OpticalMarginAlignment="TrimSideBearings" Text="&#xE783;" Foreground="Red" FontSize="48" Margin="0,0,0,10" FontFamily="{ThemeResource SymbolThemeFontFamily}" CharacterSpacing="-1"/>
+                <TextBlock x:Name="StateText" HorizontalAlignment="Center" VerticalAlignment="Center" TextLineBounds="Tight"/>
             </StackPanel>
         </Grid>
     </Border>

@@ -31,6 +31,7 @@ namespace winrt::BiliUWP::implementation {
 
     private:
         BiliUWP::IncrementalLoadingCollection m_items_collection;
+        std::atomic_bool m_items_load_error;
     };
 }
 

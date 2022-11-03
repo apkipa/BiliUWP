@@ -21,29 +21,29 @@ namespace winrt::BiliUWP::implementation {
     IAsyncOperation<Windows::UI::Xaml::Data::LoadMoreItemsResult> IncrementalLoadingCollection::LoadMoreItemsAsync(
         uint32_t count
     ) {
+        // NOTE: As a general rule, always keep self alive for exotic async calls
+        auto strong_this = get_strong();
+
         auto cancellation_token = co_await get_cancellation_token();
         cancellation_token.enable_propagation();
 
-        auto weak_store = util::winrt::make_weak_storage(*this);
-        auto src = m_src;   // Keep source alive
-
-        if (m_is_loading.exchange(true)) { co_return{}; }
+        co_await m_loading_mutex.lock_async();
+        m_is_loading.store(true);
         m_on_start_loading(*this, nullptr);
         deferred([&]() {
-            if (!weak_store.lock()) { return; }
             m_on_end_loading(*this, nullptr);
-            weak_store->m_is_loading.store(false);
+            m_is_loading.store(false);
+            m_loading_mutex.unlock();
         });
 
         auto on_exception_fn = [&] {
-            if (!weak_store.lock()) { return; }
-            weak_store->m_has_more = false;
-            weak_store->m_on_error(*this, nullptr);
+            m_has_more = false;
+            m_on_error(*this, nullptr);
             // NOTE: Caller dislikes exceptions, so swallow them
         };
 
         try {
-            auto result = std::move(co_await weak_store.ual(src->GetMoreItemsAsync(count)));
+            auto result = std::move(co_await m_src->GetMoreItemsAsync(count));
             auto actual_count = result.size();
             if (actual_count == 0) {
                 m_has_more = false;
@@ -72,6 +72,12 @@ namespace winrt::BiliUWP::implementation {
         if (m_is_loading.load()) { return; }
         this->GetIncrementalSource()->Reset();
         m_has_more = true;
-        m_vec.Clear();
+        if (m_vec.Size() != 0) {
+            m_vec.Clear();
+        }
+        else {
+            // Manually fire a reload event
+            this->LoadMoreItemsAsync(0);
+        }
     }
 }

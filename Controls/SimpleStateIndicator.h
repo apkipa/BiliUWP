@@ -8,17 +8,25 @@
 
 namespace winrt::BiliUWP::implementation {
     struct SimpleStateIndicator : SimpleStateIndicatorT<SimpleStateIndicator> {
-        SimpleStateIndicator() : m_layout_type(SimpleStateIndicatorLayoutType::Full) {}
-
-        SimpleStateIndicatorLayoutType LayoutType() { return m_layout_type; }
-        void LayoutType(SimpleStateIndicatorLayoutType value);
+        SimpleStateIndicator() {}
 
         void SwitchToHidden();
         void SwitchToLoading(hstring const& text);
         void SwitchToFailed(hstring const& text);
+        void SwitchToDone(hstring const& text);
+
+        SimpleStateIndicatorLayoutType LayoutType();
+        void LayoutType(SimpleStateIndicatorLayoutType value);
+
+        static Windows::UI::Xaml::DependencyProperty LayoutTypeProperty() { return m_LayoutTypeProperty; }
+
+        static void OnLayoutTypeValueChanged(
+            Windows::UI::Xaml::DependencyObject const& d,
+            Windows::UI::Xaml::DependencyPropertyChangedEventArgs const& e
+        );
 
     private:
-        SimpleStateIndicatorLayoutType m_layout_type;
+        static Windows::UI::Xaml::DependencyProperty m_LayoutTypeProperty;
     };
 }
 

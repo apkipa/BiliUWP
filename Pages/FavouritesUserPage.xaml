@@ -91,12 +91,7 @@
                     </DataTemplate>
                 </local:AdaptiveGridView.ItemTemplate>
                 <local:AdaptiveGridView.Footer>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
-                        <ProgressRing x:Name="BottomProgRing" Width="20" Height="20" IsActive="False" Visibility="Collapsed" Margin="0,0,10,0"/>
-                        <Grid Height="20">
-                            <TextBlock x:Name="BottomInfoText" Foreground="Gray" TextLineBounds="Tight" VerticalAlignment="Center"/>
-                        </Grid>
-                    </StackPanel>
+                    <local:SimpleStateIndicator Margin="0,10,0,0" Height="20" x:Name="BottomState" Foreground="Gray" HorizontalAlignment="Center" LayoutType="Inline"/>
                 </local:AdaptiveGridView.Footer>
             </local:AdaptiveGridView>
         </Grid>

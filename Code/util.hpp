@@ -3,6 +3,7 @@
 #include <string>
 #include <format>
 #include <atomic>
+#include <shared_mutex>
 #include <source_location>
 
 namespace util {
@@ -1359,6 +1360,74 @@ namespace util {
 
         void persist_textbox_cc_clipboard(::winrt::Windows::UI::Xaml::Controls::TextBox const& tb);
         void persist_autosuggestbox_clipboard(::winrt::Windows::UI::Xaml::Controls::AutoSuggestBox const& ctrl);
+
+        // A simple wrapper mutex around OS's synchronization primitives, with async support
+        // NOTE: It is safe to destroy a locked mutex!
+        // TODO: Maybe optimize async waiting performance
+        // TODO: Rewrite using srwlock to avoid UB
+        struct mutex {
+            mutex() {}
+            void lock(void) { m_mutex.lock(); }
+            ::winrt::Windows::Foundation::IAsyncAction lock_async(void) {
+                co_await ::winrt::resume_background();
+                m_mutex.lock();
+            }
+            bool try_lock(void) { return m_mutex.try_lock(); }
+            template<class Rep, class Period>
+            bool try_lock_for(const std::chrono::duration<Rep, Period>& timeout_duration) {
+                return m_mutex.try_lock_for(timeout_duration);
+            }
+            template<class Rep, class Period>
+            ::winrt::Windows::Foundation::IAsyncOperation<bool> try_lock_for_async(
+                const std::chrono::duration<Rep, Period>& timeout_duration
+            ) {
+                co_await ::winrt::resume_background();
+                co_return m_mutex.try_lock_for(timeout_duration);
+            }
+            template<class Clock, class Duration>
+            bool try_lock_until(const std::chrono::time_point<Clock, Duration>& timeout_time) {
+                return m_mutex.try_lock_until(timeout_time);
+            }
+            template<class Clock, class Duration>
+            ::winrt::Windows::Foundation::IAsyncOperation<bool> try_lock_until(
+                const std::chrono::time_point<Clock, Duration>& timeout_time
+            ) {
+                co_await ::winrt::resume_background();
+                co_return m_mutex.try_lock_until(timeout_time);
+            }
+            void unlock(void) { m_mutex.unlock(); }
+            void lock_shared(void) { m_mutex.lock_shared(); }
+            ::winrt::Windows::Foundation::IAsyncAction lock_shared_async(void) {
+                co_await ::winrt::resume_background();
+                m_mutex.lock_shared();
+            }
+            bool try_lock_shared(void) { return m_mutex.try_lock_shared(); }
+            template<class Rep, class Period>
+            bool try_lock_shared_for(const std::chrono::duration<Rep, Period>& timeout_duration) {
+                return m_mutex.try_lock_shared_for(timeout_duration);
+            }
+            template<class Rep, class Period>
+            ::winrt::Windows::Foundation::IAsyncOperation<bool> try_lock_shared_for_async(
+                const std::chrono::duration<Rep, Period>& timeout_duration
+            ) {
+                co_await ::winrt::resume_background();
+                co_return m_mutex.try_lock_shared_for(timeout_duration);
+            }
+            template<class Clock, class Duration>
+            bool try_lock_shared_until(const std::chrono::time_point<Clock, Duration>& timeout_time) {
+                return m_mutex.try_lock_shared_until(timeout_time);
+            }
+            template<class Clock, class Duration>
+            ::winrt::Windows::Foundation::IAsyncOperation<bool> try_lock_shared_until(
+                const std::chrono::time_point<Clock, Duration>& timeout_time
+            ) {
+                co_await ::winrt::resume_background();
+                co_return m_mutex.try_lock_shared_until(timeout_time);
+            }
+            void unlock_shared(void) { m_mutex.unlock_shared(); }
+        private:
+            std::shared_timed_mutex m_mutex;
+        };
     }
 
     namespace sync {

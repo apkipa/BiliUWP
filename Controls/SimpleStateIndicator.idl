@@ -8,10 +8,12 @@ namespace BiliUWP {
     runtimeclass SimpleStateIndicator : Windows.UI.Xaml.Controls.UserControl {
         SimpleStateIndicator();
 
-        SimpleStateIndicatorLayoutType LayoutType();
+        static Windows.UI.Xaml.DependencyProperty LayoutTypeProperty{ get; };
+        SimpleStateIndicatorLayoutType LayoutType;
 
         void SwitchToHidden();
         void SwitchToLoading(String text);
         void SwitchToFailed(String text);
+        void SwitchToDone(String text);
     }
 }

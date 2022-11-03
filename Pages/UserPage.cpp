@@ -18,6 +18,7 @@ using namespace Windows::Foundation::Numerics;
 using namespace Windows::Foundation::Collections;
 using namespace Windows::System;
 using namespace Windows::Devices::Input;
+using namespace Windows::UI;
 using namespace Windows::UI::Core;
 using namespace Windows::UI::Xaml;
 using namespace Windows::UI::Xaml::Data;
@@ -410,6 +411,19 @@ namespace winrt::BiliUWP::implementation {
                         auto idx = idx_of_content_fn(grid_view);
                         grid_view.ItemsSource(items_src);
                         auto weak_this = that->get_weak();
+                        struct shared_data {
+                            shared_data() : items_load_error(false) {
+                                state_indicator.Height(20);
+                                state_indicator.Margin(ThicknessHelper::FromLengths(0, 10, 0, 0));
+                                state_indicator.Foreground(SolidColorBrush(Colors::Gray()));
+                                state_indicator.LayoutType(SimpleStateIndicatorLayoutType::Inline);
+                                state_indicator.HorizontalAlignment(HorizontalAlignment::Center);
+                            }
+                            BiliUWP::SimpleStateIndicator state_indicator;
+                            std::atomic_bool items_load_error;
+                        };
+                        auto sdata = std::make_shared<shared_data>();
+                        grid_view.Footer(sdata->state_indicator);
                         items_src.OnStartLoading(
                             [=](BiliUWP::IncrementalLoadingCollection const& sender, IInspectable const&) {
                                 auto strong_this = weak_this.get();
@@ -418,6 +432,8 @@ namespace winrt::BiliUWP::implementation {
                                     strong_this->m_view_is_volatile[idx] = true;
                                     util::debug::log_debug(std::format(L"Marked {} as volatile", idx));
                                 }
+                                sdata->state_indicator.SwitchToLoading(
+                                    ::BiliUWP::App::res_str(L"App/Common/Loading"));
                             }
                         );
                         items_src.OnEndLoading(
@@ -428,6 +444,16 @@ namespace winrt::BiliUWP::implementation {
                                     strong_this->m_view_is_volatile[idx] = false;
                                     util::debug::log_debug(std::format(L"Marked {} as non-volatile", idx));
                                 }
+                                if (sdata->items_load_error.load()) { return; }
+                                sdata->state_indicator.SwitchToDone(
+                                    ::BiliUWP::App::res_str(L"App/Common/AllLoaded"));
+                            }
+                        );
+                        items_src.OnError(
+                            [=](BiliUWP::IncrementalLoadingCollection const&, IInspectable const&) {
+                                sdata->items_load_error.store(true);
+                                sdata->state_indicator.SwitchToFailed(
+                                    ::BiliUWP::App::res_str(L"App/Common/LoadFailed"));
                             }
                         );
                     };

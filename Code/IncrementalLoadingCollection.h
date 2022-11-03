@@ -65,7 +65,7 @@ namespace winrt::BiliUWP::implementation {
         bool HasMoreItems() { return m_has_more; }
 
         void Reload(void);
-        bool IsLoading() { return m_is_loading; };
+        bool IsLoading() { return m_is_loading.load(); };
 
         event_token OnStartLoading(
             Windows::Foundation::TypedEventHandler<winrt::BiliUWP::IncrementalLoadingCollection, IInspectable> const& handler
@@ -100,6 +100,7 @@ namespace winrt::BiliUWP::implementation {
         event<Windows::Foundation::TypedEventHandler<winrt::BiliUWP::IncrementalLoadingCollection, IInspectable>> m_on_end_loading;
         event<Windows::Foundation::TypedEventHandler<winrt::BiliUWP::IncrementalLoadingCollection, IInspectable>> m_on_error;
         std::shared_ptr<::BiliUWP::IIncrementalSource> m_src;
+        util::winrt::mutex m_loading_mutex;
         std::atomic_bool m_is_loading;
         bool m_has_more;
     };
