@@ -295,6 +295,8 @@ namespace BiliUWP {
             login_op.Cancel();
             login_dlg.Hide();
         });
+        // We don't release tab before awaiting on purpose (login page should be preserved
+        // even when tab is closed)
         co_await winrt::when_any(login_op, show_dlg_op);
     }
     Windows::Foundation::IAsyncAction AppInst::request_logout(void) {
@@ -445,6 +447,7 @@ namespace BiliUWP {
         if (m_dbg_con) {
             m_dbg_con.AppendLog(log_desc.time, log_desc.level, log_desc.src_loc, log_desc.content);
         }
+        std::unique_lock log_guard(m_mutex_app_logs);
         m_app_logs.push_back(std::move(log_desc));
     }
     void AppInst::init_current_window(void) {

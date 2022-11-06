@@ -75,6 +75,7 @@
                 <TextBlock x:Uid="App/Page/SettingsPage/Playing" Style="{StaticResource RegionHeaderTextBlockStyle}"/>
                 <Slider x:Uid="App/Page/SettingsPage/App_GlobalVolume" Width="200" HorizontalAlignment="Left" Minimum="0" Maximum="100" StepFrequency="0.01" Style="{StaticResource ItemSliderStyle}" Value="{x:Bind CfgModel.App_GlobalVolume,Converter={StaticResource NumberScaleConverter},ConverterParameter=0.01,Mode=TwoWay}"/>
                 <ToggleSwitch x:Uid="App/Page/SettingsPage/App_AlwaysSyncPlayingCfg" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_AlwaysSyncPlayingCfg,Mode=TwoWay}"/>
+                <ToggleSwitch x:Uid="App/Page/SettingsPage/App_UseHRASForVideo" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_UseHRASForVideo,Mode=TwoWay}"/>
                 <TextBlock x:Uid="App/Page/SettingsPage/Misc" Style="{StaticResource RegionHeaderTextBlockStyle}"/>
                 <ToggleSwitch x:Uid="App/Page/SettingsPage/App_PersistClipboardAfterExit" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_PersistClipboardAfterExit,Mode=TwoWay}"/>
                 <StackPanel x:Name="DeveloperPane" Visibility="{x:Bind CfgModel.App_IsDeveloper,Mode=OneWay}">

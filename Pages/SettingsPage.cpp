@@ -54,7 +54,8 @@ namespace winrt::BiliUWP::implementation {
                     cd.CloseButtonText(::BiliUWP::App::res_str(L"App/Common/No"));
                     [=](void) -> fire_forget_except {
                         auto app = ::BiliUWP::App::get();
-                        switch (co_await app->tab_from_page(*this)->show_dialog(cd)) {
+                        auto show_dialog_op = app->tab_from_page(*this)->show_dialog(cd);
+                        switch (co_await std::move(show_dialog_op)) {
                         case SimpleContentDialogResult::None:
                             break;
                         case SimpleContentDialogResult::Primary:
@@ -230,7 +231,7 @@ namespace winrt::BiliUWP::implementation {
             }();
         }
     }
-    fire_forget_except SettingsPage::ViewLicensesButton_Click(IInspectable const&, RoutedEventArgs const&) {
+    void SettingsPage::ViewLicensesButton_Click(IInspectable const&, RoutedEventArgs const&) {
         BiliUWP::SimpleContentDialog cd;
         cd.Title(box_value(L"Open Source Licenses"));
         cd.Content(box_value(L""
@@ -329,6 +330,6 @@ namespace winrt::BiliUWP::implementation {
             "\n"
         ));
         cd.CloseButtonText(::BiliUWP::App::res_str(L"App/Common/Close"));
-        co_await ::BiliUWP::App::get()->tab_from_page(*this)->show_dialog(cd);
+        ::BiliUWP::App::get()->tab_from_page(*this)->show_dialog(cd);
     }
 }

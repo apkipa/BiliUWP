@@ -26,6 +26,8 @@ namespace winrt::BiliUWP::implementation {
         void App_AlwaysSyncPlayingCfg(bool value);
         uint32_t App_GlobalVolume();
         void App_GlobalVolume(uint32_t value);
+        bool App_UseHRASForVideo();
+        void App_UseHRASForVideo(bool value);
         bool App_PersistClipboardAfterExit();
         void App_PersistClipboardAfterExit(bool value);
         double App_SimplifyVisualsLevel();

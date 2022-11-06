@@ -642,10 +642,12 @@ namespace util {
                 progress_token(progress);
             });
             auto http_resp = co_await std::move(op);
-            if (http_resp.StatusCode() != ::winrt::Windows::Web::Http::HttpStatusCode::PartialContent) {
-                throw ::winrt::hresult_error(
-                    E_FAIL, L"Requested resource does not support partial downloading"
-                );
+            auto status_code = http_resp.EnsureSuccessStatusCode().StatusCode();
+            if (status_code != ::winrt::Windows::Web::Http::HttpStatusCode::PartialContent) {
+                throw ::winrt::hresult_error(E_FAIL, std::format(
+                    L"Requested resource does not support partial downloading (HTTP {})",
+                    std::to_underlying(status_code)
+                ));
             }
             co_return http_resp.Content();
         }
@@ -669,10 +671,12 @@ namespace util {
             auto http_resp = co_await http_client.SendRequestAsync(
                 http_req_msg, ::winrt::Windows::Web::Http::HttpCompletionOption::ResponseHeadersRead
             );
-            if (http_resp.StatusCode() != ::winrt::Windows::Web::Http::HttpStatusCode::PartialContent) {
-                throw ::winrt::hresult_error(
-                    E_FAIL, L"Requested resource does not support partial downloading"
-                );
+            auto status_code = http_resp.EnsureSuccessStatusCode().StatusCode();
+            if (status_code != ::winrt::Windows::Web::Http::HttpStatusCode::PartialContent) {
+                throw ::winrt::hresult_error(E_FAIL, std::format(
+                    L"Requested resource does not support partial downloading (HTTP {})",
+                    std::to_underlying(status_code)
+                ));
             }
             auto read_as_buf_op = http_resp.Content().ReadAsBufferAsync();
             read_as_buf_op.Progress([&](auto const&, uint64_t progress) {

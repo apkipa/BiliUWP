@@ -79,6 +79,10 @@ namespace winrt::BiliUWP::implementation {
             Windows::Foundation::IInspectable const&,
             Windows::UI::Xaml::Controls::SelectionChangedEventArgs const& e
         );
+        void PartsListView_RightTapped(
+            Windows::Foundation::IInspectable const& sender,
+            Windows::UI::Xaml::Input::RightTappedRoutedEventArgs const& e
+        );
 
         hstring MediaTitle() {
             if (auto p = std::get_if<::BiliUWP::VideoViewInfoResult>(&m_media_info)) {

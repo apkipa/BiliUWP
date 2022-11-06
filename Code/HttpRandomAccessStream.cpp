@@ -7,13 +7,12 @@
 #include <deque>
 
 constexpr uint64_t DEFAULT_METRICS_EVENTS_COUNT = 16384;
+constexpr uint64_t DEFAULT_HTTP_CHUNK_SIZE = 262144;
 
 using namespace winrt;
 using namespace Windows::Foundation;
 using namespace Windows::Web::Http;
 using namespace Windows::Storage::Streams;
-
-// TODO: Add timeout policy (and maybe modify hresult_canceled exception handler?)
 
 namespace winrt::BiliUWP::implementation {
     // No caching
@@ -39,6 +38,10 @@ namespace winrt::BiliUWP::implementation {
             for (auto& i : new_uris) {
                 m_http_uris.push_back(i);
             }
+        }
+        com_array<Uri> GetActiveUris() {
+            std::shared_lock guard(m_mutex_http_uris);
+            return { m_http_uris.begin(), m_http_uris.end() };
         }
         event_token NewUriRequested(EventHandlerType_NUR const& handler) {
             return m_ev_new_uri_requested.add(handler);
@@ -218,6 +221,9 @@ namespace winrt::BiliUWP::implementation {
             InMemoryRandomAccessStream buf_stream
         ) : m_buf_stream(std::move(buf_stream)), m_enable_metrics_collection(false) {}
         void SupplyNewUri(array_view<Uri const> new_uris) {}
+        com_array<Uri> GetActiveUris() {
+            return {};
+        }
         event_token NewUriRequested(EventHandlerType_NUR const& handler) {
             return m_ev_new_uri_requested.add(handler);
         }
@@ -282,6 +288,10 @@ namespace winrt::BiliUWP::implementation {
                 m_http_uris.push_back(i);
             }
         }
+        com_array<Uri> GetActiveUris() {
+            std::shared_lock guard(m_mutex_http_uris);
+            return { m_http_uris.begin(), m_http_uris.end() };
+        }
         event_token NewUriRequested(EventHandlerType_NUR const& handler) {
             return m_ev_new_uri_requested.add(handler);
         }
@@ -295,7 +305,8 @@ namespace winrt::BiliUWP::implementation {
             cancellation_token.enable_propagation();
             auto progress_token = co_await get_progress_token();
 
-            util::debug::log_trace(std::format(L"Fetching stream range {}-{}", start, end));
+            util::debug::log_trace(std::format(L"Fetching stream range {}-{} with option {}",
+                start, end, std::to_underlying(options)));
 
             if (start > end) {
                 throw hresult_invalid_argument(L"Invalid read operation (negative-sized read)");
@@ -329,12 +340,20 @@ namespace winrt::BiliUWP::implementation {
                     auto [itb, ite] = get_its_pair_nolock_fn(start, end);
                     if (itb < ite) {
                         // Found intersecting intervals
+                        // NOTE: Temporary fix for slow downloading by fetching a larger chunk
+                        // TODO: Use a better way to optimize http fetching
+                        // TODO: Add a prefetch API for optimal video fetching
+                        //       (requires waiting on pending requests, etc.)
+                        auto final_start = start;
+                        auto final_end = std::clamp(start + DEFAULT_HTTP_CHUNK_SIZE, end, m_size);
+                        std::tie(itb, ite) = get_its_pair_nolock_fn(final_start, final_end);
                         ite--;
                         if (itb == ite) {
-                            target_interval = { std::max(start, itb->first), std::min(end, ite->second) };
+                            target_interval = {
+                                std::max(final_start, itb->first), std::min(final_end, ite->second) };
                         }
                         else {
-                            target_interval = { std::max(start, itb->first), itb->second };
+                            target_interval = { std::max(final_start, itb->first), itb->second };
                         }
                     }
                 }
@@ -473,7 +492,7 @@ namespace winrt::BiliUWP::implementation {
                     std::scoped_lock guard(m_mutex_ea_nur);
                     m_ea_nur = nullptr;
                 }
-                });
+            });
             if (owns_ea) {
                 m_ev_new_uri_requested(make<HttpRandomAccessStream>(shared_from_this(), L""), *ea_nur);
             }
@@ -534,6 +553,7 @@ namespace winrt::BiliUWP::implementation {
                             }
                         }
                     });
+                    // TODO: Known issue: HttpClient does not support concurrent requests
                     auto http_content = co_await util::winrt::fetch_partial_http_content(
                         cur_uri, m_http_client, start, end - start);
                     auto op = http_content.WriteToStreamAsync(m_buf_stream.GetOutputStreamAt(start));
@@ -556,12 +576,25 @@ namespace winrt::BiliUWP::implementation {
                         cur_uri.ToString(), start, end,
                         static_cast<uint32_t>(e.code()), e.message()
                     ));
+                    if (e.code() == E_CHANGED_STATE) {
+                        // Workaround HttpClient concurrency issue by ignoring E_CHANGED_STATE
+                        util::debug::log_debug(L"HRAS: Ignoring E_CHANGED_STATE exception");
+                        continue;
+                    }
+                    if (e.code() == E_ABORT || e.code() == E_HANDLE) {
+                        // HttpClient is reallocating resources; don't treat this as an error
+                        util::debug::log_debug(L"HRAS: Ignoring E_ABORT / E_HANDLE exception");
+                        continue;
+                    }
                     // Fetch failed, drop current uri
+                    // TODO: Implement retry policy
                     std::unique_lock guard_uri(m_mutex_http_uris);
                     if (!m_http_uris.empty() && cur_uri == m_http_uris.front()) {
                         m_http_uris.pop_front();
                     }
                 }
+
+                co_await std::chrono::milliseconds(100);
             }
         }
 
@@ -641,10 +674,11 @@ namespace winrt::BiliUWP::implementation {
         auto http_resp = co_await http_client.SendRequestAsync(
             http_req, HttpCompletionOption::ResponseHeadersRead
         );
-        if (http_resp.StatusCode() != HttpStatusCode::PartialContent) {
+        auto status_code = http_resp.EnsureSuccessStatusCode().StatusCode();
+        if (status_code != HttpStatusCode::PartialContent) {
             throw hresult_error(E_FAIL, std::format(
                 L"Requested resource does not support partial downloading (HTTP {})",
-                std::to_underlying(http_resp.StatusCode())
+                std::to_underlying(status_code)
             ));
         }
 
@@ -677,6 +711,11 @@ namespace winrt::BiliUWP::implementation {
         if (!m_impl) { throw hresult_illegal_method_call(); }
         return m_impl->SupplyNewUri(std::move(new_uris));
     }
+    com_array<Uri> HttpRandomAccessStream::GetActiveUris() {
+        std::shared_lock guard_impl(m_impl_mutex);
+        if (!m_impl) { throw hresult_illegal_method_call(); }
+        return m_impl->GetActiveUris();
+    }
     void HttpRandomAccessStream::EnableMetricsCollection(bool enable, uint64_t max_events_count) {
         std::shared_lock guard_impl(m_impl_mutex);
         if (!m_impl) { throw hresult_illegal_method_call(); }
@@ -686,6 +725,16 @@ namespace winrt::BiliUWP::implementation {
         std::shared_lock guard_impl(m_impl_mutex);
         if (!m_impl) { throw hresult_illegal_method_call(); }
         return m_impl->GetMetrics(clear_events);
+    }
+    HttpRandomAccessStreamRetryPolicy HttpRandomAccessStream::RetryPolicy() {
+        std::shared_lock guard_impl(m_impl_mutex);
+        if (!m_impl) { throw hresult_illegal_method_call(); }
+        return m_impl->RetryPolicy();
+    }
+    void HttpRandomAccessStream::RetryPolicy(HttpRandomAccessStreamRetryPolicy const& value) {
+        std::shared_lock guard_impl(m_impl_mutex);
+        if (!m_impl) { throw hresult_illegal_method_call(); }
+        return m_impl->RetryPolicy(value);
     }
     event_token HttpRandomAccessStream::NewUriRequested(EventHandlerType_NUR const& handler) {
         std::shared_lock guard_impl(m_impl_mutex);

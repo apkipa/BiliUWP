@@ -49,6 +49,10 @@ namespace winrt::BiliUWP::implementation {
 
         void AppendLog(winrt::BiliUWP::DebugConsoleWindowPage_LogViewItem log_item);
         void ClearLogs(void);
+
+    private:
+        Windows::UI::Xaml::DispatcherTimer m_timer_scroll_to_bottom;
+        bool m_should_scroll = false;
     };
 }
 

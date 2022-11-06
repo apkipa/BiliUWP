@@ -255,6 +255,9 @@
   <data name="App.Page.MediaPlayPage.Error.Unknown" xml:space="preserve">
     <value>发生了未知错误</value>
   </data>
+  <data name="App.Page.MediaPlayPage.Sidebar.CopyPartTitle" xml:space="preserve">
+    <value>复制分集标题</value>
+  </data>
   <data name="App.Page.MediaPlayPage.Sidebar.Details.Header" xml:space="preserve">
     <value>详情</value>
   </data>
@@ -318,6 +321,9 @@
   </data>
   <data name="App.Page.SettingsPage.App_StoreLogs.Header" xml:space="preserve">
     <value>保存日志文件</value>
+  </data>
+  <data name="App.Page.SettingsPage.App_UseHRASForVideo.Header" xml:space="preserve">
+    <value>播放视频时总是使用 HRAS 取流(若不选中则偏好原生取流)</value>
   </data>
   <data name="App.Page.SettingsPage.CalculateCacheButton.Content" xml:space="preserve">
     <value>计算缓存大小</value>

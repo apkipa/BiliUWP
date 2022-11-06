@@ -62,7 +62,19 @@ namespace winrt::BiliUWP::implementation {
         return to_hstring(std::format("[{}:{}:{}]",
             m_src_loc.file_name(), m_src_loc.function_name(), m_src_loc.line()));
     }
-    DebugConsoleWindowPage::DebugConsoleWindowPage() {}
+    DebugConsoleWindowPage::DebugConsoleWindowPage() {
+        using namespace std::chrono_literals;
+        m_timer_scroll_to_bottom.Interval(30ms);
+        m_timer_scroll_to_bottom.Tick([this](IInspectable const&, IInspectable const&) {
+            if (!m_should_scroll) {
+                m_timer_scroll_to_bottom.Stop();
+            }
+            m_should_scroll = false;
+            auto logs_list = LogsList();
+            auto logs_list_items = logs_list.Items();
+            logs_list.ScrollIntoView(logs_list_items.GetAt(logs_list_items.Size() - 1));
+        });
+    }
     void DebugConsoleWindowPage::LogsList_SelectionChanged(
         IInspectable const& sender,
         SelectionChangedEventArgs const&
@@ -77,8 +89,19 @@ namespace winrt::BiliUWP::implementation {
         // TODO: Known issue: Closing & reopening debug console raises hresult_wrong_thread
         //       (AppendLog() must be triggered; here LogsList().ScrollIntoView() throws)
         auto logs_list = LogsList();
-        logs_list.Items().Append(log_item);
-        logs_list.ScrollIntoView(log_item);
+        auto logs_list_items = logs_list.Items();
+        // TODO: Use a better strategy for handling massive logs
+        if (logs_list_items.Size() >= 500) {
+            // Discard old logs
+            for (size_t i = 0; i < 200; i++) {
+                logs_list_items.RemoveAt(0);
+            }
+        }
+        logs_list_items.Append(log_item);
+        if (!m_timer_scroll_to_bottom.IsEnabled()) {
+            m_timer_scroll_to_bottom.Start();
+        }
+        m_should_scroll = true;
     }
     void DebugConsoleWindowPage::ClearLogs(void) {
         LogsList().Items().Clear();

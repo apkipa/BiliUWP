@@ -46,8 +46,11 @@ namespace winrt::BiliUWP::implementation {
         static Windows::UI::Xaml::DependencyProperty IsPrimaryButtonEnabledProperty() { return m_IsPrimaryButtonEnabledProperty; }
         static Windows::UI::Xaml::DependencyProperty IsSecondaryButtonEnabledProperty() { return m_IsSecondaryButtonEnabledProperty; }
 
-        static void final_release(std::unique_ptr<SimpleContentDialog> ptr) noexcept {
+        /*static void final_release(std::unique_ptr<SimpleContentDialog> ptr) noexcept {
             ptr->m_finish_event.set();
+        }*/
+        static void final_release(std::unique_ptr<SimpleContentDialog> ptr) noexcept {
+            util::debug::log_debug(L"Final release");
         }
 
         void OnHidden(IInspectable const&, IInspectable const&);

@@ -8,6 +8,34 @@ namespace BiliUWP {
         UInt64 UsedBufferSize;
     };
 
+    // Bitmask
+    enum HttpRandomAccessStreamRetryCondition {
+        None = 0,
+        RetryOnTimeout = 0x1,       // [WIP]
+        RetryOnFetchFailure = 0x2,
+    };
+    enum HttpRandomAccessStreamOnRetrySuccessOperation {
+        None = 0,
+        ClearFailureCounter = 1,
+    };
+    // Bitmask
+    enum HttpRandomAccessStreamTimeoutCondition {
+        None = 0,
+        TimeoutOnInactivity = 0x1,  // Timeout if there was no network activity for a long time
+        TimeoutOnExpiry = 0x2,      // Timeout if the whole operation took too long
+    };
+    struct HttpRandomAccessStreamTimeoutPolicy {
+        HttpRandomAccessStreamTimeoutCondition Conditions;
+        Windows.Foundation.TimeSpan TimeoutValue;
+    };
+    struct HttpRandomAccessStreamRetryPolicy {
+        HttpRandomAccessStreamRetryCondition Conditions;
+        HttpRandomAccessStreamOnRetrySuccessOperation OnRetrySuccessOperation;
+        UInt32 MaxRetryCount;
+        Windows.Foundation.TimeSpan RetryDelay;
+        HttpRandomAccessStreamTimeoutPolicy TimeoutPolicy;
+    };
+
     enum HttpRandomAccessStreamBufferOptions {
         None,               // Disable cache
         Sized,              // [WIP] Limited cache capacity, populated on demand
@@ -36,11 +64,14 @@ namespace BiliUWP {
 
         // NOTE: New uris will be added to list
         void SupplyNewUri(Windows.Foundation.Uri[] new_uris);
-        // NOTE: max_events_count is a internal value; If 0 is passed, an optimal value will be chosen
+        Windows.Foundation.Uri[] GetActiveUris();
+        // NOTE: max_events_count is an internal value; If 0 is passed, an optimal value will be chosen
         void EnableMetricsCollection(Boolean enable, UInt64 max_events_count);
         // NOTE: If clear_events is true, events will be cleared after getting metrics
         // WARN: If metrics collection is not enabled, an exception will be thrown
         HttpRandomAccessStreamMetrics GetMetrics(Boolean clear_events);
+
+        HttpRandomAccessStreamRetryPolicy RetryPolicy;  // [WIP]
 
         // WARN: The sender param is a special HttpRandomAccessStream that can only be used
         //       to supply uris; holding sender forever will cause resource leak

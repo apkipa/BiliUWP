@@ -9,11 +9,11 @@ namespace winrt::BiliUWP::implementation {
         BiliUWP::HttpRandomAccessStream, BiliUWP::NewUriRequestedEventArgs>;
 
     struct NewUriRequestedEventArgs : NewUriRequestedEventArgsT<NewUriRequestedEventArgs>,
-                                      deferrable_event_args<NewUriRequestedEventArgs>
-    {};
+                                      deferrable_event_args<NewUriRequestedEventArgs> {};
 
     struct HttpRandomAccessStreamImpl : std::enable_shared_from_this<HttpRandomAccessStreamImpl> {
         virtual void SupplyNewUri(array_view<Windows::Foundation::Uri const> new_uris) = 0;
+        virtual com_array<Windows::Foundation::Uri> GetActiveUris() = 0;
         virtual event_token NewUriRequested(EventHandlerType_NUR const& handler) = 0;
         virtual void NewUriRequested(event_token const& token) noexcept = 0;
         virtual Windows::Foundation::IAsyncOperationWithProgress<Windows::Storage::Streams::IBuffer, uint32_t> ReadAtAsync(
@@ -24,6 +24,14 @@ namespace winrt::BiliUWP::implementation {
         virtual uint64_t Size() = 0;
         virtual void EnableMetricsCollection(bool enable, uint64_t max_events_count) = 0;
         virtual HttpRandomAccessStreamMetrics GetMetrics(bool clear_events) = 0;
+        virtual HttpRandomAccessStreamRetryPolicy RetryPolicy() { 
+            // TODO: RetryPolicy.Get
+            throw hresult_not_implemented(L"RetryPolicy.Get");
+        }
+        virtual void RetryPolicy(HttpRandomAccessStreamRetryPolicy const& value) {
+            // TODO: RetryPolicy.Set
+            throw hresult_not_implemented(L"RetryPolicy.Set");
+        }
     };
 
     struct HttpRandomAccessStream : HttpRandomAccessStreamT<HttpRandomAccessStream> {
@@ -41,8 +49,11 @@ namespace winrt::BiliUWP::implementation {
             bool extra_integrity_check
         );
         void SupplyNewUri(array_view<Windows::Foundation::Uri const> new_uris);
+        com_array<Windows::Foundation::Uri> GetActiveUris();
         void EnableMetricsCollection(bool enable, uint64_t max_events_count);
         HttpRandomAccessStreamMetrics GetMetrics(bool clear_events);
+        HttpRandomAccessStreamRetryPolicy RetryPolicy();
+        void RetryPolicy(HttpRandomAccessStreamRetryPolicy const& value);
         event_token NewUriRequested(EventHandlerType_NUR const& handler);
         void NewUriRequested(event_token const& token) noexcept;
         void Close();

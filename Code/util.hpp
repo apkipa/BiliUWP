@@ -474,7 +474,7 @@ namespace util {
                     L"Uncaught async exception(hresult_error): 0x{:08x}: {}",
                     static_cast<uint32_t>(e.code()), error_message
                 ), loc);
-                if (IsDebuggerPresent()) { __debugbreak(); }
+                //if (IsDebuggerPresent()) { __debugbreak(); }
             }
             catch (std::exception const& e) {
                 auto error_message = e.what();
@@ -482,21 +482,21 @@ namespace util {
                     L"Uncaught async exception(std::exception): {}",
                     ::winrt::to_hstring(error_message)
                 ), loc);
-                if (IsDebuggerPresent()) { __debugbreak(); }
+                //if (IsDebuggerPresent()) { __debugbreak(); }
             }
             catch (const wchar_t* e) {
                 auto error_message = e;
                 util::debug::log_error(std::format(
                     L"Uncaught async exception(wchar_t*): {}", error_message
                 ), loc);
-                if (IsDebuggerPresent()) { __debugbreak(); }
+                //if (IsDebuggerPresent()) { __debugbreak(); }
             }
             catch (...) {
                 auto error_message = L"Unknown exception was thrown";
                 util::debug::log_error(std::format(
                     L"Uncaught async exception(any): {}", error_message
                 ), loc);
-                if (IsDebuggerPresent()) { __debugbreak(); }
+                //if (IsDebuggerPresent()) { __debugbreak(); }
             }
         }
 
@@ -767,6 +767,16 @@ namespace util {
             task() :
                 m_task(), m_cts(concurrency::cancellation_token_source::_FromImpl(nullptr)),
                 m_cancellable(nullptr) {}
+            task(std::nullptr_t) : task() {}
+
+            operator bool() { return m_task != decltype(m_task){}; }
+            auto& operator=(task other) {
+                using std::swap;
+                swap(m_task, other.m_task);
+                swap(m_cts, other.m_cts);
+                swap(m_cancellable, other.m_cancellable);
+                return *this;
+            }
 
             struct promise_type {
                 promise_type() : m_cancellable(std::make_shared<::winrt::cancellable_promise>()) {}
@@ -837,7 +847,7 @@ namespace util {
             }
             ~task() {
                 // Swallow exceptions, if any
-                if (m_task == decltype(m_task){}) { return; }
+                if (!*this) { return; }
                 m_task.then([](concurrency::task<ReturnWrapType> const& task) {
                     try { task.wait(); }
                     catch (...) {}
@@ -860,6 +870,16 @@ namespace util {
             task() :
                 m_task(), m_cts(concurrency::cancellation_token_source::_FromImpl(nullptr)),
                 m_cancellable(nullptr) {}
+            task(std::nullptr_t) : task() {}
+
+            operator bool() { return m_task != decltype(m_task){}; }
+            auto& operator=(task other) {
+                using std::swap;
+                swap(m_task, other.m_task);
+                swap(m_cts, other.m_cts);
+                swap(m_cancellable, other.m_cancellable);
+                return *this;
+            }
 
             struct promise_type {
                 promise_type() : m_cancellable(std::make_shared<::winrt::cancellable_promise>()) {}
@@ -926,7 +946,7 @@ namespace util {
             }
             ~task() {
                 // Swallow exceptions, if any
-                if (m_task == decltype(m_task){}) { return; }
+                if (!*this) { return; }
                 m_task.then([](concurrency::task<void> const& task) {
                     try { task.wait(); }
                     catch (...) {}

@@ -94,21 +94,23 @@
                             <TextBlock Text="{x:Bind MediaDescription}" Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}" TextWrapping="WrapWholeWords" IsTextSelectionEnabled="True"/>
                             <StackPanel Visibility="{x:Bind ShouldShowPartsList}" Spacing="5">
                                 <TextBlock x:Uid="App/Page/MediaPlayPage/Sidebar/Parts"/>
-                                <ListView x:Name="PartsListView" ItemsSource="{x:Bind PartsList}" SelectionChanged="PartsListView_SelectionChanged" SelectionMode="Single" ScrollViewer.VerticalScrollMode="Disabled">
+                                <ListView x:Name="PartsListView" ItemsSource="{x:Bind PartsList}" SelectionChanged="PartsListView_SelectionChanged" SelectionMode="Single" ScrollViewer.VerticalScrollMode="Disabled" IsRightTapEnabled="True" RightTapped="PartsListView_RightTapped">
                                     <ListView.ItemContainerStyle>
                                         <Style TargetType="ListViewItem">
-                                            <Setter Property="Padding" Value="8,2"/>
+                                            <Setter Property="Padding" Value="0"/>
+                                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
                                         </Style>
                                     </ListView.ItemContainerStyle>
                                     <ListView.ItemTemplate>
                                         <DataTemplate x:DataType="local:MediaPlayPage_PartItem">
-                                            <Grid ColumnSpacing="4">
+                                            <Grid ColumnSpacing="4" Padding="8,0" ToolTipService.ToolTip="{x:Bind PartName}" Background="Transparent">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="Auto"/>
                                                     <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Text="{x:Bind PartNoText}" Foreground="Gray" TextLineBounds="Tight"/>
-                                                <TextBlock Grid.Column="1" Text="{x:Bind PartName}" TextTrimming="CharacterEllipsis" TextLineBounds="Tight"/>
+                                                <TextBlock Grid.Column="0" Text="{x:Bind PartNoText}" Foreground="Gray" TextLineBounds="Tight" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="{x:Bind PartName}" TextTrimming="CharacterEllipsis" TextLineBounds="Tight" VerticalAlignment="Center"/>
                                             </Grid>
                                         </DataTemplate>
                                     </ListView.ItemTemplate>

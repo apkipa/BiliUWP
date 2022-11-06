@@ -187,7 +187,10 @@ namespace BiliUWP {
                 { std::chrono::system_clock::now(), this_level, loc, std::move(str) }
             );
         }
-        void clear_log(void) { m_app_logs.clear(); };
+        void clear_log(void) {
+            std::unique_lock log_guard(m_mutex_app_logs);
+            m_app_logs.clear();
+        }
 
         // Authentication
         bool is_logged_in(void);
@@ -237,6 +240,7 @@ namespace BiliUWP {
         //       with state stored in AppTab?
         winrt::Windows::UI::Xaml::Controls::Frame m_glob_frame;
         util::debug::LogLevel m_cur_log_level;
+        std::shared_mutex m_mutex_app_logs;
         std::vector<LogDesc> m_app_logs;
         AppLoggingProvider* m_logging_provider;
         winrt::Windows::Storage::StorageFile m_cur_log_file;

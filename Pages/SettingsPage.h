@@ -31,7 +31,7 @@ namespace winrt::BiliUWP::implementation {
             Windows::Foundation::IInspectable const&,
             Windows::UI::Xaml::RoutedEventArgs const&
         );
-        fire_forget_except ViewLicensesButton_Click(
+        void ViewLicensesButton_Click(
             Windows::Foundation::IInspectable const&,
             Windows::UI::Xaml::RoutedEventArgs const&
         );

@@ -29,8 +29,9 @@ namespace winrt::BiliUWP::implementation {
         });
     }
     IAsyncOperation<SimpleContentDialogResult> SimpleContentDialog::ShowAsync() {
-        // TODO: Finish SimpleContentDialog::ShowAsync()
         using namespace std::chrono_literals;
+
+        auto strong_this = get_strong();
 
         m_finish_event.reset();
 
@@ -54,6 +55,12 @@ namespace winrt::BiliUWP::implementation {
         SimpleContentDialog::KeyDown_revoker key_down_revoker;
 
         SimpleContentDialogResult result = SimpleContentDialogResult::None;
+
+        struct shared_data : std::enable_shared_from_this<shared_data> {
+            std::mutex mutex;
+            bool should_continue = true;
+        };
+        auto sdata = std::make_shared<shared_data>();
 
         auto run_fn = [&] {
             unsigned show_primary = PrimaryButtonText() != L"";
@@ -101,20 +108,22 @@ namespace winrt::BiliUWP::implementation {
             run_fn();
         }
         else {
-            loaded_revoker = Loaded(auto_revoke, [&](IInspectable const&, RoutedEventArgs const&) {
+            loaded_revoker = Loaded(auto_revoke, [&, sdata](IInspectable const&, RoutedEventArgs const&) {
+                std::scoped_lock guard(sdata->mutex);
+                if (!sdata->should_continue) { return; }
                 run_fn();
             });
         }
 
-        auto weak_this = get_weak();
-        co_await m_finish_event;
-        auto strong_this = weak_this.get();
-        if (!strong_this) {
-            // Self is long gone; destroy self immediately
-            co_return SimpleContentDialogResult::None;
+        {
+            deferred([&] {
+                std::scoped_lock guard(sdata->mutex);
+                sdata->should_continue = false;
+            });
+            co_await m_finish_event;
         }
-
         co_await Dispatcher();
+
         if (IsLoaded()) {
             // TODO: Reusing m_finish_event may not be reliable enough here
             m_finish_event.reset();
