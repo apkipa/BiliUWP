@@ -27,12 +27,12 @@
         <Pivot x:Name="TabsPivot">
             <PivotItem x:Uid="App/Page/UserPage/Tabs/Videos">
                 <local:AdaptiveGridView x:Name="VideosItemsGridView"
-                                    SelectionMode="None"
-                                    IsItemClickEnabled="True"
-                                    ItemClick="VideosItemsGridView_ItemClick"
-                                    StretchContentForSingleRow="False"
-                                    DesiredWidth="350"
-                                    ItemHeight="90">
+                                        SelectionMode="None"
+                                        IsItemClickEnabled="True"
+                                        ItemClick="VideosItemsGridView_ItemClick"
+                                        StretchContentForSingleRow="False"
+                                        DesiredWidth="350"
+                                        ItemHeight="90">
                     <local:AdaptiveGridView.ItemContainerStyle>
                         <Style TargetType="GridViewItem">
                             <Setter Property="Margin" Value="3,6,3,0"/>
@@ -64,7 +64,7 @@
                                     <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="20">
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock FontFamily="{ThemeResource SymbolThemeFontFamily}" Text="&#xE768;  " FontSize="12" Margin="0,0,0,1" VerticalAlignment="Center" TextLineBounds="Tight"/>
-                                            <TextBlock Text="{x:Bind PlayCount}" TextLineBounds="Tight" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{x:Bind PlayCountStr}" TextLineBounds="Tight" VerticalAlignment="Center"/>
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock FontFamily="{ThemeResource SymbolThemeFontFamily}" Text="&#xEA55;  " FontSize="12" VerticalAlignment="Center" TextLineBounds="Tight"/>

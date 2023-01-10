@@ -9,6 +9,7 @@
 #include "App.h"
 #include <deque>
 #include <ranges>
+#include <regex>
 
 using namespace winrt;
 using namespace Windows::Foundation;
@@ -135,27 +136,35 @@ namespace winrt::BiliUWP::implementation {
 namespace winrt::BiliUWP::implementation {
     MediaPlayPage::MediaPlayPage() :
         m_cfg_model(::BiliUWP::App::get()->cfg_model()),
-        m_http_client(nullptr), m_bili_res_is_ready(false),
+        m_http_client(nullptr), m_http_client_m(nullptr),
+        m_bili_res_is_ready(false),
         m_up_list(single_threaded_observable_vector<IInspectable>()),
         m_parts_list(single_threaded_observable_vector<IInspectable>()),
-        m_detailed_stats_update_timer(nullptr)
+        m_detailed_stats_update_timer(nullptr),
+        m_use_1p_data(false)
     {
         using namespace Windows::Web::Http;
         using namespace Windows::Web::Http::Filters;
 
         MediaPlayPageT::InitializeComponent();
 
-        auto http_filter = HttpBaseProtocolFilter();
-        auto cache_control = http_filter.CacheControl();
-        cache_control.ReadBehavior(HttpCacheReadBehavior::NoCache);
-        cache_control.WriteBehavior(HttpCacheWriteBehavior::NoCache);
-        http_filter.AllowAutoRedirect(false);
-        m_http_client = HttpClient(http_filter);
-        auto http_client_drh = m_http_client.DefaultRequestHeaders();
-        auto user_agent = http_client_drh.UserAgent();
-        user_agent.Clear();
-        user_agent.ParseAdd(L"Mozilla/5.0 BiliDroid/6.4.0 (bbcallen@gmail.com)");
-        http_client_drh.Referer(Uri(L"https://www.bilibili.com"));
+        auto make_http_client_fn = [] {
+            auto http_filter = HttpBaseProtocolFilter();
+            auto cache_control = http_filter.CacheControl();
+            cache_control.ReadBehavior(HttpCacheReadBehavior::NoCache);
+            cache_control.WriteBehavior(HttpCacheWriteBehavior::NoCache);
+            http_filter.AllowAutoRedirect(false);
+            auto http_client = HttpClient(http_filter);
+            auto http_client_drh = http_client.DefaultRequestHeaders();
+            auto user_agent = http_client_drh.UserAgent();
+            user_agent.Clear();
+            user_agent.ParseAdd(L"Mozilla/5.0 BiliDroid/6.4.0 (bbcallen@gmail.com)");
+            http_client_drh.Referer(Uri(L"https://www.bilibili.com"));
+            return http_client;
+        };
+
+        m_http_client = make_http_client_fn();
+        m_http_client_m = make_http_client_fn();
     }
     void MediaPlayPage::InitializeComponent() {
         MediaPlayPageT::InitializeComponent();
@@ -164,23 +173,25 @@ namespace winrt::BiliUWP::implementation {
             ToggleMenuFlyoutItem::IsCheckedProperty(),
             [this](DependencyObject const& sender, DependencyProperty const&) {
                 auto media_detailed_stats_overlay = MediaDetailedStatsOverlay();
-                if (sender.as<ToggleMenuFlyoutItem>().IsChecked()) {
-                    media_detailed_stats_overlay.Visibility(Visibility::Visible);
-                    if (m_detailed_stats_update_timer) {
-                        m_detailed_stats_update_timer.Start();
-                        m_detailed_stats_provider->TimerStarted();
-                    }
-                }
-                else {
-                    media_detailed_stats_overlay.Visibility(Visibility::Collapsed);
-                    if (m_detailed_stats_update_timer) {
-                        m_detailed_stats_update_timer.Stop();
-                        m_detailed_stats_provider->TimerStopped();
-                    }
-                }
+        if (sender.as<ToggleMenuFlyoutItem>().IsChecked()) {
+            media_detailed_stats_overlay.Visibility(Visibility::Visible);
+            if (m_detailed_stats_update_timer) {
+                m_detailed_stats_update_timer.Start();
+                m_detailed_stats_provider->TimerStarted();
+            }
+        }
+        else {
+            media_detailed_stats_overlay.Visibility(Visibility::Collapsed);
+            if (m_detailed_stats_update_timer) {
+                m_detailed_stats_update_timer.Stop();
+                m_detailed_stats_provider->TimerStopped();
+            }
+        }
             }
         );
         MediaDetailedStatsToggleMenuItem().IsChecked(m_cfg_model.App_ShowDetailedStats());
+
+        this->SubmitMediaPlaybackSourceToNativePlayer(nullptr);
     }
     fire_forget_except MediaPlayPage::final_release(std::unique_ptr<MediaPlayPage> ptr) noexcept {
         // Gracefully release MediaPlayer and prevent UI from freezing
@@ -275,7 +286,7 @@ namespace winrt::BiliUWP::implementation {
         mfi_copy_part_title.Text(::BiliUWP::App::res_str(L"App/Page/MediaPlayPage/Sidebar/CopyPartTitle"));
         mfi_copy_part_title.Click([part_title = vi.PartName()](IInspectable const&, RoutedEventArgs const&) {
             util::winrt::set_clipboard_text(part_title, true);
-        });
+            });
         mf.Items().Append(mfi_copy_part_title);
         mf.ShowAt(items_view, e.GetPosition(items_view));
     }
@@ -377,8 +388,8 @@ namespace winrt::BiliUWP::implementation {
         m_bili_res_is_ready = false;
         deferred([&weak_store] {
             if (!weak_store.lock()) { return; }
-            weak_store->m_bili_res_is_ready = true;
-        });
+        weak_store->m_bili_res_is_ready = true;
+            });
         m_media_info = std::monostate{};
 
         // Body
@@ -386,6 +397,7 @@ namespace winrt::BiliUWP::implementation {
         m_media_info = std::move(co_await weak_store.ual(client->video_view_info(std::move(vid))));
         auto& video_vinfo = std::get<::BiliUWP::VideoViewInfoResult>(m_media_info);
         m_bili_res_is_ready = true;
+        m_use_1p_data = true;
         m_up_list.Clear();
         m_up_list.Append(make<MediaPlayPage_UpItem>(
             video_vinfo.owner.name, video_vinfo.owner.face_url, video_vinfo.owner.mid));
@@ -412,32 +424,972 @@ namespace winrt::BiliUWP::implementation {
         }
         media_details_overlay.SwitchToHidden();
     }
+    // NOTE: VideoType+PlayerType+FetchingBackendType
+    IRandomAccessStream MediaPlayPage::PlayVideoWithCidInner_DashNative_MakeDashMpdStream(
+        ::BiliUWP::VideoPlayUrl_Dash const& dash_info,
+        ::BiliUWP::VideoPlayUrl_Dash_Stream const& vstream,
+        ::BiliUWP::VideoPlayUrl_Dash_Stream const* pastream
+    ) {
+        // Generate Dash MPD from parsed dash info on the fly
+        // TODO: Add support for backup url
+        // Dash MPD specification: refer to ISO IEC 23009-1
+        // NOTE: minBufferTime type: xs:duration ("PT<Time description>")
+        std::wstring dash_mpd_str;
+        if (pastream) {
+            // Normal (video + audio)
+            dash_mpd_str = std::format(LR"(<?xml version="1.0" encoding="utf-8"?>)"
+                R"(<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT{}S" type="static">)"
+                R"(<Period start="PT0S">)"
+                R"(<AdaptationSet contentType="video">)"
+                R"(<Representation id="{}" bandwidth="{}" mimeType="{}" codecs="{}" startWithSAP="{}" sar="{}" frame_rate="{}" width="{}" height="{}">)"
+                R"(<SegmentBase indexRange="{}"><Initialization range="{}"/></SegmentBase>)"
+                R"(</Representation>)"
+                R"(</AdaptationSet>)"
+                R"(<AdaptationSet contentType="audio">)"
+                R"(<Representation id="{}" bandwidth="{}" mimeType="{}" codecs="{}" startWithSAP="{}">)"
+                R"(<SegmentBase indexRange="{}"><Initialization range="{}"/></SegmentBase>)"
+                R"(</Representation>)"
+                R"(</AdaptationSet>)"
+                R"(</Period>)"
+                R"(</MPD>)",
+                dash_info.min_buffer_time,
+                vstream.id, vstream.bandwidth, vstream.mime_type, vstream.codecs,
+                vstream.start_with_sap, vstream.sar, vstream.frame_rate,
+                vstream.width, vstream.height,
+                vstream.segment_base.index_range, vstream.segment_base.initialization,
+                pastream->id, pastream->bandwidth, pastream->mime_type, pastream->codecs,
+                pastream->start_with_sap,
+                pastream->segment_base.index_range, pastream->segment_base.initialization
+            );
+        }
+        else {
+            // Video only
+            dash_mpd_str = std::format(LR"(<?xml version="1.0" encoding="utf-8"?>)"
+                R"(<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT{}S" type="static">)"
+                R"(<Period start="PT0S">)"
+                R"(<AdaptationSet contentType="video">)"
+                R"(<Representation id="{}" bandwidth="{}" mimeType="{}" codecs="{}" startWithSAP="{}" sar="{}" frame_rate="{}" width="{}" height="{}">)"
+                R"(<SegmentBase indexRange="{}"><Initialization range="{}"/></SegmentBase>)"
+                R"(</Representation>)"
+                R"(</AdaptationSet>)"
+                R"(</Period>)"
+                R"(</MPD>)",
+                dash_info.min_buffer_time,
+                vstream.id, vstream.bandwidth, vstream.mime_type, vstream.codecs,
+                vstream.start_with_sap, vstream.sar, vstream.frame_rate,
+                vstream.width, vstream.height,
+                vstream.segment_base.index_range, vstream.segment_base.initialization
+            );
+        }
+        util::debug::log_trace(std::format(L"Generated dash: {}", dash_mpd_str));
+        return util::winrt::string_to_utf8_stream(hstring(dash_mpd_str));
+    }
+    util::winrt::task<MediaPlayPage::MediaSrcDetailedStatsPair> MediaPlayPage::PlayVideoWithCidInner_DashNativeNative(
+        ::BiliUWP::VideoPlayUrl_Dash const& dash_info,
+        ::BiliUWP::VideoPlayUrl_Dash_Stream const& vstream,
+        ::BiliUWP::VideoPlayUrl_Dash_Stream const* pastream
+    ) {
+        auto cancellation_token = co_await get_cancellation_token();
+        cancellation_token.enable_propagation();
+        auto weak_store = util::winrt::make_weak_storage(*this);
+
+        auto adaptive_media_src_result = co_await weak_store.ual(AdaptiveMediaSource::CreateFromStreamAsync(
+            PlayVideoWithCidInner_DashNative_MakeDashMpdStream(dash_info, vstream, pastream),
+            Uri(L"about:blank"),
+            L"application/dash+xml",
+            m_http_client_m
+        ));
+        if (adaptive_media_src_result.Status() != AdaptiveMediaSourceCreationStatus::Success) {
+            auto hresult = adaptive_media_src_result.ExtendedError();
+            throw hresult_error(E_FAIL, std::format(L"Dash parse failed: {} (0x{:08x}: {})",
+                std::to_underlying(adaptive_media_src_result.Status()),
+                static_cast<uint32_t>(hresult),
+                hresult_error(hresult).message()
+            ));
+        }
+        auto adaptive_media_src = adaptive_media_src_result.MediaSource();
+
+        // Post setup (detailed stats & DownloadRequested event)
+        static constexpr auto UPDATE_INTERVAL = std::chrono::milliseconds(500);
+        struct shared_stats_data : std::enable_shared_from_this<shared_stats_data> {
+            void reset(void) {
+                last_start_ts = std::chrono::high_resolution_clock::now();
+                connection_duration = {};
+                requests_delta = 0;
+                bytes_delta = 0;
+            }
+            shared_stats_data() : is_monitoring(false), active_connections(0) { reset(); }
+            std::atomic_bool is_monitoring;
+            std::mutex rw_mutex;
+            // NOTE: Mutex-protected data below
+            uint64_t active_connections;
+            std::chrono::high_resolution_clock::time_point last_start_ts;
+            std::chrono::high_resolution_clock::duration connection_duration;
+            uint64_t requests_delta;
+            uint64_t bytes_delta;
+        };
+        std::shared_ptr<shared_stats_data> shared_data = std::make_shared<shared_stats_data>();
+        struct DetailedStatsProvider_AdaptiveMediaSource : DetailedStatsProvider {
+            DetailedStatsProvider_AdaptiveMediaSource(
+                hstring mime_type,
+                hstring resolution,
+                hstring video_host, hstring audio_host,
+                std::shared_ptr<shared_stats_data> shared_data
+            ) : m_mime_type(std::move(mime_type)),
+                m_resolution(std::move(resolution)),
+                m_video_host(std::move(video_host)), m_audio_host(std::move(audio_host)),
+                m_shared_data(std::move(shared_data)) {}
+            void InitStats(DetailedStatsContext* ctx) {
+                using util::winrt::make_text_block;
+                ctx->AddElement(L"Mime Type", make_text_block(m_mime_type));
+                ctx->AddElement(L"Player Type", make_text_block(L"NativeDashPlayer <- NativeBuffering"));
+                ctx->AddElement(L"Resolution", make_text_block(m_resolution));
+                ctx->AddElement(L"Video Host", make_text_block(m_video_host));
+                ctx->AddElement(L"Audio Host", make_text_block(m_audio_host));
+                ctx->AddElement(L"Connection Speed", m_conn_speed);
+                ctx->AddElement(L"Network Activity", m_net_activity);
+                ctx->AddElement(L"Mystery Text", m_mystery_text_tb);
+            }
+            std::optional<TimeSpan> DesiredUpdateInterval(void) {
+                return UPDATE_INTERVAL;
+            }
+            void TimerStarted(void) {
+                m_shared_data->is_monitoring.store(true);
+                std::scoped_lock guard(m_shared_data->rw_mutex);
+                m_shared_data->reset();
+            }
+            void TimerStopped(void) {
+                m_shared_data->is_monitoring.store(false);
+            }
+            void UpdateStats(DetailedStatsContext* ctx) {
+                using util::str::byte_size_to_str;
+                using util::str::bit_size_to_str;
+                static constexpr size_t MAX_POINTS = 60;
+                auto add_point_fn = [](auto& container, std::decay_t<decltype(container)>::value_type value) {
+                    if (container.size() >= MAX_POINTS) {
+                        container.pop_front();
+                    }
+                    container.push_back(std::move(value));
+                };
+                uint64_t cur_downloaded_bytes_delta, cur_active_connections_count;
+                uint64_t cur_sent_requests_delta;
+                uint64_t cur_inbound_bits_per_second;
+                {   // Get & clear metrics
+                    std::scoped_lock guard(m_shared_data->rw_mutex);
+                    cur_active_connections_count = m_shared_data->active_connections;
+                    cur_downloaded_bytes_delta = m_shared_data->bytes_delta;
+                    auto actual_duration = m_shared_data->connection_duration;
+                    if (m_shared_data->active_connections > 0) {
+                        actual_duration +=
+                            std::chrono::high_resolution_clock::now() - m_shared_data->last_start_ts;
+                    }
+                    auto actual_dur_secs = std::chrono::duration<double>(actual_duration).count();
+                    auto inbound_bytes_per_sec = actual_dur_secs == 0 ? 0 :
+                        m_shared_data->bytes_delta / actual_dur_secs;
+                    cur_inbound_bits_per_second =
+                        static_cast<uint64_t>(std::llround(inbound_bytes_per_sec * 8));
+                    cur_sent_requests_delta = m_shared_data->requests_delta;
+                    m_shared_data->reset();
+                }
+                if (cur_active_connections_count == 0 && cur_downloaded_bytes_delta == 0) {
+                    add_point_fn(
+                        m_conn_speed_points,
+                        m_conn_speed_points.empty() ? 0 : m_conn_speed_points.back()
+                    );
+                }
+                else {
+                    add_point_fn(m_conn_speed_points, cur_inbound_bits_per_second);
+                }
+                m_conn_speed.update([](uint64_t cur_val, uint64_t max_val) -> hstring {
+                    return hstring(std::format(
+                        L"{}ps / {}ps",
+                        bit_size_to_str(cur_val),
+                        bit_size_to_str(max_val)
+                    ));
+                }, m_conn_speed_points, MAX_POINTS);
+                add_point_fn(m_net_activity_points, cur_downloaded_bytes_delta);
+                m_net_activity.update([](uint64_t cur_val, uint64_t max_val) -> hstring {
+                    return hstring(
+                        byte_size_to_str(cur_val, 1e2) + L" / " +
+                        byte_size_to_str(max_val, 1e2)
+                    );
+                }, m_net_activity_points, MAX_POINTS);
+                // Update mystery text
+                m_mystery_text_tb.Text(hstring(std::format(
+                    L"c:{} rd:{}", cur_active_connections_count, cur_sent_requests_delta
+                )));
+            }
+        private:
+            hstring m_mime_type;
+            hstring m_resolution;
+            hstring m_video_host, m_audio_host;
+
+            std::shared_ptr<shared_stats_data> m_shared_data;
+            PolylineWithTextElemForDetailedStats m_conn_speed;
+            std::deque<uint64_t> m_conn_speed_points;
+            PolylineWithTextElemForDetailedStats m_net_activity;
+            std::deque<uint64_t> m_net_activity_points;
+            TextBlock m_mystery_text_tb;
+        };
+
+        auto vuri = Uri(vstream.base_url);
+        auto auri = pastream ? Uri(pastream->base_url) : nullptr;
+        auto ds_provider = std::make_shared<DetailedStatsProvider_AdaptiveMediaSource>(
+            hstring(pastream ? std::format(
+                L"{};codecs=\"{}\" | {};codecs=\"{}\"",
+                vstream.mime_type, vstream.codecs,
+                pastream->mime_type, pastream->codecs) : std::format(
+                L"{};codecs=\"{}\"",
+                vstream.mime_type, vstream.codecs
+            )),
+            hstring(std::format(L"{}x{}@{}", vstream.width, vstream.height, vstream.frame_rate)),
+            vuri.Host(), auri ? auri.Host() : L"N/A",
+            shared_data
+        );
+
+        // UNLIKELY TODO: Add support for DownloadFailed event (refresh urls)
+
+        // Use buffer replacing (may waste some memory)
+        adaptive_media_src.DownloadRequested(
+            [http_client = m_http_client_m, vuri = std::move(vuri), auri = std::move(auri),
+            shared_data = std::move(shared_data)]
+        (AdaptiveMediaSource const&, AdaptiveMediaSourceDownloadRequestedEventArgs const& e) -> fire_forget_except {
+                co_safe_capture(shared_data);
+                Uri target_uri{ nullptr };
+                if (e.ResourceContentType().starts_with(L"video")) { target_uri = vuri; }
+                else if (e.ResourceContentType().starts_with(L"audio")) { target_uri = auri; }
+                else {
+                    util::debug::log_error(L"DownloadRequested: Suspicious: Hacked nothing");
+                    co_return;
+                }
+                if (!target_uri) {
+                    util::debug::log_error(L"DownloadRequested: Cannot fetch a non-existent uri");
+                    co_return;
+                }
+                auto result = e.Result();
+                if (!result) {
+                    util::debug::log_error(L"DownloadRequested: Result is nullptr");
+                    co_return;
+                }
+                auto o_content_start = e.ResourceByteRangeOffset().try_as<uint64_t>();
+                auto o_content_size = e.ResourceByteRangeLength().try_as<uint64_t>();
+                if (!(o_content_start && o_content_size)) {
+                    util::debug::log_warn(L"DownloadRequested: No span info provided, falling back to uri");
+                    result.ResourceUri(target_uri);
+                    co_return;
+                }
+                auto content_start = *o_content_start;
+                auto content_size = *o_content_size;
+                {
+                    std::scoped_lock guard(shared_data->rw_mutex);
+                    if (shared_data->is_monitoring.load()) {
+                        shared_data->requests_delta++;
+                    }
+                    if (shared_data->active_connections++ == 0) {
+                        shared_data->last_start_ts = std::chrono::high_resolution_clock::now();
+                    }
+                }
+                deferred([&] {
+                    std::scoped_lock guard(shared_data->rw_mutex);
+                    if (--shared_data->active_connections == 0) {
+                        if (shared_data->is_monitoring.load()) {
+                            shared_data->connection_duration +=
+                                std::chrono::high_resolution_clock::now() - shared_data->last_start_ts;
+                        }
+                    }
+                });
+                util::debug::log_trace(std::format(L"Fetching partial http: {}+{}",
+                    content_start, content_size));
+                auto read_op = util::winrt::fetch_partial_http_as_buffer(
+                    target_uri, http_client,
+                    content_start, content_size
+                );
+                uint64_t cur_progress = 0;
+                read_op.Progress([&](auto const&, uint64_t progress) {
+                    if (shared_data->is_monitoring.load()) {
+                        std::scoped_lock guard(shared_data->rw_mutex);
+                        shared_data->bytes_delta += progress - cur_progress;
+                    }
+                    cur_progress = progress;
+                });
+                auto deferral = e.GetDeferral();
+                deferred([&] { deferral.Complete(); });
+                result.Buffer(co_await read_op);
+            }
+        );
+
+        co_return{ MediaSource::CreateFromAdaptiveMediaSource(adaptive_media_src), std::move(ds_provider) };
+    }
+    util::winrt::task<MediaPlayPage::MediaSrcDetailedStatsPair> MediaPlayPage::PlayVideoWithCidInner_DashNativeHras(
+        ::BiliUWP::VideoPlayUrl_Dash const& dash_info,
+        ::BiliUWP::VideoPlayUrl_Dash_Stream const& vstream,
+        ::BiliUWP::VideoPlayUrl_Dash_Stream const& astream,
+        std::function<util::winrt::task<PlayUrlDashStreamPair>(void)> get_new_stream_fn
+    ) {
+        auto cancellation_token = co_await get_cancellation_token();
+        cancellation_token.enable_propagation();
+        auto weak_store = util::winrt::make_weak_storage(*this);
+
+        auto adaptive_media_src_result = co_await weak_store.ual(AdaptiveMediaSource::CreateFromStreamAsync(
+            PlayVideoWithCidInner_DashNative_MakeDashMpdStream(dash_info, vstream, &astream),
+            Uri(L"about:blank"),
+            L"application/dash+xml",
+            m_http_client_m
+        ));
+        if (adaptive_media_src_result.Status() != AdaptiveMediaSourceCreationStatus::Success) {
+            auto hresult = adaptive_media_src_result.ExtendedError();
+            throw hresult_error(E_FAIL, std::format(L"Dash parse failed: {} (0x{:08x}: {})",
+                std::to_underlying(adaptive_media_src_result.Status()),
+                static_cast<uint32_t>(hresult),
+                hresult_error(hresult).message()
+            ));
+        }
+        auto adaptive_media_src = adaptive_media_src_result.MediaSource();
+
+        // Post setup (detailed stats & DownloadRequested event)
+        auto vuri = Uri(vstream.base_url);
+        auto auri = Uri(astream.base_url);
+
+        /*auto vhras = co_await weak_store.ual(HttpRandomAccessStream::CreateAsync(
+            vuri,
+            m_http_client_m,
+            HttpRandomAccessStreamBufferOptions::Full,
+            0, false
+        ));
+        auto ahras = co_await weak_store.ual(HttpRandomAccessStream::CreateAsync(
+            auri,
+            m_http_client_m,
+            HttpRandomAccessStreamBufferOptions::Full,
+            0, false
+        ));*/
+        BiliUWP::HttpRandomAccessStream vhras{ nullptr }, ahras{ nullptr };
+        {
+            auto vhrasop = BiliUWP::HttpRandomAccessStream::CreateAsync(
+                vuri,
+                m_http_client_m,
+                HttpRandomAccessStreamBufferOptions::Full,
+                0, false
+            );
+            auto ahrasop = BiliUWP::HttpRandomAccessStream::CreateAsync(
+                auri,
+                m_http_client_m,
+                HttpRandomAccessStreamBufferOptions::Full,
+                0, false
+            );
+            vhras = co_await weak_store.ual(std::move(vhrasop));
+            ahras = co_await weak_store.ual(std::move(ahrasop));
+        }
+
+        // TODO: Improve new uri supplying logic
+        auto add_backup_uris_fn = [](BiliUWP::HttpRandomAccessStream const& hras, auto const& urls) {
+            std::vector<Uri> supply_uris;
+            for (auto const& i : urls) { supply_uris.emplace_back(i); }
+            hras.SupplyNewUri(supply_uris);
+        };
+        add_backup_uris_fn(vhras, vstream.backup_url);
+        add_backup_uris_fn(ahras, astream.backup_url);
+        auto new_uri_requested_inner_fn = [get_new_stream_fn = std::move(get_new_stream_fn),
+            weak_vhras = make_weak(vhras), weak_ahras = make_weak(ahras)
+        ](void) -> util::winrt::task<>
+        {
+            auto vhras = weak_vhras.get();
+            if (!vhras) { co_return; }
+            auto ahras = weak_ahras.get();
+            if (!ahras) { co_return; }
+            util::debug::log_debug(L"NewUriRequested: Getting new links");
+            // SAFETY: get_new_stream_fn is no longer used after any suspension points
+            auto [vstream, astream] = std::move(co_await get_new_stream_fn());
+            std::vector<Uri> supply_uris;
+            supply_uris.emplace_back(vstream.base_url);
+            for (auto const& i : vstream.backup_url) { supply_uris.emplace_back(i); }
+            vhras.SupplyNewUri(supply_uris);
+            supply_uris.clear();
+            supply_uris.emplace_back(astream.base_url);
+            for (auto const& i : astream.backup_url) { supply_uris.emplace_back(i); }
+            ahras.SupplyNewUri(supply_uris);
+            util::debug::log_debug(L"NewUriRequested: Done getting new links");
+        };
+        struct new_uri_requested_shared_data {
+            std::mutex mutex;
+            util::winrt::task<> op;
+        };
+        auto new_uri_requested_fn = [=, shared_data = std::make_shared<new_uri_requested_shared_data>()]
+        (BiliUWP::HttpRandomAccessStream const&, BiliUWP::NewUriRequestedEventArgs const& e) -> fire_forget_except
+        {
+            co_safe_capture(shared_data);
+            auto deferral = e.GetDeferral();
+            deferred([&] { deferral.Complete(); });
+            bool owns_op = false;
+            util::winrt::task<> op = nullptr;
+            auto correlation_id = static_cast<uint32_t>(util::num::gen_global_seqid());
+            {
+                std::scoped_lock guard(shared_data->mutex);
+                op = shared_data->op;
+                if (!op) {
+                    util::debug::log_trace(std::format(L"Establishing inner NRU async operation (CorrelationId: {:08x})", correlation_id));
+                    op = shared_data->op = new_uri_requested_inner_fn();
+                    owns_op = true;
+                }
+            }
+            deferred([&] {
+                if (owns_op) {
+                    util::debug::log_trace(std::format(L"Releasing inner NRU async operation (CorrelationId: {:08x})", correlation_id));
+                    std::scoped_lock guard(shared_data->mutex);
+                    shared_data->op = nullptr;
+                }
+            });
+            util::debug::log_trace(std::format(L"Waiting for inner NRU async operation to complete (CorrelationId: {:08x})", correlation_id));
+            co_await op;
+            util::debug::log_trace(std::format(L"Done awaiting inner NRU async operation (CorrelationId: {:08x})", correlation_id));
+        };
+        vhras.NewUriRequested(new_uri_requested_fn);
+        ahras.NewUriRequested(new_uri_requested_fn);
+
+        // Fetch ahead, so we can make sure opening will succeed
+        {
+            constexpr uint32_t bufsize = 4;
+            auto vop = vhras.ReadAsync(Buffer(bufsize), bufsize, InputStreamOptions::None);
+            auto aop = ahras.ReadAsync(Buffer(bufsize), bufsize, InputStreamOptions::None);
+            co_await std::move(vop);
+            co_await std::move(aop);
+            vhras.Seek(0);
+            ahras.Seek(0);
+        }
+
+        static constexpr auto UPDATE_INTERVAL = std::chrono::milliseconds(500);
+        struct shared_stats_data : std::enable_shared_from_this<shared_stats_data> {
+            shared_stats_data(
+                BiliUWP::HttpRandomAccessStream in_vhras, BiliUWP::HttpRandomAccessStream in_ahras
+            ) : vhras(in_vhras), ahras(in_ahras), last_failed(false) {}
+            BiliUWP::HttpRandomAccessStream vhras, ahras;
+            std::atomic_bool last_failed;
+        };
+        std::shared_ptr<shared_stats_data> shared_data = std::make_shared<shared_stats_data>(
+            vhras, ahras);
+        struct DetailedStatsProvider_AdaptiveMediaSource : DetailedStatsProvider {
+            DetailedStatsProvider_AdaptiveMediaSource(
+                hstring mime_type,
+                hstring resolution,
+                std::shared_ptr<shared_stats_data> shared_data
+            ) : m_mime_type(std::move(mime_type)),
+                m_resolution(std::move(resolution)),
+                m_shared_data(std::move(shared_data)) {}
+            void InitStats(DetailedStatsContext* ctx) {
+                using util::winrt::make_text_block;
+                ctx->AddElement(L"Mime Type", make_text_block(m_mime_type));
+                ctx->AddElement(L"Player Type", make_text_block(
+                    L"NativeDashPlayer <- NativeBuffering <- HRAS(Full)"
+                ));
+                ctx->AddElement(L"Resolution", make_text_block(m_resolution));
+                ctx->AddElement(L"Video Host", m_video_host_tb);
+                ctx->AddElement(L"Audio Host", m_audio_host_tb);
+                ctx->AddElement(L"Video Speed", m_video_conn_speed);
+                ctx->AddElement(L"Audio Speed", m_audio_conn_speed);
+                ctx->AddElement(L"Network Activity", m_net_activity);
+                ctx->AddElement(L"Mystery Text", m_mystery_text_tb);
+            }
+            std::optional<TimeSpan> DesiredUpdateInterval(void) {
+                return UPDATE_INTERVAL;
+            }
+            void TimerStarted(void) {
+                m_shared_data->vhras.EnableMetricsCollection(true, 0);
+                m_shared_data->vhras.GetMetrics(true);
+                m_shared_data->ahras.EnableMetricsCollection(true, 0);
+                m_shared_data->ahras.GetMetrics(true);
+            }
+            void TimerStopped(void) {
+                m_shared_data->vhras.EnableMetricsCollection(false, 0);
+                m_shared_data->ahras.EnableMetricsCollection(false, 0);
+            }
+            void UpdateStats(DetailedStatsContext* ctx) {
+                using util::str::byte_size_to_str;
+                using util::str::bit_size_to_str;
+                static constexpr size_t MAX_POINTS = 60;
+                auto vmetrics = m_shared_data->vhras.GetMetrics(true);
+                auto ametrics = m_shared_data->ahras.GetMetrics(true);
+                auto add_point_fn = [](auto& container, std::decay_t<decltype(container)>::value_type value) {
+                    if (container.size() >= MAX_POINTS) {
+                        container.pop_front();
+                    }
+                    container.push_back(std::move(value));
+                };
+                auto update_conn_speed_fn = [&](auto& metrics, auto& elem, auto& points) {
+                    if (metrics.ActiveConnectionsCount == 0 && metrics.DownloadedBytesDelta == 0) {
+                        add_point_fn(points, points.empty() ? 0 : points.back());
+                    }
+                    else {
+                        add_point_fn(points, metrics.InboundBitsPerSecond);
+                    }
+                    elem.update([](uint64_t cur_val, uint64_t max_val) -> hstring {
+                        return hstring(std::format(
+                            L"{}ps / {}ps",
+                            bit_size_to_str(cur_val),
+                            bit_size_to_str(max_val)
+                        ));
+                    }, points, MAX_POINTS);
+                };
+                auto update_host_fn = [](auto const& hras, auto const& tb) {
+                    auto uris = hras.GetActiveUris();
+                    switch (uris.size()) {
+                    case 0:
+                        tb.Text(L"N/A");
+                        break;
+                    case 1:
+                        tb.Text(uris[0].Host());
+                        break;
+                    default:
+                        tb.Text(std::format(L"{} (+{})", uris[0].Host(), uris.size() - 1));
+                        break;
+                    }
+                };
+                update_conn_speed_fn(vmetrics, m_video_conn_speed, m_video_conn_speed_points);
+                update_host_fn(m_shared_data->vhras, m_video_host_tb);
+                update_conn_speed_fn(ametrics, m_audio_conn_speed, m_audio_conn_speed_points);
+                update_host_fn(m_shared_data->ahras, m_audio_host_tb);
+                add_point_fn(m_net_activity_points,
+                    vmetrics.DownloadedBytesDelta + ametrics.DownloadedBytesDelta);
+                m_net_activity.update([](uint64_t cur_val, uint64_t max_val) -> hstring {
+                    return hstring(
+                        byte_size_to_str(cur_val, 1e2) + L" / " +
+                        byte_size_to_str(max_val, 1e2)
+                    );
+                }, m_net_activity_points, MAX_POINTS);
+                // Update mystery text
+                m_mystery_text_tb.Text(hstring(std::format(
+                    L"c:{} rd:{} hrasb:{}/{}",
+                    vmetrics.ActiveConnectionsCount + ametrics.ActiveConnectionsCount,
+                    vmetrics.SentRequestsDelta + ametrics.SentRequestsDelta,
+                    vmetrics.UsedBufferSize + ametrics.UsedBufferSize,
+                    vmetrics.AllocatedBufferSize + ametrics.AllocatedBufferSize
+                )));
+            }
+        private:
+            hstring m_mime_type;
+            hstring m_resolution;
+
+            std::shared_ptr<shared_stats_data> m_shared_data;
+            TextBlock m_video_host_tb;
+            TextBlock m_audio_host_tb;
+            PolylineWithTextElemForDetailedStats m_video_conn_speed;
+            std::deque<uint64_t> m_video_conn_speed_points;
+            PolylineWithTextElemForDetailedStats m_audio_conn_speed;
+            std::deque<uint64_t> m_audio_conn_speed_points;
+            PolylineWithTextElemForDetailedStats m_net_activity;
+            std::deque<uint64_t> m_net_activity_points;
+            TextBlock m_mystery_text_tb;
+        };
+
+        auto ds_provider = std::make_shared<DetailedStatsProvider_AdaptiveMediaSource>(
+            hstring(std::format(
+                L"{};codecs=\"{}\" | {};codecs=\"{}\"",
+                vstream.mime_type, vstream.codecs,
+                astream.mime_type, astream.codecs)),
+            hstring(std::format(L"{}x{}@{}", vstream.width, vstream.height, vstream.frame_rate)),
+            shared_data
+        );
+
+        // Use buffer replacing (may waste some memory)
+        adaptive_media_src.DownloadRequested(
+            [media_player_state_overlay = MediaPlayerStateOverlay(), shared_data = std::move(shared_data)]
+        (AdaptiveMediaSource const&, AdaptiveMediaSourceDownloadRequestedEventArgs const& e) -> fire_forget_except {
+                co_safe_capture(shared_data);
+                const BiliUWP::HttpRandomAccessStream* target_hras;
+                if (e.ResourceContentType().starts_with(L"video")) { target_hras = &shared_data->vhras; }
+                else if (e.ResourceContentType().starts_with(L"audio")) { target_hras = &shared_data->ahras; }
+                else {
+                    util::debug::log_error(L"DownloadRequested: Suspicious: Hacked nothing");
+                    co_return;
+                }
+                if (!*target_hras) {
+                    util::debug::log_error(L"DownloadRequested: Cannot fetch a non-existent stream");
+                    co_return;
+                }
+                auto result = e.Result();
+                if (!result) {
+                    util::debug::log_error(L"DownloadRequested: Result is nullptr");
+                    co_return;
+                }
+                auto o_content_start = e.ResourceByteRangeOffset().try_as<uint64_t>();
+                auto o_content_size = e.ResourceByteRangeLength().try_as<uint64_t>();
+                if (!(o_content_start && o_content_size)) {
+                    util::debug::log_warn(L"DownloadRequested: No span info provided, falling back");
+                    result.InputStream(target_hras->CloneStream());
+                    co_return;
+                }
+                auto content_start = *o_content_start;
+                auto content_size_u32 = static_cast<uint32_t>(*o_content_size);
+                auto deferral = e.GetDeferral();
+                deferred([&] { deferral.Complete(); });
+                try {
+                    result.Buffer(co_await target_hras->GetInputStreamAt(content_start).ReadAsync(
+                        Buffer(content_size_u32), content_size_u32, InputStreamOptions::None));
+                }
+                catch (hresult_error const& err) {
+                    // Present failure to the user because normally fetching should never fail
+                    // (as we can supply new uris on demand)
+                    // Unfortunately, we don't have the ability to halt playback
+                    result.ExtendedStatus(err.code());
+                    if (!shared_data->last_failed) {
+                        shared_data->last_failed = true;
+                        media_player_state_overlay.Dispatcher().RunAsync(
+                            Windows::UI::Core::CoreDispatcherPriority::Normal,
+                            [=] { media_player_state_overlay.SwitchToFailed(res_str(L"App/Common/LoadFailed")); }
+                        );
+                    }
+                    throw;
+                }
+                if (shared_data->last_failed) {
+                    shared_data->last_failed = false;
+                    media_player_state_overlay.Dispatcher().RunAsync(
+                        Windows::UI::Core::CoreDispatcherPriority::Normal,
+                        [=] { media_player_state_overlay.SwitchToHidden(); }
+                    );
+                }
+                /*e.Result().InputStream(target_hras->GetInputStreamAt(
+                    e.ResourceByteRangeOffset().as<uint64_t>()));*/
+            }
+        );
+
+        co_return{ MediaSource::CreateFromAdaptiveMediaSource(adaptive_media_src), std::move(ds_provider) };
+    }
+    util::winrt::task<MediaPlayPage::MediaSrcDetailedStatsPair> MediaPlayPage::PlayVideoWithCidInner_DashNativeHrasNoAudio(
+        ::BiliUWP::VideoPlayUrl_Dash const& dash_info,
+        ::BiliUWP::VideoPlayUrl_Dash_Stream const& vstream,
+        std::function<util::winrt::task<::BiliUWP::VideoPlayUrl_Dash_Stream>(void)> get_new_stream_fn
+    ) {
+        auto cancellation_token = co_await get_cancellation_token();
+        cancellation_token.enable_propagation();
+        auto weak_store = util::winrt::make_weak_storage(*this);
+
+        auto adaptive_media_src_result = co_await weak_store.ual(AdaptiveMediaSource::CreateFromStreamAsync(
+            PlayVideoWithCidInner_DashNative_MakeDashMpdStream(dash_info, vstream, nullptr),
+            Uri(L"about:blank"),
+            L"application/dash+xml",
+            m_http_client_m
+        ));
+        if (adaptive_media_src_result.Status() != AdaptiveMediaSourceCreationStatus::Success) {
+            auto hresult = adaptive_media_src_result.ExtendedError();
+            throw hresult_error(E_FAIL, std::format(L"Dash parse failed: {} (0x{:08x}: {})",
+                std::to_underlying(adaptive_media_src_result.Status()),
+                static_cast<uint32_t>(hresult),
+                hresult_error(hresult).message()
+            ));
+        }
+        auto adaptive_media_src = adaptive_media_src_result.MediaSource();
+
+        // Post setup (detailed stats & DownloadRequested event)
+        auto vuri = Uri(vstream.base_url);
+
+        auto vhras = co_await weak_store.ual(BiliUWP::HttpRandomAccessStream::CreateAsync(
+            vuri,
+            m_http_client_m,
+            HttpRandomAccessStreamBufferOptions::Full,
+            0, false
+        ));
+
+        // TODO: Improve new uri supplying logic
+        auto add_backup_uris_fn = [](BiliUWP::HttpRandomAccessStream const& hras, auto const& urls) {
+            std::vector<Uri> supply_uris;
+            for (auto const& i : urls) { supply_uris.emplace_back(i); }
+            hras.SupplyNewUri(supply_uris);
+        };
+        add_backup_uris_fn(vhras, vstream.backup_url);
+        auto new_uri_requested_fn = [get_new_stream_fn = std::move(get_new_stream_fn),
+            weak_vhras = make_weak(vhras)
+        ](BiliUWP::HttpRandomAccessStream const&, BiliUWP::NewUriRequestedEventArgs const& e) -> fire_forget_except
+        {
+            auto vhras = weak_vhras.get();
+            if (!vhras) { co_return; }
+
+            auto deferral = e.GetDeferral();
+            deferred([&] { deferral.Complete(); });
+
+            util::debug::log_debug(L"NewUriRequested: Getting new links");
+            // SAFETY: get_new_stream_fn is no longer used after any suspension points
+            auto&& vstream = std::move(co_await get_new_stream_fn());
+            std::vector<Uri> supply_uris;
+            supply_uris.emplace_back(vstream.base_url);
+            for (auto const& i : vstream.backup_url) { supply_uris.emplace_back(i); }
+            vhras.SupplyNewUri(supply_uris);
+            util::debug::log_debug(L"NewUriRequested: Done getting new links");
+        };
+        vhras.NewUriRequested(std::move(new_uri_requested_fn));
+
+        // Fetch ahead, so we can make sure opening will succeed
+        {
+            constexpr uint32_t bufsize = 4;
+            auto vop = vhras.ReadAsync(Buffer(bufsize), bufsize, InputStreamOptions::None);
+            co_await std::move(vop);
+            vhras.Seek(0);
+        }
+
+        static constexpr auto UPDATE_INTERVAL = std::chrono::milliseconds(500);
+        struct shared_stats_data : std::enable_shared_from_this<shared_stats_data> {
+            shared_stats_data(BiliUWP::HttpRandomAccessStream in_vhras) :
+                vhras(in_vhras), last_failed(false) {}
+            BiliUWP::HttpRandomAccessStream vhras;
+            std::atomic_bool last_failed;
+        };
+        std::shared_ptr<shared_stats_data> shared_data = std::make_shared<shared_stats_data>(vhras);
+        struct DetailedStatsProvider_AdaptiveMediaSource : DetailedStatsProvider {
+            DetailedStatsProvider_AdaptiveMediaSource(
+                hstring mime_type,
+                hstring resolution,
+                std::shared_ptr<shared_stats_data> shared_data
+            ) : m_mime_type(std::move(mime_type)),
+                m_resolution(std::move(resolution)),
+                m_shared_data(std::move(shared_data)) {}
+            void InitStats(DetailedStatsContext* ctx) {
+                using util::winrt::make_text_block;
+                ctx->AddElement(L"Mime Type", make_text_block(m_mime_type));
+                ctx->AddElement(L"Player Type", make_text_block(
+                    L"NativeDashPlayer <- NativeBuffering <- HRAS(Full)"
+                ));
+                ctx->AddElement(L"Resolution", make_text_block(m_resolution));
+                ctx->AddElement(L"Video Host", m_video_host_tb);
+                ctx->AddElement(L"Audio Host", make_text_block(L"N/A"));
+                ctx->AddElement(L"Video Speed", m_video_conn_speed);
+                ctx->AddElement(L"Network Activity", m_net_activity);
+                ctx->AddElement(L"Mystery Text", m_mystery_text_tb);
+            }
+            std::optional<TimeSpan> DesiredUpdateInterval(void) {
+                return UPDATE_INTERVAL;
+            }
+            void TimerStarted(void) {
+                m_shared_data->vhras.EnableMetricsCollection(true, 0);
+                m_shared_data->vhras.GetMetrics(true);
+            }
+            void TimerStopped(void) {
+                m_shared_data->vhras.EnableMetricsCollection(false, 0);
+            }
+            void UpdateStats(DetailedStatsContext* ctx) {
+                using util::str::byte_size_to_str;
+                using util::str::bit_size_to_str;
+                static constexpr size_t MAX_POINTS = 60;
+                auto vmetrics = m_shared_data->vhras.GetMetrics(true);
+                auto add_point_fn = [](auto& container, std::decay_t<decltype(container)>::value_type value) {
+                    if (container.size() >= MAX_POINTS) {
+                        container.pop_front();
+                    }
+                    container.push_back(std::move(value));
+                };
+                auto update_conn_speed_fn = [&](auto& metrics, auto& elem, auto& points) {
+                    if (metrics.ActiveConnectionsCount == 0 && metrics.DownloadedBytesDelta == 0) {
+                        add_point_fn(points, points.empty() ? 0 : points.back());
+                    }
+                    else {
+                        add_point_fn(points, metrics.InboundBitsPerSecond);
+                    }
+                    elem.update([](uint64_t cur_val, uint64_t max_val) -> hstring {
+                        return hstring(std::format(
+                            L"{}ps / {}ps",
+                            bit_size_to_str(cur_val),
+                            bit_size_to_str(max_val)
+                        ));
+                    }, points, MAX_POINTS);
+                };
+                auto update_host_fn = [](auto const& hras, auto const& tb) {
+                    auto uris = hras.GetActiveUris();
+                    switch (uris.size()) {
+                    case 0:
+                        tb.Text(L"N/A");
+                        break;
+                    case 1:
+                        tb.Text(uris[0].Host());
+                        break;
+                    default:
+                        tb.Text(std::format(L"{} (+{})", uris[0].Host(), uris.size() - 1));
+                        break;
+                    }
+                };
+                update_conn_speed_fn(vmetrics, m_video_conn_speed, m_video_conn_speed_points);
+                update_host_fn(m_shared_data->vhras, m_video_host_tb);
+                add_point_fn(m_net_activity_points, vmetrics.DownloadedBytesDelta);
+                m_net_activity.update([](uint64_t cur_val, uint64_t max_val) -> hstring {
+                    return hstring(
+                        byte_size_to_str(cur_val, 1e2) + L" / " +
+                        byte_size_to_str(max_val, 1e2)
+                    );
+                }, m_net_activity_points, MAX_POINTS);
+                // Update mystery text
+                m_mystery_text_tb.Text(hstring(std::format(
+                    L"c:{} rd:{} hrasb:{}/{}",
+                    vmetrics.ActiveConnectionsCount,
+                    vmetrics.SentRequestsDelta,
+                    vmetrics.UsedBufferSize,
+                    vmetrics.AllocatedBufferSize
+                )));
+            }
+        private:
+            hstring m_mime_type;
+            hstring m_resolution;
+
+            std::shared_ptr<shared_stats_data> m_shared_data;
+            TextBlock m_video_host_tb;
+            PolylineWithTextElemForDetailedStats m_video_conn_speed;
+            std::deque<uint64_t> m_video_conn_speed_points;
+            PolylineWithTextElemForDetailedStats m_net_activity;
+            std::deque<uint64_t> m_net_activity_points;
+            TextBlock m_mystery_text_tb;
+        };
+
+        auto ds_provider = std::make_shared<DetailedStatsProvider_AdaptiveMediaSource>(
+            hstring(std::format(L"{};codecs=\"{}\"", vstream.mime_type, vstream.codecs)),
+            hstring(std::format(L"{}x{}@{}", vstream.width, vstream.height, vstream.frame_rate)),
+            shared_data
+        );
+
+        // Use buffer replacing (may waste some memory)
+        adaptive_media_src.DownloadRequested(
+            [media_player_state_overlay = MediaPlayerStateOverlay(), shared_data = std::move(shared_data)]
+        (AdaptiveMediaSource const&, AdaptiveMediaSourceDownloadRequestedEventArgs const& e) -> fire_forget_except {
+                co_safe_capture(shared_data);
+                const BiliUWP::HttpRandomAccessStream* target_hras;
+                if (e.ResourceContentType().starts_with(L"video")) { target_hras = &shared_data->vhras; }
+                else {
+                    util::debug::log_error(L"DownloadRequested: Suspicious: Hacked nothing");
+                    co_return;
+                }
+                if (!*target_hras) {
+                    util::debug::log_error(L"DownloadRequested: Cannot fetch a non-existent stream");
+                    co_return;
+                }
+                auto result = e.Result();
+                if (!result) {
+                    util::debug::log_error(L"DownloadRequested: Result is nullptr");
+                    co_return;
+                }
+                auto o_content_start = e.ResourceByteRangeOffset().try_as<uint64_t>();
+                auto o_content_size = e.ResourceByteRangeLength().try_as<uint64_t>();
+                if (!(o_content_start && o_content_size)) {
+                    util::debug::log_warn(L"DownloadRequested: No span info provided, falling back");
+                    result.InputStream(target_hras->CloneStream());
+                    co_return;
+                }
+                auto content_start = *o_content_start;
+                auto content_size_u32 = static_cast<uint32_t>(*o_content_size);
+                auto deferral = e.GetDeferral();
+                deferred([&] { deferral.Complete(); });
+                try {
+                    result.Buffer(co_await target_hras->GetInputStreamAt(content_start).ReadAsync(
+                        Buffer(content_size_u32), content_size_u32, InputStreamOptions::None));
+                }
+                catch (hresult_error const& err) {
+                    // Present failure to the user because normally fetching should never fail
+                    // (as we can supply new uris on demand)
+                    // Unfortunately, we don't have the ability to halt playback
+                    result.ExtendedStatus(err.code());
+                    if (!shared_data->last_failed) {
+                        shared_data->last_failed = true;
+                        media_player_state_overlay.Dispatcher().RunAsync(
+                            Windows::UI::Core::CoreDispatcherPriority::Normal,
+                            [=] { media_player_state_overlay.SwitchToFailed(res_str(L"App/Common/LoadFailed")); }
+                        );
+                    }
+                    throw;
+                }
+                if (shared_data->last_failed) {
+                    shared_data->last_failed = false;
+                    media_player_state_overlay.Dispatcher().RunAsync(
+                        Windows::UI::Core::CoreDispatcherPriority::Normal,
+                        [=] { media_player_state_overlay.SwitchToHidden(); }
+                    );
+                }
+                /*e.Result().InputStream(target_hras->GetInputStreamAt(
+                    e.ResourceByteRangeOffset().as<uint64_t>()));*/
+            }
+        );
+
+        co_return{ MediaSource::CreateFromAdaptiveMediaSource(adaptive_media_src), std::move(ds_provider) };
+    }
+    //util::winrt::task<MediaSource> MediaPlayPage::PlayVideoWithCidInner_FlvHrasUnknown(...) {
+    //    auto cancellation_token = co_await get_cancellation_token();
+    //    cancellation_token.enable_propagation();
+    //    // TODO...
+    //    throw hresult_not_implemented();
+    //}
     util::winrt::task<> MediaPlayPage::PlayVideoWithCidInner(uint64_t cid) {
         auto cancellation_token = co_await get_cancellation_token();
         cancellation_token.enable_propagation();
-
         auto weak_store = util::winrt::make_weak_storage(*this);
 
         // Body
+        // WARN: Never access video_vinfo after any suspension point,
+        //       as the media info may have changed type
         auto& video_vinfo = std::get<::BiliUWP::VideoViewInfoResult>(m_media_info);
         auto client = ::BiliUWP::App::get()->bili_client();
 
-        std::shared_ptr<DetailedStatsProvider> ds_provider;
-
         this->SubmitMediaPlaybackSourceToNativePlayer(nullptr);
+
+        auto video_bvid = video_vinfo.bvid;
+
+        struct VideoPartMetadata {
+            uint64_t online_count;
+            std::vector<TimedTextSource> tts_vec;
+        };
+        auto fetch_vpart_meta_fn = [&]() -> util::winrt::task<VideoPartMetadata> {
+            std::vector<TimedTextSource> tts_vec;
+            auto bvid = video_bvid;
+            co_safe_capture(cid);
+            auto weak_store = util::winrt::make_weak_storage(*this);
+            util::debug::log_trace(L"Start fetching video metadata");
+            weak_store.lock();
+            co_await resume_background();
+            auto client = ::BiliUWP::App::get()->bili_client();
+            auto vinfo2 = co_await weak_store.ual(client->video_info_v2(bvid, cid));
+            for (auto const& st : vinfo2.subtitle.list) {
+                // Add BOM header so that TimedTextSource can load subtitles correctly
+                std::wstring srt_str{ 0xfeff };
+                auto jo = Windows::Data::Json::JsonObject::Parse(
+                    co_await weak_store.ual(weak_store->m_http_client.GetStringAsync(Uri(st.subtitle_url)))
+                );
+                for (size_t idx = 0; auto && i : jo.GetNamedArray(L"body")) {
+                    auto secs_to_srt_time_str_fn = [](double t) {
+                        double hrs = std::floor(t / 60 / 60);
+                        t -= hrs * 60 * 60;
+                        double mins = std::floor(t / 60);
+                        t -= mins * 60;
+                        double secs = std::floor(t);
+                        t -= secs;
+                        t = std::floor(t * 1000);
+                        return std::format(L"{:02}:{:02}:{:02},{:03}", hrs, mins, secs, t);
+                    };
+                    auto jo = i.GetObject();
+                    std::wstring content{ jo.GetNamedString(L"content") };
+                    content = std::regex_replace(content, std::wregex(L"<", std::regex::optimize), L"&lt;");
+                    content = std::regex_replace(content, std::wregex(L">", std::regex::optimize), L"&gt;");
+                    srt_str += std::format(L"{}\n{} --> {}\n{}\n\n",
+                        idx + 1,
+                        secs_to_srt_time_str_fn(jo.GetNamedNumber(L"from")),
+                        secs_to_srt_time_str_fn(jo.GetNamedNumber(L"to")),
+                        content
+                    );
+                    idx++;
+                }
+                auto srt_stream = util::winrt::string_to_utf8_stream(hstring(srt_str));
+                tts_vec.push_back(TimedTextSource::CreateFromStream(srt_stream, st.language_doc));
+            }
+            util::debug::log_trace(L"Done fetching video metadata");
+            co_return{ vinfo2.online_count, std::move(tts_vec) };
+        };
 
         ::BiliUWP::VideoPlayUrlPreferenceParam param{
             .prefer_dash = true, .prefer_hdr = true, .prefer_4k = true,
             .prefer_dolby = true, .prefer_8k = true, .prefer_av1 = false
         };
         auto video_pinfo = std::move(co_await weak_store.ual(client->video_play_url(
-            video_vinfo.bvid, cid, param
+            video_bvid, cid, param
         )));
+
+        std::shared_ptr<DetailedStatsProvider> ds_provider;
         MediaSource media_src{ nullptr };
-        // NOTE: Optimize control flow for dash streams
+
+        util::winrt::task<MediaPlayPage::MediaSrcDetailedStatsPair> video_task;
+
         if (video_pinfo.dash) {
-            auto* pvideo_stream = &video_pinfo.dash->video.at(0);
-            for (auto& i : video_pinfo.dash->video) {
+            auto& video_dash = *video_pinfo.dash;
+            auto* pvideo_stream = &video_dash.video.at(0);
+            for (auto& i : video_dash.video) {
                 // Skip avc codec
                 if (i.codecid == 7) { continue; }
                 pvideo_stream = &i;
@@ -445,622 +1397,103 @@ namespace winrt::BiliUWP::implementation {
             }
             auto& video_stream = *pvideo_stream;
             util::debug::log_trace(std::format(L"Selecting video stream {}", video_stream.id));
-            bool video_only_res = video_pinfo.dash->audio.empty();
-            auto* paudio_stream = video_only_res ? nullptr : &video_pinfo.dash->audio.at(0);
-            std::wstring dash_mpd_str;
-            // Generate Dash MPD from parsed dash info on the fly
-            // TODO: Add support for backup url
-            // Dash MPD specification: refer to ISO IEC 23009-1
-            // NOTE: minBufferTime type: xs:duration ("PT<Time description>")
-            if (!video_only_res) {
-                // Normal (video + audio)
-                util::debug::log_trace(std::format(L"Selecting audio stream {}", paudio_stream->id));
-                dash_mpd_str = std::format(LR"(<?xml version="1.0" encoding="utf-8"?>)"
-                    R"(<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT{}S" type="static">)"
-                    R"(<Period start="PT0S">)"
-                    R"(<AdaptationSet contentType="video">)"
-                    R"(<Representation id="{}" bandwidth="{}" mimeType="{}" codecs="{}" startWithSAP="{}" sar="{}" frame_rate="{}" width="{}" height="{}">)"
-                    R"(<SegmentBase indexRange="{}"><Initialization range="{}"/></SegmentBase>)"
-                    R"(</Representation>)"
-                    R"(</AdaptationSet>)"
-                    R"(<AdaptationSet contentType="audio">)"
-                    R"(<Representation id="{}" bandwidth="{}" mimeType="{}" codecs="{}" startWithSAP="{}">)"
-                    R"(<SegmentBase indexRange="{}"><Initialization range="{}"/></SegmentBase>)"
-                    R"(</Representation>)"
-                    R"(</AdaptationSet>)"
-                    R"(</Period>)"
-                    R"(</MPD>)",
-                    video_pinfo.dash->min_buffer_time,
-                    video_stream.id, video_stream.bandwidth, video_stream.mime_type, video_stream.codecs,
-                    video_stream.start_with_sap, video_stream.sar, video_stream.frame_rate,
-                    video_stream.width, video_stream.height,
-                    video_stream.segment_base.index_range, video_stream.segment_base.initialization,
-                    paudio_stream->id, paudio_stream->bandwidth, paudio_stream->mime_type, paudio_stream->codecs,
-                    paudio_stream->start_with_sap,
-                    paudio_stream->segment_base.index_range, paudio_stream->segment_base.initialization
-                );
-            }
-            else {
-                // Video only
-                util::debug::log_trace(L"No audio stream available, skipping");
-                dash_mpd_str = std::format(LR"(<?xml version="1.0" encoding="utf-8"?>)"
-                    R"(<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT{}S" type="static">)"
-                    R"(<Period start="PT0S">)"
-                    R"(<AdaptationSet contentType="video">)"
-                    R"(<Representation id="{}" bandwidth="{}" mimeType="{}" codecs="{}" startWithSAP="{}" sar="{}" frame_rate="{}" width="{}" height="{}">)"
-                    R"(<SegmentBase indexRange="{}"><Initialization range="{}"/></SegmentBase>)"
-                    R"(</Representation>)"
-                    R"(</AdaptationSet>)"
-                    R"(</Period>)"
-                    R"(</MPD>)",
-                    video_pinfo.dash->min_buffer_time,
-                    video_stream.id, video_stream.bandwidth, video_stream.mime_type, video_stream.codecs,
-                    video_stream.start_with_sap, video_stream.sar, video_stream.frame_rate,
-                    video_stream.width, video_stream.height,
-                    video_stream.segment_base.index_range, video_stream.segment_base.initialization
-                );
-            }
-            util::debug::log_trace(std::format(L"Generated dash: {}", dash_mpd_str));
-            auto dash_mpd_mem_stream = InMemoryRandomAccessStream();
-            co_await dash_mpd_mem_stream.WriteAsync(
-                CryptographicBuffer::ConvertStringToBinary(dash_mpd_str, BinaryStringEncoding::Utf8)
-            );
-            dash_mpd_mem_stream.Seek(0);
-            auto adaptive_media_src_result = co_await AdaptiveMediaSource::CreateFromStreamAsync(
-                dash_mpd_mem_stream,
-                Uri(L"about:blank"),
-                L"application/dash+xml",
-                m_http_client
-            );
-            if (adaptive_media_src_result.Status() != AdaptiveMediaSourceCreationStatus::Success) {
-                auto hresult = adaptive_media_src_result.ExtendedError();
-                throw hresult_error(E_FAIL, std::format(L"Dash parse failed: {} (0x{:08x}: {})",
-                    std::to_underlying(adaptive_media_src_result.Status()),
-                    static_cast<uint32_t>(hresult),
-                    hresult_error(hresult).message()
-                ));
-            }
-            auto adaptive_media_src = adaptive_media_src_result.MediaSource();
-
-            // Post setup (detailed stats & DownloadRequested event)
-            static constexpr auto UPDATE_INTERVAL = std::chrono::milliseconds(500);
-            if (!m_cfg_model.App_UseHRASForVideo()) {
-                // Use native fetching
-                // Make DetailedStatsProvider
-                struct shared_stats_data : std::enable_shared_from_this<shared_stats_data> {
-                    void reset(void) {
-                        last_start_ts = std::chrono::high_resolution_clock::now();
-                        connection_duration = {};
-                        requests_delta = 0;
-                        bytes_delta = 0;
-                    }
-                    shared_stats_data() : is_monitoring(false), active_connections(0) { reset(); }
-                    std::atomic_bool is_monitoring;
-                    std::mutex rw_mutex;
-                    // NOTE: Mutex-protected data below
-                    uint64_t active_connections;
-                    std::chrono::high_resolution_clock::time_point last_start_ts;
-                    std::chrono::high_resolution_clock::duration connection_duration;
-                    uint64_t requests_delta;
-                    uint64_t bytes_delta;
-                };
-                std::shared_ptr<shared_stats_data> shared_data = std::make_shared<shared_stats_data>();
-                struct DetailedStatsProvider_AdaptiveMediaSource : DetailedStatsProvider {
-                    DetailedStatsProvider_AdaptiveMediaSource(
-                        hstring mime_type,
-                        hstring resolution,
-                        hstring video_host, hstring audio_host,
-                        std::shared_ptr<shared_stats_data> shared_data
-                    ) : m_mime_type(std::move(mime_type)),
-                        m_resolution(std::move(resolution)),
-                        m_video_host(std::move(video_host)), m_audio_host(std::move(audio_host)),
-                        m_shared_data(std::move(shared_data)) {}
-                    void InitStats(DetailedStatsContext* ctx) {
-                        using util::winrt::make_text_block;
-                        ctx->AddElement(L"Mime Type", make_text_block(m_mime_type));
-                        ctx->AddElement(L"Player Type", make_text_block(L"NativeDashPlayer <- NativeBuffering"));
-                        ctx->AddElement(L"Resolution", make_text_block(m_resolution));
-                        ctx->AddElement(L"Video Host", make_text_block(m_video_host));
-                        ctx->AddElement(L"Audio Host", make_text_block(m_audio_host));
-                        ctx->AddElement(L"Connection Speed", m_conn_speed);
-                        ctx->AddElement(L"Network Activity", m_net_activity);
-                        ctx->AddElement(L"Mystery Text", m_mystery_text_tb);
-                    }
-                    std::optional<TimeSpan> DesiredUpdateInterval(void) {
-                        return UPDATE_INTERVAL;
-                    }
-                    void TimerStarted(void) {
-                        m_shared_data->is_monitoring.store(true);
-                        std::scoped_lock guard(m_shared_data->rw_mutex);
-                        m_shared_data->reset();
-                    }
-                    void TimerStopped(void) {
-                        m_shared_data->is_monitoring.store(false);
-                    }
-                    void UpdateStats(DetailedStatsContext* ctx) {
-                        using util::str::byte_size_to_str;
-                        using util::str::bit_size_to_str;
-                        static constexpr size_t MAX_POINTS = 60;
-                        auto add_point_fn = [](auto& container, std::decay_t<decltype(container)>::value_type value) {
-                            if (container.size() >= MAX_POINTS) {
-                                container.pop_front();
+            const bool video_only_res = video_dash.audio.empty();
+            constexpr double BACKOFF_INITIAL_SECS = 10;
+            constexpr double BACKOFF_FACTOR = 1.2;
+            if (video_dash.audio.empty()) {
+                // No audio
+                if (m_cfg_model.App_UseHRASForVideo()) {
+                    video_task = this->PlayVideoWithCidInner_DashNativeHrasNoAudio(video_dash, video_stream,
+                        [client, bvid = video_bvid, cid, param,
+                        backoff_secs = std::make_shared<double>(0),
+                        vid = video_stream.id, vcid = video_stream.codecid
+                        ]() -> util::winrt::task<::BiliUWP::VideoPlayUrl_Dash_Stream> {
+                            co_safe_capture(bvid);
+                            co_safe_capture(cid);
+                            co_safe_capture(param);
+                            co_safe_capture(vid);
+                            co_safe_capture(vcid);
+                            co_safe_capture(backoff_secs);
+                            util::debug::log_debug(L"NewUriRequested: Getting new links");
+                            if (*backoff_secs > 0) {
+                                co_await std::chrono::seconds(std::lround(*backoff_secs));
                             }
-                            container.push_back(std::move(value));
-                        };
-                        uint64_t cur_downloaded_bytes_delta, cur_active_connections_count;
-                        uint64_t cur_sent_requests_delta;
-                        uint64_t cur_inbound_bits_per_second;
-                        {   // Get & clear metrics
-                            std::scoped_lock guard(m_shared_data->rw_mutex);
-                            cur_active_connections_count = m_shared_data->active_connections;
-                            cur_downloaded_bytes_delta = m_shared_data->bytes_delta;
-                            auto actual_duration = m_shared_data->connection_duration;
-                            if (m_shared_data->active_connections > 0) {
-                                actual_duration +=
-                                    std::chrono::high_resolution_clock::now() - m_shared_data->last_start_ts;
-                            }
-                            auto actual_dur_secs = std::chrono::duration<double>(actual_duration).count();
-                            auto inbound_bytes_per_sec = actual_dur_secs == 0 ? 0 :
-                                m_shared_data->bytes_delta / actual_dur_secs;
-                            cur_inbound_bits_per_second =
-                                static_cast<uint64_t>(std::llround(inbound_bytes_per_sec * 8));
-                            cur_sent_requests_delta = m_shared_data->requests_delta;
-                            m_shared_data->reset();
-                        }
-                        if (cur_active_connections_count == 0 && cur_downloaded_bytes_delta == 0) {
-                            add_point_fn(
-                                m_conn_speed_points,
-                                m_conn_speed_points.empty() ? 0 : m_conn_speed_points.back()
-                            );
-                        }
-                        else {
-                            add_point_fn(m_conn_speed_points, cur_inbound_bits_per_second);
-                        }
-                        m_conn_speed.update([](uint64_t cur_val, uint64_t max_val) -> hstring {
-                            return hstring(std::format(
-                                L"{}ps / {}ps",
-                                bit_size_to_str(cur_val),
-                                bit_size_to_str(max_val)
-                            ));
-                        }, m_conn_speed_points, MAX_POINTS);
-                        add_point_fn(m_net_activity_points, cur_downloaded_bytes_delta);
-                        m_net_activity.update([](uint64_t cur_val, uint64_t max_val) -> hstring {
-                            return hstring(
-                                byte_size_to_str(cur_val, 1e2) + L" / " +
-                                byte_size_to_str(max_val, 1e2)
-                            );
-                        }, m_net_activity_points, MAX_POINTS);
-                        // Update mystery text
-                        m_mystery_text_tb.Text(hstring(std::format(
-                            L"c:{} rd:{}", cur_active_connections_count, cur_sent_requests_delta
-                        )));
-                    }
-                private:
-                    hstring m_mime_type;
-                    hstring m_resolution;
-                    hstring m_video_host, m_audio_host;
-
-                    std::shared_ptr<shared_stats_data> m_shared_data;
-                    PolylineWithTextElemForDetailedStats m_conn_speed;
-                    std::deque<uint64_t> m_conn_speed_points;
-                    PolylineWithTextElemForDetailedStats m_net_activity;
-                    std::deque<uint64_t> m_net_activity_points;
-                    TextBlock m_mystery_text_tb;
-                };
-
-                auto vuri = Uri(video_stream.base_url);
-                auto auri = paudio_stream ? Uri(paudio_stream->base_url) : nullptr;
-                ds_provider = std::make_shared<DetailedStatsProvider_AdaptiveMediaSource>(
-                    hstring(paudio_stream ? std::format(
-                        L"{};codecs=\"{}\" | {};codecs=\"{}\"",
-                        video_stream.mime_type, video_stream.codecs,
-                        paudio_stream->mime_type, paudio_stream->codecs) : std::format(
-                        L"{};codecs=\"{}\"",
-                        video_stream.mime_type, video_stream.codecs
-                    )),
-                    hstring(std::format(L"{}x{}@{}", video_stream.width, video_stream.height, video_stream.frame_rate)),
-                    vuri.Host(), auri ? auri.Host() : L"N/A",
-                    shared_data
-                );
-
-                // TODO: Add support for DownloadFailed event (refresh urls)
-
-                // Use buffer replacing (may waste some memory)
-                adaptive_media_src.DownloadRequested(
-                    [http_client = m_http_client, vuri = std::move(vuri), auri = std::move(auri),
-                    shared_data = std::move(shared_data)]
-                (AdaptiveMediaSource const&, AdaptiveMediaSourceDownloadRequestedEventArgs const& e) -> fire_forget_except {
-                        co_safe_capture(shared_data);
-                        const Uri* target_uri;
-                        if (e.ResourceContentType().starts_with(L"video")) { target_uri = &vuri; }
-                        else if (e.ResourceContentType().starts_with(L"audio")) { target_uri = &auri; }
-                        else {
-                            util::debug::log_error(L"DownloadRequested: Suspicious: Hacked nothing");
-                            co_return;
-                        }
-                        if (!*target_uri) {
-                            util::debug::log_error(L"DownloadRequested: Cannot fetch a non-existent uri");
-                            co_return;
-                        }
-                        auto result = e.Result();
-                        if (!result) {
-                            util::debug::log_error(L"DownloadRequested: Result is nullptr");
-                            co_return;
-                        }
-                        auto o_content_start = e.ResourceByteRangeOffset().try_as<uint64_t>();
-                        auto o_content_size = e.ResourceByteRangeLength().try_as<uint64_t>();
-                        if (!(o_content_start && o_content_size)) {
-                            util::debug::log_warn(L"DownloadRequested: No span info provided, falling back to uri");
-                            result.ResourceUri(*target_uri);
-                            co_return;
-                        }
-                        auto content_start = *o_content_start;
-                        auto content_size = *o_content_size;
-                        {
-                            std::scoped_lock guard(shared_data->rw_mutex);
-                            if (shared_data->is_monitoring.load()) {
-                                shared_data->requests_delta++;
-                            }
-                            if (shared_data->active_connections++ == 0) {
-                                shared_data->last_start_ts = std::chrono::high_resolution_clock::now();
-                            }
-                        }
-                        deferred([&] {
-                            std::scoped_lock guard(shared_data->rw_mutex);
-                            if (--shared_data->active_connections == 0) {
-                                if (shared_data->is_monitoring.load()) {
-                                    shared_data->connection_duration +=
-                                        std::chrono::high_resolution_clock::now() - shared_data->last_start_ts;
+                            try {
+                                auto video_pinfo = std::move(co_await client->video_play_url(bvid, cid, param));
+                                auto& dash = *video_pinfo.dash;
+                                auto vit = std::find_if(dash.video.begin(), dash.video.end(), [&](auto const& v) {
+                                    return v.id == vid && v.codecid == vcid;
+                                });
+                                if (vit == dash.video.end()) {
+                                    throw std::runtime_error("Video stream could not be found for refreshing");
                                 }
+                                *backoff_secs = 0;
+                                co_return std::move(*vit);
                             }
-                        });
-                        util::debug::log_trace(std::format(L"Fetching partial http: {}+{}",
-                            content_start, content_size));
-                        auto read_op = util::winrt::fetch_partial_http_as_buffer(
-                            *target_uri, http_client,
-                            content_start, content_size
-                        );
-                        uint64_t cur_progress = 0;
-                        read_op.Progress([&](auto const&, uint64_t progress) {
-                            if (shared_data->is_monitoring.load()) {
-                                std::scoped_lock guard(shared_data->rw_mutex);
-                                shared_data->bytes_delta += progress - cur_progress;
+                            catch (...) {
+                                if (*backoff_secs == 0) { *backoff_secs = BACKOFF_INITIAL_SECS; }
+                                else { *backoff_secs *= BACKOFF_FACTOR; }
+                                throw;
                             }
-                            cur_progress = progress;
-                        });
-                        auto deferral = e.GetDeferral();
-                        deferred([&] { deferral.Complete(); });
-                        result.Buffer(co_await read_op);
-                    }
-                );
+                        }
+                    );
+                }
+                else {
+                    video_task = this->PlayVideoWithCidInner_DashNativeNative(video_dash, video_stream, nullptr);
+                }
             }
             else {
-                // Use HRAS fetching
-                auto vuri = Uri(video_stream.base_url);
-                auto auri = paudio_stream ? Uri(paudio_stream->base_url) : nullptr;
-
-                auto vstream = co_await weak_store.ual(HttpRandomAccessStream::CreateAsync(
-                    vuri,
-                    m_http_client,
-                    HttpRandomAccessStreamBufferOptions::Full,
-                    0, false
-                ));
-                auto astream = auri ? co_await weak_store.ual(HttpRandomAccessStream::CreateAsync(
-                    auri,
-                    m_http_client,
-                    HttpRandomAccessStreamBufferOptions::Full,
-                    0, false
-                )) : nullptr;
-
-                // TODO: Improve new uri supplying logic
-                auto add_backup_uris_fn = [](BiliUWP::HttpRandomAccessStream const& hras, auto const& urls) {
-                    std::vector<Uri> supply_uris;
-                    for (auto const& i : urls) { supply_uris.emplace_back(i); }
-                    hras.SupplyNewUri(supply_uris);
-                };
-                add_backup_uris_fn(vstream, video_stream.backup_url);
-                if (paudio_stream) {
-                    add_backup_uris_fn(astream, paudio_stream->backup_url);
+                // Video + audio
+                auto& audio_stream = video_dash.audio[0];
+                if (m_cfg_model.App_UseHRASForVideo()) {
+                    video_task = this->PlayVideoWithCidInner_DashNativeHras(video_dash, video_stream, audio_stream,
+                        [client, bvid = video_bvid, cid, param,
+                        backoff_secs = std::make_shared<double>(0),
+                        vid = video_stream.id, vcid = video_stream.codecid,
+                        aid = audio_stream.id, acid = audio_stream.codecid
+                        ]() -> util::winrt::task<PlayUrlDashStreamPair> {
+                            co_safe_capture(bvid);
+                            co_safe_capture(cid);
+                            co_safe_capture(param);
+                            co_safe_capture(vid);
+                            co_safe_capture(vcid);
+                            co_safe_capture(aid);
+                            co_safe_capture(acid);
+                            co_safe_capture(backoff_secs);
+                            util::debug::log_debug(L"NewUriRequested: Getting new links");
+                            if (*backoff_secs > 0) {
+                                co_await std::chrono::seconds(std::lround(*backoff_secs));
+                            }
+                            try {
+                                auto video_pinfo = std::move(co_await client->video_play_url(bvid, cid, param));
+                                auto& dash = *video_pinfo.dash;
+                                auto vit = std::find_if(dash.video.begin(), dash.video.end(), [&](auto const& v) {
+                                    return v.id == vid && v.codecid == vcid;
+                                });
+                                if (vit == dash.video.end()) {
+                                    throw std::runtime_error("Video stream could not be found for refreshing");
+                                }
+                                auto ait = std::find_if(dash.audio.begin(), dash.audio.end(), [&](auto const& v) {
+                                    return v.id == aid && v.codecid == acid;
+                                });
+                                if (ait == dash.audio.end()) {
+                                    throw std::runtime_error("Audio stream could not be found for refreshing");
+                                }
+                                *backoff_secs = 0;
+                                co_return{ std::move(*vit), std::move(*ait) };
+                            }
+                            catch (...) {
+                                if (*backoff_secs == 0) { *backoff_secs = BACKOFF_INITIAL_SECS; }
+                                else { *backoff_secs *= BACKOFF_FACTOR; }
+                                throw;
+                            }
+                        }
+                    );
                 }
-                auto new_uri_requested_inner_fn = [client, bvid = video_vinfo.bvid, cid, param,
-                    vid = video_stream.id, vcid = video_stream.codecid,
-                    aid = paudio_stream ? paudio_stream->id : 0, acid = paudio_stream ? paudio_stream->codecid : 0,
-                    weak_vstream = make_weak(vstream), weak_astream = astream ? make_weak(astream) : nullptr
-                ](void) -> util::winrt::task<>
-                {
-                    auto vstream = weak_vstream.get();
-                    if (!vstream) { co_return; }
-                    auto astream = weak_astream ? weak_astream.get() : nullptr;
-                    co_safe_capture(vid);
-                    co_safe_capture(vcid);
-                    co_safe_capture(aid);
-                    co_safe_capture(acid);
-                    util::debug::log_debug(L"NewUriRequested: Getting new links");
-                    auto video_pinfo = std::move(co_await client->video_play_url(bvid, cid, param));
-                    auto& dash = *video_pinfo.dash;
-                    {
-                        auto it = std::find_if(dash.video.begin(), dash.video.end(), [&](auto const& v) {
-                            return v.id == vid && v.codecid == vcid;
-                        });
-                        if (it != dash.video.end()) {
-                            std::vector<Uri> supply_uris;
-                            supply_uris.emplace_back(it->base_url);
-                            for (auto const& i : it->backup_url) { supply_uris.emplace_back(i); }
-                            vstream.SupplyNewUri(supply_uris);
-                        }
-                    }
-                    if (astream) {
-                        auto it = std::find_if(dash.audio.begin(), dash.audio.end(), [&](auto const& v) {
-                            return v.id == aid && v.codecid == acid;
-                        });
-                        if (it != dash.audio.end()) {
-                            std::vector<Uri> supply_uris;
-                            supply_uris.emplace_back(it->base_url);
-                            for (auto const& i : it->backup_url) { supply_uris.emplace_back(i); }
-                            astream.SupplyNewUri(supply_uris);
-                        }
-                    }
-                };
-                struct new_uri_requested_shared_data {
-                    std::mutex mutex;
-                    util::winrt::task<> op;
-                };
-                auto new_uri_requested_fn = [=, shared_data = std::make_shared<new_uri_requested_shared_data>()]
-                (BiliUWP::HttpRandomAccessStream const&, BiliUWP::NewUriRequestedEventArgs const& e) -> fire_forget_except
-                {
-                    co_safe_capture(shared_data);
-                    auto deferral = e.GetDeferral();
-                    deferred([&] { deferral.Complete(); });
-                    bool owns_op = false;
-                    util::winrt::task<> op = nullptr;
-                    {
-                        std::scoped_lock guard(shared_data->mutex);
-                        op = shared_data->op;
-                        if (!op) {
-                            op = shared_data->op = new_uri_requested_inner_fn();
-                            owns_op = true;
-                        }
-                    }
-                    deferred([&] {
-                        if (owns_op) {
-                            std::scoped_lock guard(shared_data->mutex);
-                            shared_data->op = nullptr;
-                        }
-                    });
-                    co_await op;
-                };
-                vstream.NewUriRequested(new_uri_requested_fn);
-                if (astream) {
-                    astream.NewUriRequested(new_uri_requested_fn);
+                else {
+                    video_task = this->PlayVideoWithCidInner_DashNativeNative(video_dash, video_stream, &audio_stream);
                 }
-
-                // Fetch ahead, so we can make sure opening will succeed
-                {
-                    constexpr uint32_t bufsize = 4;
-                    auto vop = vstream.ReadAsync(Buffer(bufsize), bufsize, InputStreamOptions::None);
-                    if (astream) {
-                        auto aop = astream.ReadAsync(Buffer(bufsize), bufsize, InputStreamOptions::None);
-                        co_await when_all(std::move(vop), std::move(aop));
-                        astream.Seek(0);
-                    }
-                    else {
-                        co_await std::move(vop);
-                    }
-                    vstream.Seek(0);
-                }
-                
-                struct shared_stats_data : std::enable_shared_from_this<shared_stats_data> {
-                    shared_stats_data(
-                        BiliUWP::HttpRandomAccessStream in_vstream, BiliUWP::HttpRandomAccessStream in_astream
-                    ) : vstream(in_vstream), astream(in_astream), last_failed(false) {}
-                    BiliUWP::HttpRandomAccessStream vstream, astream;
-                    std::atomic_bool last_failed;
-                };
-                std::shared_ptr<shared_stats_data> shared_data = std::make_shared<shared_stats_data>(
-                    vstream, astream);
-                struct DetailedStatsProvider_AdaptiveMediaSource : DetailedStatsProvider {
-                    DetailedStatsProvider_AdaptiveMediaSource(
-                        hstring mime_type,
-                        hstring resolution,
-                        std::shared_ptr<shared_stats_data> shared_data
-                    ) : m_mime_type(std::move(mime_type)),
-                        m_resolution(std::move(resolution)),
-                        m_shared_data(std::move(shared_data)) {}
-                    void InitStats(DetailedStatsContext* ctx) {
-                        using util::winrt::make_text_block;
-                        ctx->AddElement(L"Mime Type", make_text_block(m_mime_type));
-                        ctx->AddElement(L"Player Type", make_text_block(
-                            L"NativeDashPlayer <- NativeBuffering <- HRAS(Full)"
-                        ));
-                        ctx->AddElement(L"Resolution", make_text_block(m_resolution));
-                        ctx->AddElement(L"Video Host", m_video_host_tb);
-                        if (!m_shared_data->astream) {
-                            m_audio_host_tb.Text(L"N/A");
-                        }
-                        ctx->AddElement(L"Audio Host", m_audio_host_tb);
-                        ctx->AddElement(L"Video Speed", m_video_conn_speed);
-                        if (m_shared_data->astream) {
-                            ctx->AddElement(L"Audio Speed", m_audio_conn_speed);
-                        }
-                        ctx->AddElement(L"Network Activity", m_net_activity);
-                        ctx->AddElement(L"Mystery Text", m_mystery_text_tb);
-                    }
-                    std::optional<TimeSpan> DesiredUpdateInterval(void) {
-                        return UPDATE_INTERVAL;
-                    }
-                    void TimerStarted(void) {
-                        m_shared_data->vstream.EnableMetricsCollection(true, 0);
-                        m_shared_data->vstream.GetMetrics(true);
-                        if (m_shared_data->astream) {
-                            m_shared_data->astream.EnableMetricsCollection(true, 0);
-                            m_shared_data->astream.GetMetrics(true);
-                        }
-                    }
-                    void TimerStopped(void) {
-                        if (m_shared_data->astream) {
-                            m_shared_data->vstream.EnableMetricsCollection(false, 0);
-                            m_shared_data->astream.EnableMetricsCollection(false, 0);
-                        }
-                    }
-                    void UpdateStats(DetailedStatsContext* ctx) {
-                        using util::str::byte_size_to_str;
-                        using util::str::bit_size_to_str;
-                        static constexpr size_t MAX_POINTS = 60;
-                        auto vmetrics = m_shared_data->vstream.GetMetrics(true);
-                        BiliUWP::HttpRandomAccessStreamMetrics ametrics{};
-                        if (m_shared_data->astream) {
-                            ametrics = m_shared_data->astream.GetMetrics(true);
-                        }
-                        auto add_point_fn = [](auto& container, std::decay_t<decltype(container)>::value_type value) {
-                            if (container.size() >= MAX_POINTS) {
-                                container.pop_front();
-                            }
-                            container.push_back(std::move(value));
-                        };
-                        auto update_conn_speed_fn = [&](auto& metrics, auto& elem, auto& points) {
-                            if (metrics.ActiveConnectionsCount == 0 && metrics.DownloadedBytesDelta == 0) {
-                                add_point_fn(points, points.empty() ? 0 : points.back());
-                            }
-                            else {
-                                add_point_fn(points, metrics.InboundBitsPerSecond);
-                            }
-                            elem.update([](uint64_t cur_val, uint64_t max_val) -> hstring {
-                                return hstring(std::format(
-                                    L"{}ps / {}ps",
-                                    bit_size_to_str(cur_val),
-                                    bit_size_to_str(max_val)
-                                ));
-                            }, points, MAX_POINTS);
-                        };
-                        auto update_host_fn = [](auto const& hras, auto const& tb) {
-                            auto uris = hras.GetActiveUris();
-                            switch (uris.size()) {
-                            case 0:
-                                tb.Text(L"N/A");
-                                break;
-                            case 1:
-                                tb.Text(uris[0].Host());
-                                break;
-                            default:
-                                tb.Text(std::format(L"{} (+{})", uris[0].Host(), uris.size() - 1));
-                                break;
-                            }
-                        };
-                        update_conn_speed_fn(vmetrics, m_video_conn_speed, m_video_conn_speed_points);
-                        update_host_fn(m_shared_data->vstream, m_video_host_tb);
-                        if (m_shared_data->astream) {
-                            update_conn_speed_fn(ametrics, m_audio_conn_speed, m_audio_conn_speed_points);
-                            update_host_fn(m_shared_data->astream, m_audio_host_tb);
-                        }
-                        add_point_fn(m_net_activity_points,
-                            vmetrics.DownloadedBytesDelta + ametrics.DownloadedBytesDelta);
-                        m_net_activity.update([](uint64_t cur_val, uint64_t max_val) -> hstring {
-                            return hstring(
-                                byte_size_to_str(cur_val, 1e2) + L" / " +
-                                byte_size_to_str(max_val, 1e2)
-                            );
-                        }, m_net_activity_points, MAX_POINTS);
-                        // Update mystery text
-                        m_mystery_text_tb.Text(hstring(std::format(
-                            L"c:{} rd:{} hrasb:{}/{}",
-                            vmetrics.ActiveConnectionsCount + ametrics.ActiveConnectionsCount,
-                            vmetrics.SentRequestsDelta + ametrics.SentRequestsDelta,
-                            vmetrics.UsedBufferSize + ametrics.UsedBufferSize,
-                            vmetrics.AllocatedBufferSize + ametrics.AllocatedBufferSize
-                        )));
-                    }
-                private:
-                    hstring m_mime_type;
-                    hstring m_resolution;
-
-                    std::shared_ptr<shared_stats_data> m_shared_data;
-                    TextBlock m_video_host_tb;
-                    TextBlock m_audio_host_tb;
-                    PolylineWithTextElemForDetailedStats m_video_conn_speed;
-                    std::deque<uint64_t> m_video_conn_speed_points;
-                    PolylineWithTextElemForDetailedStats m_audio_conn_speed;
-                    std::deque<uint64_t> m_audio_conn_speed_points;
-                    PolylineWithTextElemForDetailedStats m_net_activity;
-                    std::deque<uint64_t> m_net_activity_points;
-                    TextBlock m_mystery_text_tb;
-                };
-
-                ds_provider = std::make_shared<DetailedStatsProvider_AdaptiveMediaSource>(
-                    hstring(paudio_stream ? std::format(
-                        L"{};codecs=\"{}\" | {};codecs=\"{}\"",
-                        video_stream.mime_type, video_stream.codecs,
-                        paudio_stream->mime_type, paudio_stream->codecs) : std::format(
-                            L"{};codecs=\"{}\"",
-                            video_stream.mime_type, video_stream.codecs
-                        )),
-                    hstring(std::format(L"{}x{}@{}", video_stream.width, video_stream.height, video_stream.frame_rate)),
-                    shared_data
-                );
-
-                // Use buffer replacing (may waste some memory)
-                adaptive_media_src.DownloadRequested(
-                    [media_player_state_overlay = MediaPlayerStateOverlay(), shared_data = std::move(shared_data)]
-                (AdaptiveMediaSource const&, AdaptiveMediaSourceDownloadRequestedEventArgs const& e) -> fire_forget_except {
-                        co_safe_capture(shared_data);
-                        const BiliUWP::HttpRandomAccessStream* target_hras;
-                        if (e.ResourceContentType().starts_with(L"video")) { target_hras = &shared_data->vstream; }
-                        else if (e.ResourceContentType().starts_with(L"audio")) { target_hras = &shared_data->astream; }
-                        else {
-                            util::debug::log_error(L"DownloadRequested: Suspicious: Hacked nothing");
-                            co_return;
-                        }
-                        if (!*target_hras) {
-                            util::debug::log_error(L"DownloadRequested: Cannot fetch a non-existent stream");
-                            co_return;
-                        }
-                        auto result = e.Result();
-                        if (!result) {
-                            util::debug::log_error(L"DownloadRequested: Result is nullptr");
-                            co_return;
-                        }
-                        auto o_content_start = e.ResourceByteRangeOffset().try_as<uint64_t>();
-                        auto o_content_size = e.ResourceByteRangeLength().try_as<uint64_t>();
-                        if (!(o_content_start && o_content_size)) {
-                            util::debug::log_warn(L"DownloadRequested: No span info provided, falling back");
-                            result.InputStream(target_hras->CloneStream());
-                            co_return;
-                        }
-                        auto content_start = *o_content_start;
-                        auto content_size_u32 = static_cast<uint32_t>(*o_content_size);
-                        auto deferral = e.GetDeferral();
-                        deferred([&] { deferral.Complete(); });
-                        try {
-                            result.Buffer(co_await target_hras->GetInputStreamAt(content_start).ReadAsync(
-                                Buffer(content_size_u32), content_size_u32, InputStreamOptions::None));
-                        }
-                        catch (hresult_error const& err) {
-                            // Present failure to the user because normally fetching should never fail
-                            // (as we can supply new uris on demand)
-                            // Unfortunately, we don't have the ability to halt playback
-                            result.ExtendedStatus(err.code());
-                            if (!shared_data->last_failed) {
-                                shared_data->last_failed = true;
-                                media_player_state_overlay.Dispatcher().RunAsync(
-                                    Windows::UI::Core::CoreDispatcherPriority::Normal,
-                                    [=] { media_player_state_overlay.SwitchToFailed(res_str(L"App/Common/LoadFailed")); }
-                                );
-                            }
-                            throw;
-                        }
-                        if (shared_data->last_failed) {
-                            shared_data->last_failed = false;
-                            media_player_state_overlay.Dispatcher().RunAsync(
-                                Windows::UI::Core::CoreDispatcherPriority::Normal,
-                                [=] { media_player_state_overlay.SwitchToHidden(); }
-                            );
-                        }
-                        /*e.Result().InputStream(target_hras->GetInputStreamAt(
-                            e.ResourceByteRangeOffset().as<uint64_t>()));*/
-                    }
-                );
             }
-
-            media_src = MediaSource::CreateFromAdaptiveMediaSource(adaptive_media_src);
         }
         else if (video_pinfo.durl) {
             if (auto tab = ::BiliUWP::App::get()->tab_from_page(*this)) {
@@ -1076,11 +1509,24 @@ namespace winrt::BiliUWP::implementation {
             throw hresult_error(E_FAIL, L"Invalid video play url info");
         }
 
+        auto fetch_vpart_meta_task = fetch_vpart_meta_fn();
+
+        cancellation_token.callback([&] {
+            video_task.cancel();
+            fetch_vpart_meta_task.cancel();
+        });
+
+        std::tie(media_src, ds_provider) = co_await weak_store.ual(video_task);
+
         // TODO: Fix SMTC loop button control (ModernFlyouts has this functionality)
 
         // TODO: Add configurable support for heartbeat packages
 
-        auto media_player = MediaPlayer();
+        // TODO: Improve subtitle handling
+        MediaPlayerStateOverlay().SwitchToLoading(res_str(L"App/Page/MediaPlayPage/LoadingSubtitles"));
+        auto vpart_meta = std::move(co_await fetch_vpart_meta_task);
+        media_src.ExternalTimedTextSources().ReplaceAll(vpart_meta.tts_vec);
+
         auto media_playback_item = MediaPlaybackItem(media_src);
         auto display_props = media_playback_item.GetDisplayProperties();
         display_props.Type(MediaPlaybackType::Video);
@@ -1136,7 +1582,7 @@ namespace winrt::BiliUWP::implementation {
         deferred([&weak_store] {
             if (!weak_store.lock()) { return; }
             weak_store->m_bili_res_is_ready = true;
-            });
+        });
         m_media_info = std::monostate{};
 
         // Body
@@ -1146,9 +1592,9 @@ namespace winrt::BiliUWP::implementation {
         m_bili_res_is_ready = true;
         auto up_card_info = std::move(co_await weak_store.ual(client->user_card_info(audio_vinfo.uid)));
         m_up_list.Clear();
+        // NOTE: audio_vinfo.author is sometimes empty, so we use audio_vinfo.uname instead
         m_up_list.Append(make<MediaPlayPage_UpItem>(
-            audio_vinfo.author, up_card_info.card.face_url, audio_vinfo.uid
-            ));
+            audio_vinfo.uname, up_card_info.card.face_url, audio_vinfo.uid));
 
         Bindings->Update();
     }
@@ -1184,9 +1630,15 @@ namespace winrt::BiliUWP::implementation {
         auto audio_pinfo = std::move(co_await weak_store.ual(client->audio_play_url(
             audio_vinfo.auid, ::BiliUWP::AudioQualityParam::Lossless
         )));
-        // TODO: Switch to HttpRandomAccessStreamBufferOptions::Full
+        hstring audio_bps_str = L"<undefined>";
+        for (auto const& i : audio_pinfo.qualities) {
+            if (audio_pinfo.type == i.type) {
+                audio_bps_str = i.bps;
+                break;
+            }
+        }
         auto audio_uri = Uri(audio_pinfo.urls.at(0));
-        auto http_stream = co_await weak_store.ual(HttpRandomAccessStream::CreateAsync(
+        auto http_stream = co_await weak_store.ual(BiliUWP::HttpRandomAccessStream::CreateAsync(
             audio_uri,
             m_http_client,
             HttpRandomAccessStreamBufferOptions::Full,
@@ -1196,8 +1648,11 @@ namespace winrt::BiliUWP::implementation {
 
         // Make DetailedStatsProvider
         struct DetailedStatsProvider_AudioHRAS : DetailedStatsProvider {
-            DetailedStatsProvider_AudioHRAS(BiliUWP::HttpRandomAccessStream hras, hstring audio_host) :
-                m_hras(std::move(hras)), m_audio_host(std::move(audio_host)) {}
+            DetailedStatsProvider_AudioHRAS(
+                BiliUWP::HttpRandomAccessStream hras, hstring audio_host,
+                ::BiliUWP::AudioQuality audio_type, hstring audio_bps_str
+            ) : m_hras(std::move(hras)), m_audio_host(std::move(audio_host)),
+                m_audio_type(audio_type), m_audio_bps_str(std::move(audio_bps_str)) {}
             void InitStats(DetailedStatsContext* ctx) {
                 using util::winrt::make_text_block;
                 ctx->AddElement(L"Player Type", make_text_block(
@@ -1254,7 +1709,8 @@ namespace winrt::BiliUWP::implementation {
                 }, m_net_activity_points, MAX_POINTS);
                 // Update mystery text
                 m_mystery_text_tb.Text(hstring(std::format(
-                    L"c:{} rd:{} hrasb:{}/{}",
+                    L"type:{}({}) c:{} rd:{} hrasb:{}/{}",
+                    std::to_underlying(m_audio_type), m_audio_bps_str,
                     metrics.ActiveConnectionsCount, metrics.SentRequestsDelta,
                     metrics.UsedBufferSize, metrics.AllocatedBufferSize
                 )));
@@ -1262,13 +1718,16 @@ namespace winrt::BiliUWP::implementation {
         private:
             BiliUWP::HttpRandomAccessStream m_hras;
             hstring m_audio_host;
+            ::BiliUWP::AudioQuality m_audio_type;
+            hstring m_audio_bps_str;
             PolylineWithTextElemForDetailedStats m_conn_speed;
             std::deque<uint64_t> m_conn_speed_points;
             PolylineWithTextElemForDetailedStats m_net_activity;
             std::deque<uint64_t> m_net_activity_points;
             TextBlock m_mystery_text_tb;
         };
-        ds_provider = std::make_shared<DetailedStatsProvider_AudioHRAS>(std::move(http_stream), audio_uri.Host());
+        ds_provider = std::make_shared<DetailedStatsProvider_AudioHRAS>(
+            std::move(http_stream), audio_uri.Host(), audio_pinfo.type, std::move(audio_bps_str));
 
         auto media_playback_item = MediaPlaybackItem(media_src);
         auto display_props = media_playback_item.GetDisplayProperties();
@@ -1339,6 +1798,7 @@ namespace winrt::BiliUWP::implementation {
         }
 
         auto media_player = MediaPlayer();
+        media_player.AudioCategory(MediaPlayerAudioCategory::Media);
         media_player.Source(source);
         // TODO: Add individual volume support (+ optionally sync to global)
         this->EstablishMediaPlayerVolumeTwoWayBinding(media_player);

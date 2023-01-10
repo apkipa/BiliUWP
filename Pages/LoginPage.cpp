@@ -146,6 +146,10 @@ namespace winrt::BiliUWP::implementation {
     void LoginPage::TokenLogin_Click(IInspectable const&, RoutedEventArgs const&) {
         // Populate token and finish the process
         auto cfg_model = ::BiliUWP::App::get()->cfg_model();
+        // TODO: cfg_model.User_CredentialEffectiveStartTime & EndTime,
+        //       and / or refresh tokens immediately
+        cfg_model.User_ApiKey(TokenLogin_ApiKey().Text());
+        cfg_model.User_ApiKeySec(TokenLogin_ApiSec().Text());
         cfg_model.User_AccessToken(TokenLogin_AccessToken().Text());
         cfg_model.User_RefreshToken(TokenLogin_RefreshToken().Text());
         cfg_model.User_Cookies_SESSDATA(TokenLogin_Cookies_SESSDATA().Text());
@@ -209,6 +213,8 @@ namespace winrt::BiliUWP::implementation {
         cancellation_token.enable_propagation();
 
         auto client = ::BiliUWP::App::get()->bili_client();
+        auto cur_ts = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
         auto result = std::move(co_await client->poll_tv_qr_login(m_qr_session.auth_code, {}));
         switch (result.code) {
         case ::BiliUWP::ApiCode::TvQrLogin_QrNotConfirmed:
@@ -217,8 +223,14 @@ namespace winrt::BiliUWP::implementation {
             co_return QRCodePollResult::Expired;
         case ::BiliUWP::ApiCode::Success:
         {
-            util::debug::log_trace(std::format(L"Got tokens which expire in {}", result.expires_in));
+            util::debug::log_trace(std::format(L"Got tokens which will expire in {} seconds",
+                result.expires_in));
+            auto api_keys = client->get_api_sign_keys();
             auto cfg_model = ::BiliUWP::App::get()->cfg_model();
+            cfg_model.User_CredentialEffectiveStartTime(cur_ts);
+            cfg_model.User_CredentialEffectiveEndTime(cur_ts + result.expires_in);
+            cfg_model.User_ApiKey(api_keys.key);
+            cfg_model.User_ApiKeySec(api_keys.sec);
             cfg_model.User_AccessToken(result.access_token);
             cfg_model.User_RefreshToken(result.refresh_token);
             cfg_model.User_Cookies_SESSDATA(result.user_cookies.SESSDATA);

@@ -59,8 +59,10 @@ namespace winrt::BiliUWP::implementation {
         return hstring(std::format(L"[{}]", std::chrono::zoned_time{ std::chrono::current_zone(), m_time }));
     }
     hstring DebugConsoleWindowPage_LogViewItem::SourceLocation() {
+        std::string_view full_path = m_src_loc.file_name();
+        auto short_path = full_path.substr(full_path.find("BiliUWP") + 7);
         return to_hstring(std::format("[{}:{}:{}]",
-            m_src_loc.file_name(), m_src_loc.function_name(), m_src_loc.line()));
+            short_path, m_src_loc.function_name(), m_src_loc.line()));
     }
     DebugConsoleWindowPage::DebugConsoleWindowPage() {
         using namespace std::chrono_literals;

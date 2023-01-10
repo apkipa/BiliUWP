@@ -735,5 +735,168 @@ namespace util {
                 });
             }
         }
+
+        ::winrt::Windows::Storage::Streams::IRandomAccessStream string_to_utf8_stream(::winrt::hstring const& s) {
+            using namespace ::winrt::Windows::Security::Cryptography;
+            return ::winrt::make<BufferBackedRandomAccessStream>(
+                CryptographicBuffer::ConvertStringToBinary(s, BinaryStringEncoding::Utf8)
+            );
+        }
+
+        struct details::InMemoryStreamImpl {
+            InMemoryStreamImpl() {}
+            void size(size_t value) {
+                std::scoped_lock guard(m_mutex);
+                m_buf.resize(value);
+                m_buf.shrink_to_fit();
+            }
+            size_t size() const {
+                std::scoped_lock guard(m_mutex);
+                return m_buf.size();
+            }
+            void expand_on_overflow(bool value) {
+                std::scoped_lock guard(m_mutex);
+                m_expand_on_overflow = value;
+            }
+            bool expand_on_overflow() const {
+                std::scoped_lock guard(m_mutex);
+                return m_expand_on_overflow;
+            }
+            size_t read_at(void* buf, size_t pos, size_t count) const {
+                std::scoped_lock guard(m_mutex);
+                if (pos >= m_buf.size()) { return 0; }
+                auto actual_count = std::min(m_buf.size() - pos, count);
+                std::memcpy(buf, m_buf.data() + pos, actual_count);
+                return actual_count;
+            }
+            size_t write_at(const void* buf, size_t pos, size_t count) {
+                std::scoped_lock guard(m_mutex);
+                size_t actual_count;
+                if (m_expand_on_overflow) {
+                    auto expected_min_size = pos + count;
+                    if (expected_min_size > m_buf.size()) {
+                        m_buf.resize(expected_min_size);
+                    }
+                    actual_count = count;
+                }
+                else {
+                    if (pos >= m_buf.size()) { return 0; }
+                    actual_count = std::min(m_buf.size() - pos, count);
+                }
+                std::memcpy(m_buf.data() + pos, buf, actual_count);
+                return actual_count;
+            }
+        private:
+            mutable std::mutex m_mutex;
+            std::vector<unsigned char> m_buf;
+            bool m_expand_on_overflow = true;
+        };
+        InMemoryStream::InMemoryStream() : m_impl(std::make_shared<details::InMemoryStreamImpl>()) {}
+        void InMemoryStream::size(size_t value) const {
+            return m_impl->size(value);
+        }
+        size_t InMemoryStream::size() const {
+            return m_impl->size();
+        }
+        void InMemoryStream::expand_on_overflow(bool value) const {
+            return m_impl->expand_on_overflow(value);
+        }
+        bool InMemoryStream::expand_on_overflow() const {
+            return m_impl->expand_on_overflow();
+        }
+        size_t InMemoryStream::read_at(void* buf, size_t pos, size_t count) const {
+            return m_impl->read_at(buf, pos, count);
+        }
+        size_t InMemoryStream::write_at(const void* buf, size_t pos, size_t count) const {
+            return m_impl->write_at(buf, pos, count);
+        }
+        ::winrt::Windows::Storage::Streams::IRandomAccessStream InMemoryStream::as_random_access_stream() const {
+            using ::winrt::Windows::Foundation::IAsyncOperationWithProgress;
+            using ::winrt::Windows::Storage::Streams::IBuffer;
+            struct WrappedRandomAccessStream :
+                ::winrt::implements<WrappedRandomAccessStream,
+                ::winrt::Windows::Storage::Streams::IRandomAccessStream,
+                ::winrt::Windows::Foundation::IClosable,
+                ::winrt::Windows::Storage::Streams::IInputStream,
+                ::winrt::Windows::Storage::Streams::IOutputStream>
+            {
+                WrappedRandomAccessStream(std::shared_ptr<details::InMemoryStreamImpl> impl,
+                    uint64_t start_pos = 0) : m_impl(std::move(impl)), m_cur_pos(start_pos) {}
+                ~WrappedRandomAccessStream() { Close(); }
+                void Close() {
+                    m_impl.store(nullptr);
+                }
+                IAsyncOperationWithProgress<IBuffer, uint32_t> ReadAsync(
+                    IBuffer buffer,
+                    uint32_t count,
+                    ::winrt::Windows::Storage::Streams::InputStreamOptions options
+                ) {
+                    auto impl = m_impl.load();
+                    if (!impl) { throw ::winrt::hresult_illegal_method_call(); }
+                    auto progress_token = co_await ::winrt::get_progress_token();
+                    progress_token(0);
+                    buffer.Length(count);
+                    auto actual_count = impl->read_at(
+                        static_cast<void*>(buffer.data()), m_cur_pos, std::min(buffer.Length(), count));
+                    buffer.Length(static_cast<uint32_t>(actual_count));
+                    m_cur_pos += static_cast<uint64_t>(actual_count);
+                    progress_token(static_cast<uint32_t>(actual_count));
+                    co_return buffer;
+                }
+                IAsyncOperationWithProgress<uint32_t, uint32_t> WriteAsync(
+                    IBuffer buffer
+                ) {
+                    auto impl = m_impl.load();
+                    if (!impl) { throw ::winrt::hresult_illegal_method_call(); }
+                    auto progress_token = co_await ::winrt::get_progress_token();
+                    progress_token(0);
+                    auto actual_count = impl->write_at(
+                        static_cast<void*>(buffer.data()), m_cur_pos, buffer.Length());
+                    m_cur_pos += static_cast<uint64_t>(actual_count);
+                    progress_token(static_cast<uint32_t>(actual_count));
+                    co_return static_cast<uint32_t>(actual_count);
+                }
+                ::winrt::Windows::Foundation::IAsyncOperation<bool> FlushAsync() {
+                    co_return true;
+                }
+                uint64_t Size() {
+                    auto impl = m_impl.load();
+                    if (!impl) { throw ::winrt::hresult_illegal_method_call(); }
+                    return static_cast<uint64_t>(impl->size());
+                }
+                void Size(uint64_t value) {
+                    auto impl = m_impl.load();
+                    if (!impl) { throw ::winrt::hresult_illegal_method_call(); }
+                    impl->size(value);
+                }
+                ::winrt::Windows::Storage::Streams::IInputStream GetInputStreamAt(uint64_t position) {
+                    auto impl = m_impl.load();
+                    if (!impl) { throw ::winrt::hresult_illegal_method_call(); }
+                    return ::winrt::make<WrappedRandomAccessStream>(std::move(impl), position);
+                }
+                ::winrt::Windows::Storage::Streams::IOutputStream GetOutputStreamAt(uint64_t position) {
+                    auto impl = m_impl.load();
+                    if (!impl) { throw ::winrt::hresult_illegal_method_call(); }
+                    return ::winrt::make<WrappedRandomAccessStream>(std::move(impl), position);
+                }
+                uint64_t Position() {
+                    return m_cur_pos;
+                }
+                void Seek(uint64_t position) {
+                    m_cur_pos = position;
+                }
+                ::winrt::Windows::Storage::Streams::IRandomAccessStream CloneStream() {
+                    auto impl = m_impl.load();
+                    if (!impl) { throw ::winrt::hresult_illegal_method_call(); }
+                    return ::winrt::make<WrappedRandomAccessStream>(std::move(impl));
+                }
+                bool CanRead() { return true; }
+                bool CanWrite() { return true; }
+            private:
+                std::atomic<std::shared_ptr<details::InMemoryStreamImpl>> m_impl;
+                uint64_t m_cur_pos;
+            };
+            return ::winrt::make<WrappedRandomAccessStream>(m_impl);
+        }
     }
 }

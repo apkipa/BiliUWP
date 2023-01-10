@@ -31,20 +31,27 @@ namespace winrt::BiliUWP::implementation {
             Windows::Foundation::IInspectable const&,
             Windows::UI::Xaml::RoutedEventArgs const&
         );
+        void RefreshCredentialTokensButton_Click(
+            Windows::Foundation::IInspectable const&,
+            Windows::UI::Xaml::RoutedEventArgs const&
+        );
         void ViewLicensesButton_Click(
             Windows::Foundation::IInspectable const&,
             Windows::UI::Xaml::RoutedEventArgs const&
         );
 
         BiliUWP::AppCfgModel CfgModel() { return m_cfg_model; }
+        Windows::UI::Xaml::DebugSettings AppDebugSettings() { return m_app_dbg_settings; }
 
     private:
         BiliUWP::AppCfgModel m_cfg_model;
+        Windows::UI::Xaml::DebugSettings m_app_dbg_settings;
 
         unsigned m_app_name_ver_text_click_times;
 
         util::winrt::async_storage m_import_config_from_clipboard_async;
         util::winrt::async_storage m_cache_async;
+        util::winrt::async_storage m_refresh_credentials_async;
     };
 }
 

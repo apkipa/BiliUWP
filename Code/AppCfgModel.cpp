@@ -19,6 +19,10 @@
     functor(App_LogLevel, static_cast<uint32_t>(util::debug::LogLevel::Error));     \
     functor(App_ShowDebugConsole, false);                                           \
     functor(App_LocalId, util::winrt::gen_random_guid());                           \
+    functor(User_CredentialEffectiveStartTime, 0);                                  \
+    functor(User_CredentialEffectiveEndTime, 0);                                    \
+    functor(User_ApiKey, L"");                                                      \
+    functor(User_ApiKeySec, L"");                                                   \
     functor(User_AccessToken, L"");                                                 \
     functor(User_RefreshToken, L"");                                                \
     functor(User_Cookies_SESSDATA, L"");                                            \
@@ -89,6 +93,10 @@ namespace winrt::BiliUWP::implementation {
         return JsonValue::CreateNumberValue(value);
     }
     template<>
+    JsonValue value_as_json<uint64_t>(ParamT<uint64_t> value) {
+        return JsonValue::CreateNumberValue(static_cast<double>(value));
+    }
+    template<>
     JsonValue value_as_json<double>(ParamT<double> value) {
         return JsonValue::CreateNumberValue(value);
     }
@@ -112,6 +120,10 @@ namespace winrt::BiliUWP::implementation {
         return static_cast<uint32_t>(jv.GetNumber());
     }
     template<>
+    uint64_t value_from_json(JsonValue const& jv) {
+        return static_cast<uint64_t>(jv.GetNumber());
+    }
+    template<>
     double value_from_json(JsonValue const& jv) {
         return jv.GetNumber();
     }
@@ -133,6 +145,10 @@ namespace winrt::BiliUWP::implementation {
     template<>
     uint32_t named_value_from_json(JsonObject const& jo, hstring const& key) {
         return static_cast<uint32_t>(jo.GetNamedNumber(key));
+    }
+    template<>
+    uint64_t named_value_from_json(JsonObject const& jo, hstring const& key) {
+        return static_cast<uint64_t>(jo.GetNamedNumber(key));
     }
     template<>
     double named_value_from_json(JsonObject const& jo, hstring const& key) {

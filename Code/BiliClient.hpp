@@ -252,6 +252,10 @@ namespace BiliUWP {
         static inline const winrt::BiliUWP::APISignKeys api_android_1{
             L"1d8b6e7d45233436", L"560c52ccd288fed045859ed18bffd973"
         };
+        // For logging in
+        static inline const winrt::BiliUWP::APISignKeys api_android_2{
+            L"bca7e84c2d947ac6", L"60698ba2f68e01ce44738920a0ffe768"
+        };
     }
 
     // Public types
@@ -269,6 +273,7 @@ namespace BiliUWP {
     };
 
     // Result types (and their children types)
+    // NOTE: Some fields are omitted (and may be reintroduced in the future)
     struct RequestTvQrLoginResult {
         winrt::hstring url;
         winrt::hstring auth_code;
@@ -282,13 +287,14 @@ namespace BiliUWP {
         winrt::BiliUWP::UserCookies user_cookies;
     };
     struct Oauth2RefreshTokenResult {
+        uint64_t mid;
         winrt::hstring access_token;
         winrt::hstring refresh_token;
         uint32_t expires_in;
         winrt::BiliUWP::UserCookies user_cookies;
     };
     struct RevokeLoginResult {
-        // TODO...
+        // TODO: Finish RevokeLoginResult
     };
     struct MyAccountNavInfoResult {
         bool logged_in;
@@ -547,7 +553,7 @@ namespace BiliUWP {
         winrt::hstring length_str;
         uint64_t mid;
         winrt::hstring cover_url;
-        uint64_t play_count;
+        std::optional<uint64_t> play_count;
         uint64_t review;
         winrt::hstring subtitle;
         winrt::hstring title;
@@ -659,7 +665,7 @@ namespace BiliUWP {
         } owner;
         struct {
             uint64_t avid;
-            uint64_t view_count;
+            std::optional<uint64_t> view_count;
             uint64_t danmaku_count;
             uint64_t reply_count;
             uint64_t favorite_count;
@@ -687,6 +693,24 @@ namespace BiliUWP {
     };
     struct VideoFullInfoResult {
         // TODO: Finish VideoFullInfoResult
+    };
+    struct VideoInfoV2_Subtitle {
+        uint64_t id;
+        winrt::hstring language;
+        winrt::hstring language_doc;
+        bool locked;
+        winrt::hstring subtitle_url;
+    };
+    struct VideoInfoV2Result {
+        uint64_t avid;
+        winrt::hstring bvid;
+        uint64_t cid;
+        uint64_t page_no;
+        uint64_t online_count;
+        struct {
+            bool allow_submit;
+            std::vector<VideoInfoV2_Subtitle> list;
+        } subtitle;
     };
     struct VideoPlayUrl_DurlPart {
         uint64_t order;
@@ -939,6 +963,8 @@ namespace BiliUWP {
         void set_refresh_token(winrt::hstring const& value);
         winrt::BiliUWP::UserCookies get_cookies(void);
         void set_cookies(winrt::BiliUWP::UserCookies const& value);
+        winrt::BiliUWP::APISignKeys get_api_sign_keys(void);
+        void set_api_sign_keys(winrt::BiliUWP::APISignKeys const& value);
 
         // Authentication
         util::winrt::task<RequestTvQrLoginResult> request_tv_qr_login(winrt::guid local_id);
@@ -965,6 +991,9 @@ namespace BiliUWP {
         // Video information
         util::winrt::task<VideoViewInfoResult> video_view_info(std::variant<uint64_t, winrt::hstring> vid);
         util::winrt::task<VideoFullInfoResult> video_full_info(std::variant<uint64_t, winrt::hstring> vid);
+        util::winrt::task<VideoInfoV2Result> video_info_v2(
+            std::variant<uint64_t, winrt::hstring> vid, uint64_t cid
+        );
         util::winrt::task<VideoPlayUrlResult> video_play_url(
             std::variant<uint64_t, winrt::hstring> vid, uint64_t cid,
             VideoPlayUrlPreferenceParam prefers
@@ -991,7 +1020,7 @@ namespace BiliUWP {
 
     private:
         winrt::BiliUWP::BiliClientManaged m_bili_client;
-
+        winrt::BiliUWP::APISignKeys m_api_sign_keys;
         winrt::hstring m_refresh_token;
     };
 }

@@ -130,6 +130,10 @@
             <TextBlock Foreground="Red"
                        x:Uid="App/Page/LoginPage/TokenLoginWarn"
                        TextWrapping="WrapWholeWords"/>
+            <TextBox x:Name="TokenLogin_ApiKey"
+                     Header="api_key"/>
+            <TextBox x:Name="TokenLogin_ApiSec"
+                     Header="api_sec"/>
             <TextBox x:Name="TokenLogin_AccessToken"
                      Header="access_token"/>
             <TextBox x:Name="TokenLogin_RefreshToken"

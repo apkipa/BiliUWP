@@ -7,7 +7,6 @@
 #include "App.h"
 #include <regex>
 
-
 // NOTE: Keep these values in sync with XAML!
 constexpr double HEADER_MAX_HEIGHT = 200;
 constexpr double HEADER_MIN_HEIGHT = 56;
@@ -30,6 +29,43 @@ using namespace Windows::UI::Xaml::Controls;
 using namespace Windows::UI::Composition;
 using namespace Windows::UI::Composition::Interactions;
 using ::BiliUWP::App::res_str;
+
+IAsyncOperation<Color> get_dominant_color_from_image_stream(
+    Windows::Storage::Streams::IRandomAccessStream const& stream
+) {
+    using namespace Windows::Graphics::Imaging;
+    auto cancellation_token = co_await get_cancellation_token();
+    cancellation_token.enable_propagation();
+    co_await resume_background();
+    auto decoder = co_await BitmapDecoder::CreateAsync(stream.CloneStream());
+    auto bmp_trans_1x1 = BitmapTransform();
+    bmp_trans_1x1.ScaledWidth(1);
+    bmp_trans_1x1.ScaledHeight(1);
+    auto pixels = co_await decoder.GetPixelDataAsync(
+        BitmapPixelFormat::Rgba8,
+        BitmapAlphaMode::Ignore,
+        bmp_trans_1x1,
+        ExifOrientationMode::IgnoreExifOrientation,
+        ColorManagementMode::DoNotColorManage
+    );
+    auto bytes = pixels.DetachPixelData();
+    co_return ColorHelper::FromArgb(255, bytes[0], bytes[1], bytes[2]);
+}
+
+// Compliant with https://www.w3.org/TR/WCAG20
+Windows::UI::Color get_contrast_white_black(Windows::UI::Color background) {
+    // NOTE: Alpha values are ignored
+    using Windows::UI::Colors;
+    auto transform_fn = [](uint8_t c) {
+        double fc = c / 255.0;
+        return fc <= 0.03928 ? fc / 12.92 : std::pow((fc + 0.055) / 1.055, 2.4);
+    };
+    double R = transform_fn(background.R);
+    double G = transform_fn(background.G);
+    double B = transform_fn(background.B);
+    double L = 0.2126 * R + 0.7152 * G + 0.0722 * B;
+    return (L + 0.05) / (0.0 + 0.05) > (1.0 + 0.05) / (L + 0.05) ? Colors::Black() : Colors::White();
+}
 
 #if 0
 namespace winrt::BiliUWP::implementation {
@@ -371,32 +407,12 @@ namespace winrt::BiliUWP::implementation {
                 auto overlay = that->MainStateOverlay();
                 overlay.SwitchToLoading(res_str(L"App/Common/Loading"));
                 try {
-                    that->m_bili_res_is_ready = false;
-                    deferred([&weak_store] {
-                        if (!weak_store.lock()) { return; }
-                        weak_store->m_bili_res_is_ready = true;
-                    });
-                    auto client = ::BiliUWP::App::get()->bili_client();
-                    auto result = std::move(co_await weak_store.ual(client->user_space_info(that->m_uid)));
+                    // NOTE: Even if user is invalid (deregistered, etc.), we can still retrieve
+                    //       some information (published videos, dynamics, ...)
                     that->m_bili_res_is_valid = true;
                     that->m_bili_res_is_ready = true;
 
-                    auto bmp_img = BitmapImage(Uri(result.top_photo_url));
-                    auto img_brush = ImageBrush();
-                    img_brush.Stretch(Stretch::UniformToFill);
-                    img_brush.ImageSource(bmp_img);
-                    that->HeaderBackground().Background(img_brush);
-                    that->Header().Background(img_brush);
-                    auto user_face_bmp_img = BitmapImage(Uri(result.face_url));
-                    user_face_bmp_img.DecodePixelType(DecodePixelType::Logical);
-                    user_face_bmp_img.DecodePixelWidth(80);
-                    user_face_bmp_img.DecodePixelHeight(80);
-                    that->UserFace().ProfilePicture(user_face_bmp_img);
-                    that->UserName().Text(result.name);
-                    that->UserSign().Text(hstring(
-                        std::regex_replace(result.sign.c_str(), std::wregex(L"\\n", std::regex::optimize), L" ")
-                    ));
-
+                    // Init grid views
                     auto idx_of_content_fn = [&](IInspectable const& cont) {
                         auto tabs_items = that->TabsPivot().Items();
                         auto size = tabs_items.Size();
@@ -467,6 +483,47 @@ namespace winrt::BiliUWP::implementation {
                         MakeIncrementalLoadingCollection(
                             std::make_shared<::BiliUWP::FavouritesUserViewItemsSource>(that->m_uid))
                     );
+
+                    // Update user info
+                    auto client = ::BiliUWP::App::get()->bili_client();
+                    auto result = std::move(co_await weak_store.ual(client->user_space_info(that->m_uid)));
+                    auto http_client = Windows::Web::Http::HttpClient();
+                    // TODO: Improve logic later (concurrency & caching)
+                    auto space_img_stream = winrt::make<util::winrt::BufferBackedRandomAccessStream>(
+                        co_await weak_store.ual(http_client.GetBufferAsync(Uri(result.top_photo_url))));
+                    auto text_fore_clr = get_contrast_white_black(
+                        co_await weak_store.ual(get_dominant_color_from_image_stream(space_img_stream)));
+                    auto apply_theme_fn = [&](ElementTheme theme) {
+                        using util::winrt::get_first_descendant;
+                        that->Header2().RequestedTheme(theme);
+                        get_first_descendant<FrameworkElement>(that->TabsPivot(), L"HeaderClipper")
+                            .RequestedTheme(theme);
+                    };
+                    apply_theme_fn(text_fore_clr == Colors::Black() ? ElementTheme::Light : ElementTheme::Dark);
+                    //auto text_fore_brush = SolidColorBrush(text_fore_clr);
+                    //auto bmp_img = BitmapImage(Uri(result.top_photo_url));
+                    auto bmp_img = BitmapImage();
+                    bmp_img.SetSource(space_img_stream);
+                    auto img_brush = ImageBrush();
+                    img_brush.Stretch(Stretch::UniformToFill);
+                    img_brush.ImageSource(bmp_img);
+                    that->HeaderBackground().Background(img_brush);
+                    that->Header().Background(img_brush);
+                    auto user_face_bmp_img = BitmapImage(Uri(result.face_url));
+                    user_face_bmp_img.DecodePixelType(DecodePixelType::Logical);
+                    user_face_bmp_img.DecodePixelWidth(80);
+                    user_face_bmp_img.DecodePixelHeight(80);
+                    that->UserFace().ProfilePicture(user_face_bmp_img);
+                    that->UserName().Text(result.name);
+                    //that->UserName().Foreground(text_fore_brush);
+                    std::wstring user_sign{ result.sign };
+                    // NOTE: The user sign conversion follows the web ui
+                    // Transform multi-line text into one single line
+                    user_sign = std::regex_replace(user_sign, std::wregex(L"\\n", std::regex::optimize), L" ");
+                    // Unescape common HTML symbols
+                    user_sign = std::regex_replace(user_sign, std::wregex(L"&amp;", std::regex::optimize), L"&");
+                    that->UserSign().Text(hstring(user_sign));
+                    //that->UserSign().Foreground(text_fore_brush);
                 }
                 catch (::BiliUWP::BiliApiException const&) {
                     util::winrt::log_current_exception();
@@ -711,7 +768,7 @@ namespace winrt::BiliUWP::implementation {
             if (!m_ea_pih_tl) {
                 auto pih = get_first_descendant<FrameworkElement>(TabsPivot(), L"HeaderClipper");
                 pih.HorizontalAlignment(HorizontalAlignment::Left);
-                m_comp_props.InsertScalar(L"pih_xoff", 0);
+                m_comp_props.InsertScalar(L"pih_xoff", static_cast<float>(UserName().ActualWidth()));
                 UserName().SizeChanged([this](IInspectable const&, SizeChangedEventArgs const&) {
                     auto pih_xoff = 40 + UserFace().ActualWidth() * 0.45 + UserName().ActualWidth() * 0.5;
                     m_comp_props.InsertScalar(L"pih_xoff", static_cast<float>(pih_xoff));

@@ -6,6 +6,12 @@
 #include <shared_mutex>
 #include <source_location>
 
+/* TODO:
+Currently, we pin cppwinrt to versions before v2.0.221117.1 since we are blocked by
+the dependency on winrt::impl::get_awaiter, winrt::impl::notify_awaiter, etc. Remove the
+uses in the future to keep cppwinrt up to date.
+*/
+
 namespace util {
     namespace misc {
 #define CONCAT_2_IMPL(a, b) a ## b
@@ -191,6 +197,10 @@ namespace util {
     namespace num {
         inline constexpr uint32_t rotate_left(uint32_t v, unsigned int offset) {
             return (v << offset) | (v >> ((CHAR_BIT * sizeof v) - offset));
+        }
+        inline uint64_t gen_global_seqid(void) {
+            static uint64_t counter = 0;
+            return counter++;
         }
         inline std::optional<double> try_parse_f64(std::string_view sv) {
             auto begin = &*sv.begin();
@@ -521,13 +531,15 @@ namespace util {
             }
             else {
                 using ::winrt::Windows::UI::Xaml::RoutedEventArgs;
+                using ::winrt::Windows::Foundation::IInspectable;
                 auto revoke_et = std::make_shared_for_overwrite<::winrt::event_token>();
-                // TODO: Maybe optimize logic (lvalue => copy, rvalue => move)
                 *revoke_et = elem.Loaded(
-                    [=](::winrt::Windows::Foundation::IInspectable const& sender, RoutedEventArgs const&) {
+                    [revoke_et, functor = std::forward<Functor>(functor)](
+                        IInspectable const& sender, RoutedEventArgs const&)
+                    {
                         auto elem = sender.as<T>();
                         elem.Loaded(*revoke_et);
-                        functor(elem);
+                        functor(std::move(elem));
                     }
                 );
             }
@@ -815,12 +827,16 @@ namespace util {
                 bool enable_cancellation_propagation(bool value) noexcept {
                     return std::exchange(m_propagate_cancellation, value);
                 }
+                void cancellation_callback(::winrt::delegate<>&& cancel) noexcept {
+                    m_cts.get_token().register_callback(cancel);
+                }
             private:
                 concurrency::task_completion_event<ReturnWrapType> m_tce;
                 concurrency::cancellation_token_source m_cts;
                 std::shared_ptr<::winrt::cancellable_promise> m_cancellable;
                 bool m_propagate_cancellation{ false };
             };
+
             bool await_ready() const {
                 return m_task.is_done();
             }
@@ -842,8 +858,11 @@ namespace util {
                 }, this);
             }
             void cancel(void) {
-                m_cancellable->cancel();
-                m_cts.cancel();
+                // TODO: Mutex protection
+                if (!m_cts.get_token().is_canceled()) {
+                    m_cancellable->cancel();
+                    m_cts.cancel();
+                }
             }
             ~task() {
                 // Swallow exceptions, if any
@@ -916,12 +935,16 @@ namespace util {
                 bool enable_cancellation_propagation(bool value) noexcept {
                     return std::exchange(m_propagate_cancellation, value);
                 }
+                void cancellation_callback(::winrt::delegate<>&& cancel) noexcept {
+                    m_cts.get_token().register_callback(cancel);
+                }
             private:
                 concurrency::task_completion_event<void> m_tce;
                 concurrency::cancellation_token_source m_cts;
                 std::shared_ptr<::winrt::cancellable_promise> m_cancellable;
                 bool m_propagate_cancellation{ false };
             };
+
             bool await_ready() const {
                 return m_task.is_done();
             }
@@ -941,8 +964,11 @@ namespace util {
                 }, this);
             }
             void cancel(void) {
-                m_cancellable->cancel();
-                m_cts.cancel();
+                // TODO: Mutex protection
+                if (!m_cts.get_token().is_canceled()) {
+                    m_cancellable->cancel();
+                    m_cts.cancel();
+                }
             }
             ~task() {
                 // Swallow exceptions, if any
@@ -1292,6 +1318,7 @@ namespace util {
                 auto progress_token = co_await ::winrt::get_progress_token();
                 progress_token(0);
                 buffer.Length(static_cast<uint32_t>(actual_count));
+                actual_count = std::min(static_cast<uint64_t>(buffer.Length()), actual_count);
                 memcpy(
                     static_cast<void*>(buffer.data()),
                     static_cast<void*>(m_buffer.data() + m_cur_pos),
@@ -1314,8 +1341,9 @@ namespace util {
 
                 auto progress_token = co_await ::winrt::get_progress_token();
                 progress_token(0);
-                m_buffer.Length(static_cast<uint32_t>(m_cur_pos + actual_count));
-
+                if (m_cur_pos + actual_count > m_buffer.Length()) {
+                    m_buffer.Length(static_cast<uint32_t>(m_cur_pos + actual_count));
+                }
                 memcpy(
                     static_cast<void*>(m_buffer.data() + m_cur_pos),
                     static_cast<void*>(buffer.data()),
@@ -1380,6 +1408,8 @@ namespace util {
 
         void persist_textbox_cc_clipboard(::winrt::Windows::UI::Xaml::Controls::TextBox const& tb);
         void persist_autosuggestbox_clipboard(::winrt::Windows::UI::Xaml::Controls::AutoSuggestBox const& ctrl);
+
+        ::winrt::Windows::Storage::Streams::IRandomAccessStream string_to_utf8_stream(::winrt::hstring const& s);
 
         // A simple wrapper mutex around OS's synchronization primitives, with async support
         // NOTE: It is safe to destroy a locked mutex!
@@ -1464,6 +1494,85 @@ namespace util {
         private:
             static constexpr size_t MAX_SPIN_COUNT = 40;
             std::shared_timed_mutex m_mutex;
+        };
+
+        // NOTE: winrt::deferrable_event_args with support for multiple awaiters
+        template<typename D>
+        struct deferrable_event_args {
+            ::winrt::Windows::Foundation::Deferral GetDeferral() {
+                ::winrt::slim_lock_guard guard(m_lock);
+
+                if (!m_co_handles.empty()) {
+                    // Cannot ask for deferral after the event handler returned.
+                    throw ::winrt::hresult_illegal_method_call(L"Getting deferral outside the event handler is disallowed");
+                }
+
+                ::winrt::Windows::Foundation::Deferral deferral{ {static_cast<D&>(*this).get_strong(), &deferrable_event_args::one_deferral_completed } };
+                ++m_outstanding_deferrals;
+                return deferral;
+            }
+
+            [[nodiscard]] ::winrt::Windows::Foundation::IAsyncAction wait_for_deferrals() {
+                struct awaitable : std::suspend_always {
+                    bool await_suspend(coroutine_handle handle) {
+                        return m_deferrable.await_suspend(handle);
+                    }
+
+                    deferrable_event_args& m_deferrable;
+                };
+
+                co_await awaitable{ {}, *this };
+            }
+
+        private:
+            using coroutine_handle = std::coroutine_handle<>;
+
+            void one_deferral_completed() {
+                std::vector<coroutine_handle> resume;
+                {
+                    ::winrt::slim_lock_guard guard(m_lock);
+
+                    if (m_outstanding_deferrals <= 0) {
+                        throw ::winrt::hresult_illegal_method_call();
+                    }
+
+                    if (--m_outstanding_deferrals == 0) {
+                        resume.push_back(nullptr);
+                        resume.swap(m_co_handles);
+                    }
+                }
+
+                if (!resume.empty() && resume[0]) {
+                    for (auto i : resume) {
+                        ::winrt::impl::resume_background(i);
+                    }
+                }
+            }
+
+            bool await_suspend(coroutine_handle handle) noexcept {
+                ::winrt::slim_lock_guard guard(m_lock);
+                m_co_handles.push_back(handle);
+                return m_outstanding_deferrals > 0;
+            }
+
+            ::winrt::slim_mutex m_lock;
+            int32_t m_outstanding_deferrals = 0;
+            std::vector<coroutine_handle> m_co_handles;
+        };
+
+        // A simple in-memory stream which supports IRandomAccessStream
+        namespace details { struct InMemoryStreamImpl; }
+        struct InMemoryStream {
+            InMemoryStream();
+            void size(size_t value) const;
+            size_t size() const;
+            void expand_on_overflow(bool value) const;
+            bool expand_on_overflow() const;
+            size_t read_at(void* buf, size_t pos, size_t count) const;
+            size_t write_at(const void* buf, size_t pos, size_t count) const;
+            ::winrt::Windows::Storage::Streams::IRandomAccessStream as_random_access_stream() const;
+        private:
+            std::shared_ptr<details::InMemoryStreamImpl> m_impl;
         };
     }
 

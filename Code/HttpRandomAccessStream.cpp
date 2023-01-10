@@ -134,6 +134,10 @@ namespace winrt::BiliUWP::implementation {
                 return;
             }
             std::scoped_lock guard_metrics(m_mutex_metrics);
+            if (m_enable_metrics_collection.load() != enable) {
+                // Value has changed, leaving current state stale
+                return;
+            }
             if (enable) {
                 m_metrics.last_start_ts = std::chrono::high_resolution_clock::now();
             }
@@ -279,6 +283,9 @@ namespace winrt::BiliUWP::implementation {
                 );
             }
 
+            // WARN: InMemoryRandomAccessStream does not support >4GB data
+            // TODO: Use custom stream which supports >4GB data
+            m_buf_stream = util::winrt::InMemoryStream().as_random_access_stream();
             m_buf_stream.Size(size);
         }
         void SupplyNewUri(array_view<Uri const> new_uris) {
@@ -305,8 +312,8 @@ namespace winrt::BiliUWP::implementation {
             cancellation_token.enable_propagation();
             auto progress_token = co_await get_progress_token();
 
-            util::debug::log_trace(std::format(L"Fetching stream range {}-{} with option {}",
-                start, end, std::to_underlying(options)));
+            /*util::debug::log_trace(std::format(L"Fetching stream range {}-{} with option {}",
+                start, end, std::to_underlying(options)));*/
 
             if (start > end) {
                 throw hresult_invalid_argument(L"Invalid read operation (negative-sized read)");
@@ -429,6 +436,10 @@ namespace winrt::BiliUWP::implementation {
                 return;
             }
             std::scoped_lock guard_metrics(m_mutex_metrics);
+            if (m_enable_metrics_collection.load() != enable) {
+                // Value has changed, leaving current state stale
+                return;
+            }
             if (enable) {
                 m_metrics.last_start_ts = std::chrono::high_resolution_clock::now();
             }
@@ -479,6 +490,7 @@ namespace winrt::BiliUWP::implementation {
         IAsyncAction trigger_new_uri_requested(void) {
             com_ptr<NewUriRequestedEventArgs> ea_nur = nullptr;
             bool owns_ea = false;
+            auto correlation_id = static_cast<uint32_t>(util::num::gen_global_seqid());
             {
                 std::scoped_lock guard(m_mutex_ea_nur);
                 ea_nur = m_ea_nur;
@@ -494,9 +506,15 @@ namespace winrt::BiliUWP::implementation {
                 }
             });
             if (owns_ea) {
+                util::debug::log_trace(std::format(L"Triggering event NewUriRequested (CorrelationId: {:08x})", correlation_id));
                 m_ev_new_uri_requested(make<HttpRandomAccessStream>(shared_from_this(), L""), *ea_nur);
             }
-            co_return co_await ea_nur->wait_for_deferrals();
+            // WARN: winrt::deferrable_event_args::wait_for_deferrals() does not support
+            //       multiple awaiters, don't use it
+            co_await ea_nur->wait_for_deferrals();
+            if (owns_ea) {
+                util::debug::log_trace(std::format(L"Finished event NewUriRequested (CorrelationId: {:08x})", correlation_id));
+            }
         }
         // NOTE: This method only fills the specified part of buffer stream. Buffer ranges
         //       should be managed outside the method.
@@ -505,7 +523,8 @@ namespace winrt::BiliUWP::implementation {
             cancellation_token.enable_propagation();
             auto progress_token = co_await get_progress_token();
 
-            util::debug::log_trace(std::format(L"Fetching http range {}-{}", start, end));
+            auto correlation_id = static_cast<uint32_t>(util::num::gen_global_seqid());
+            util::debug::log_trace(std::format(L"Fetching http range {}-{} (CorrelationId: {:08x})", start, end, correlation_id));
 
             if (end > m_size) {
                 throw hresult_invalid_argument(L"Invalid read operation (out-of-bounds read)");
@@ -567,14 +586,16 @@ namespace winrt::BiliUWP::implementation {
                         op_req_bytes = progress;
                     });
                     co_await std::move(op);
+                    util::debug::log_trace(std::format(L"Done fetching http range {}-{} (CorrelationId: {:08x})", start, end, correlation_id));
                     co_return;
                 }
                 catch (hresult_canceled const&) { throw; }
                 catch (hresult_error const& e) {
                     util::debug::log_debug(std::format(
-                        L"HRAS: Failed to fetch `{}` with range {}-{} (0x{:08x}: {})",
+                        L"HRAS: Failed to fetch `{}` with range {}-{} (0x{:08x}: {}) (CorrelationId: {:08x})",
                         cur_uri.ToString(), start, end,
-                        static_cast<uint32_t>(e.code()), e.message()
+                        static_cast<uint32_t>(e.code()), e.message(),
+                        correlation_id
                     ));
                     if (e.code() == E_CHANGED_STATE) {
                         // Workaround HttpClient concurrency issue by ignoring E_CHANGED_STATE
@@ -598,7 +619,7 @@ namespace winrt::BiliUWP::implementation {
             }
         }
 
-        InMemoryRandomAccessStream m_buf_stream;
+        IRandomAccessStream m_buf_stream;
         std::mutex m_mutex_ea_nur;
         com_ptr<NewUriRequestedEventArgs> m_ea_nur;
         std::shared_mutex m_mutex_http_uris;
@@ -653,6 +674,8 @@ namespace winrt::BiliUWP::implementation {
             throw hresult_invalid_argument(L"Unrecognized HttpRandomAccessStreamBufferOptions");
         }
 
+        co_await resume_background();
+
         if (buffer_options == HttpRandomAccessStreamBufferOptions::ImmediateFull) {
             // This option does not require partial downloading, so handle this separately
             auto http_resp = co_await http_client.GetAsync(http_uri, HttpCompletionOption::ResponseHeadersRead);
@@ -676,10 +699,15 @@ namespace winrt::BiliUWP::implementation {
         );
         auto status_code = http_resp.EnsureSuccessStatusCode().StatusCode();
         if (status_code != HttpStatusCode::PartialContent) {
-            throw hresult_error(E_FAIL, std::format(
-                L"Requested resource does not support partial downloading (HTTP {})",
+            util::debug::log_warn(std::format(
+                L"HRAS: Requested resource does not support partial downloading (HTTP {}), "
+                "ignoring as a workaround",
                 std::to_underlying(status_code)
             ));
+            /*throw hresult_error(E_FAIL, std::format(
+                L"Requested resource does not support partial downloading (HTTP {})",
+                std::to_underlying(status_code)
+            ));*/
         }
 
         // Server supports ranges; proceed with creation

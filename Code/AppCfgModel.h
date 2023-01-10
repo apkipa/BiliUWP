@@ -47,6 +47,14 @@ namespace winrt::BiliUWP::implementation {
         guid App_LocalId();
         void App_LocalId(guid const& value);
 
+        uint64_t User_CredentialEffectiveStartTime();
+        void User_CredentialEffectiveStartTime(uint64_t value);
+        uint64_t User_CredentialEffectiveEndTime();
+        void User_CredentialEffectiveEndTime(uint64_t value);
+        hstring User_ApiKey();
+        void User_ApiKey(hstring const& value);
+        hstring User_ApiKeySec();
+        void User_ApiKeySec(hstring const& value);
         hstring User_AccessToken();
         void User_AccessToken(hstring const& value);
         hstring User_RefreshToken();

@@ -32,6 +32,10 @@ namespace BiliUWP {
         Guid App_LocalId;
 
         // User data
+        UInt64 User_CredentialEffectiveStartTime;   // Timestamp (seconds)
+        UInt64 User_CredentialEffectiveEndTime;     // Timestamp (seconds)
+        String User_ApiKey;
+        String User_ApiKeySec;
         String User_AccessToken;
         String User_RefreshToken;
         String User_Cookies_SESSDATA;

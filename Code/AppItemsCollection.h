@@ -62,7 +62,10 @@ namespace winrt::BiliUWP::implementation {
         }
         hstring PublishTimeStr();
         hstring Description() { return m_data.description; }
-        uint64_t PlayCount() { return m_data.play_count; }
+        hstring PlayCountStr() {
+            if (!m_data.play_count) { return L"--"; }
+            return to_hstring(*m_data.play_count);
+        }
         uint64_t DanmakuCount() { return m_data.danmaku_count; }
         uint64_t AvId() { return m_data.avid; }
         bool IsUnionVideo() { return m_data.is_union_video; }

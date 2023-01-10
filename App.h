@@ -219,6 +219,21 @@ namespace BiliUWP {
         DebugConsole& debug_console(void) {
             return m_dbg_con;
         }
+        void enable_debug_console(bool enable, bool append_existing_logs) {
+            if (!enable) {
+                m_dbg_con = nullptr;
+                return;
+            }
+            [](AppInst* that, bool append_existing_logs) -> fire_forget_except {
+                that->m_dbg_con = co_await ::BiliUWP::DebugConsole::CreateAsync();
+                if (append_existing_logs) {
+                    std::shared_lock log_guard(that->m_mutex_app_logs);
+                    for (const auto& ld : that->m_app_logs) {
+                        that->m_dbg_con.AppendLog(ld.time, ld.level, ld.src_loc, ld.content);
+                    }
+                }
+            }(this, append_existing_logs);
+        }
 
     private:
         friend winrt::BiliUWP::implementation::App;

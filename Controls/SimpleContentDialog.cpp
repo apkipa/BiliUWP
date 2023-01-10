@@ -18,15 +18,27 @@ namespace winrt::BiliUWP::implementation {
     SimpleContentDialog::SimpleContentDialog() :
         m_dialog_showing(false), m_finish_event()
     {
-        Loaded([this](IInspectable const&, RoutedEventArgs const&) {
-            auto dlg = GetTemplateChild(L"BackgroundElement").as<UIElement>();
-            if (auto ts = dlg.Shadow().try_as<ThemeShadow>()) {
-                ts.Receivers().ReplaceAll({ GetTemplateChild(L"BackgroundShadow").as<UIElement>() });
-            }
-        });
+        // Keep focus inside dialog
         PointerPressed([](IInspectable const&, PointerRoutedEventArgs const& e) {
             e.Handled(true);
         });
+        PointerReleased([](IInspectable const&, PointerRoutedEventArgs const& e) {
+            e.Handled(true);
+        });
+        Loaded([](IInspectable const& sender, RoutedEventArgs const& e) {
+            auto self = sender.as<BiliUWP::SimpleContentDialog>();
+            self.Dispatcher().RunAsync(CoreDispatcherPriority::High, [self] {
+                self.Focus(FocusState::Programmatic);
+            });
+        });
+    }
+    void SimpleContentDialog::OnApplyTemplate() {
+        SimpleContentDialogT::OnApplyTemplate();
+
+        auto dlg = GetTemplateChild(L"BackgroundElement").as<UIElement>();
+        if (auto ts = dlg.Shadow().try_as<ThemeShadow>()) {
+            ts.Receivers().ReplaceAll({ GetTemplateChild(L"BackgroundShadow").as<UIElement>() });
+        }
     }
     IAsyncOperation<SimpleContentDialogResult> SimpleContentDialog::ShowAsync() {
         using namespace std::chrono_literals;
@@ -63,6 +75,8 @@ namespace winrt::BiliUWP::implementation {
         auto sdata = std::make_shared<shared_data>();
 
         auto run_fn = [&] {
+            this->ApplyTemplate();
+
             unsigned show_primary = PrimaryButtonText() != L"";
             unsigned show_secondary = SecondaryButtonText() != L"";
             unsigned show_close = CloseButtonText() != L"";
@@ -111,6 +125,7 @@ namespace winrt::BiliUWP::implementation {
             loaded_revoker = Loaded(auto_revoke, [&, sdata](IInspectable const&, RoutedEventArgs const&) {
                 std::scoped_lock guard(sdata->mutex);
                 if (!sdata->should_continue) { return; }
+                sdata->should_continue = false;
                 run_fn();
             });
         }

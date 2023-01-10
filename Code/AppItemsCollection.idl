@@ -27,7 +27,7 @@ namespace BiliUWP {
         String CoverUrl{ get; };
         String PublishTimeStr{ get; };
         String Description{ get; };
-        UInt64 PlayCount{ get; };
+        String PlayCountStr{ get; };
         UInt64 DanmakuCount{ get; };
         UInt64 AvId{ get; };
         Boolean IsUnionVideo{ get; };

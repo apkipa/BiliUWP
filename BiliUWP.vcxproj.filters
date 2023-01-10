@@ -141,6 +141,9 @@
     <Filter Include="Assets\Fonts">
       <UniqueIdentifier>{f3a35851-c1b6-4a07-8a78-83e5bb744ef4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Protos">
+      <UniqueIdentifier>{b99690de-2014-4696-b1d4-f90360183e56}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="PropertySheet.props" />
@@ -148,6 +151,7 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="readme.txt" />
+    <Text Include="AppDepsLicense.rawstr.txt" />
   </ItemGroup>
   <ItemGroup>
     <Page Include="Pages\MainPage.xaml">
@@ -357,5 +361,10 @@
     <Font Include="Assets\Fonts\vanfont.ttf">
       <Filter>Assets\Fonts</Filter>
     </Font>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="Protos\bilibili\community\service\dm\v1\dm.proto">
+      <Filter>Protos</Filter>
+    </CustomBuild>
   </ItemGroup>
 </Project>

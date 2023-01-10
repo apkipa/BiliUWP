@@ -17,7 +17,9 @@ using namespace Windows::Storage;
 
 namespace winrt::BiliUWP::implementation {
     SettingsPage::SettingsPage() :
-        m_cfg_model(::BiliUWP::App::get()->cfg_model()), m_app_name_ver_text_click_times(0) {}
+        m_cfg_model(::BiliUWP::App::get()->cfg_model()),
+        m_app_dbg_settings(Application::Current().DebugSettings()),
+        m_app_name_ver_text_click_times(0) {}
     void SettingsPage::InitializeComponent() {
         using namespace Windows::ApplicationModel;
 
@@ -72,6 +74,14 @@ namespace winrt::BiliUWP::implementation {
                 m_app_name_ver_text_click_times = 0;
             }
         });
+
+        auto expire_ts = m_cfg_model.User_CredentialEffectiveEndTime();
+        auto tp = std::chrono::system_clock::time_point(std::chrono::seconds(expire_ts));
+        CredentialsExpireAfterText().Text(
+            ::BiliUWP::App::res_str(L"App/Page/SettingsPage/CredentialsExpireAfterText",
+                std::format("{}", std::chrono::zoned_time{ std::chrono::current_zone(), tp })
+            )
+        );
     }
     void SettingsPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const&) {
         auto tab = ::BiliUWP::App::get()->tab_from_page(*this);
@@ -221,113 +231,70 @@ namespace winrt::BiliUWP::implementation {
         }, this);
     }
     void SettingsPage::SwitchDebugConsoleButton_Click(IInspectable const&, RoutedEventArgs const&) {
-        auto& dbg_con = ::BiliUWP::App::get()->debug_console();
-        if (dbg_con) {
-            dbg_con = nullptr;
-        }
-        else {
-            []() -> fire_forget_except {
-                ::BiliUWP::App::get()->debug_console() = co_await ::BiliUWP::DebugConsole::CreateAsync();
-            }();
-        }
+        auto app = ::BiliUWP::App::get();
+        app->enable_debug_console(!app->debug_console(), true);
+    }
+    void SettingsPage::RefreshCredentialTokensButton_Click(IInspectable const&, RoutedEventArgs const&) {
+        m_cache_async.run_if_idle([](SettingsPage* that) -> IAsyncAction {
+            auto cancellation_token = co_await get_cancellation_token();
+            cancellation_token.enable_propagation();
+
+            auto weak_store = util::winrt::make_weak_storage(*that);
+
+            deferred([&weak_store] {
+                if (!weak_store.lock()) { return; }
+                auto prog_ring = weak_store->RefreshCredentialTokensProgRing();
+                prog_ring.IsActive(false);
+                prog_ring.Visibility(Visibility::Collapsed);
+            });
+
+            try {
+                auto success_mark = that->RefreshCredentialTokensSuccessMark();
+                success_mark.Visibility(Visibility::Collapsed);
+                auto prog_ring = that->RefreshCredentialTokensProgRing();
+                prog_ring.IsActive(true);
+                prog_ring.Visibility(Visibility::Visible);
+
+                util::debug::log_trace(L"Refreshing credential tokens");
+                auto cfg_model = that->m_cfg_model;
+                auto cred_expire_text = that->CredentialsExpireAfterText();
+                auto client = ::BiliUWP::App::get()->bili_client();
+                auto cur_ts = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count());
+                auto result = std::move(co_await client->oauth2_refresh_token());
+                auto expire_ts = cur_ts + result.expires_in;
+                cfg_model.User_CredentialEffectiveStartTime(cur_ts);
+                cfg_model.User_CredentialEffectiveEndTime(expire_ts);
+                cfg_model.User_AccessToken(result.access_token);
+                cfg_model.User_RefreshToken(result.refresh_token);
+                cfg_model.User_Cookies_SESSDATA(result.user_cookies.SESSDATA);
+                cfg_model.User_Cookies_bili_jct(result.user_cookies.bili_jct);
+                cfg_model.User_Cookies_DedeUserID(result.user_cookies.DedeUserID);
+                cfg_model.User_Cookies_DedeUserID__ckMd5(result.user_cookies.DedeUserID__ckMd5);
+                cfg_model.User_Cookies_sid(result.user_cookies.sid);
+                util::debug::log_trace(L"Done refreshing credential tokens");
+                auto tp = std::chrono::system_clock::time_point(std::chrono::seconds(expire_ts));
+                cred_expire_text.Text(
+                    ::BiliUWP::App::res_str(L"App/Page/SettingsPage/CredentialsExpireAfterText",
+                        std::format("{}", std::chrono::zoned_time{ std::chrono::current_zone(), tp })
+                    )
+                );
+
+                success_mark.Visibility(Visibility::Visible);
+            }
+            catch (hresult_canceled const&) { throw; }
+            catch (...) {
+                util::debug::log_error(L"Unable to refresh credential tokens");
+                util::winrt::log_current_exception();
+                throw;
+            }
+        }, this);
     }
     void SettingsPage::ViewLicensesButton_Click(IInspectable const&, RoutedEventArgs const&) {
         BiliUWP::SimpleContentDialog cd;
         cd.Title(box_value(L"Open Source Licenses"));
         cd.Content(box_value(L""
-            "QR Code generator library (C++)\n"
-            "\n"
-            "Copyright (c) Project Nayuki. (MIT License)\n"
-            "https://www.nayuki.io/page/qr-code-generator-library\n"
-            "\n"
-            "Permission is hereby granted, free of charge, to any person obtaining a copy of\n"
-            "this software and associated documentation files (the \"Software\"), to deal in\n"
-            "the Software without restriction, including without limitation the rights to\n"
-            "use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of\n"
-            "the Software, and to permit persons to whom the Software is furnished to do so,\n"
-            "subject to the following conditions:\n"
-            "- The above copyright notice and this permission notice shall be included in\n"
-            "  all copies or substantial portions of the Software.\n"
-            "- The Software is provided \"as is\", without warranty of any kind, express or\n"
-            "  implied, including but not limited to the warranties of merchantability,\n"
-            "  fitness for a particular purpose and noninfringement. In no event shall the\n"
-            "  authors or copyright holders be liable for any claim, damages or other\n"
-            "  liability, whether in an action of contract, tort or otherwise, arising from,\n"
-            "  out of or in connection with the Software or the use or other dealings in the\n"
-            "  Software.\n"
-            "\n"
-            "Microsoft.UI.Xaml\n"
-            "\n"
-            "MIT License\n"
-            "\n"
-            "Copyright (c) Microsoft Corporation. All rights reserved.\n"
-            "\n"
-            "Permission is hereby granted, free of charge, to any person obtaining a copy\n"
-            "of this software and associated documentation files (the \"Software\"), to deal\n"
-            "in the Software without restriction, including without limitation the rights\n"
-            "to use, copy, modify, merge, publish, distribute, sublicense, and/or sell\n"
-            "copies of the Software, and to permit persons to whom the Software is\n"
-            "furnished to do so, subject to the following conditions:\n"
-            "\n"
-            "The above copyright notice and this permission notice shall be included in all\n"
-            "copies or substantial portions of the Software.\n"
-            "\n"
-            "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n"
-            "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n"
-            "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\n"
-            "AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\n"
-            "LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\n"
-            "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\n"
-            "SOFTWARE\n"
-            "\n"
-            "Microsoft.Windows.CppWinRT\n"
-            "\n"
-            "MIT License\n"
-            "\n"
-            "Copyright (c) Microsoft Corporation. All rights reserved.\n"
-            "\n"
-            "Permission is hereby granted, free of charge, to any person obtaining a copy\n"
-            "of this software and associated documentation files (the \"Software\"), to deal\n"
-            "in the Software without restriction, including without limitation the rights\n"
-            "to use, copy, modify, merge, publish, distribute, sublicense, and/or sell\n"
-            "copies of the Software, and to permit persons to whom the Software is\n"
-            "furnished to do so, subject to the following conditions:\n"
-            "\n"
-            "The above copyright notice and this permission notice shall be included in all\n"
-            "copies or substantial portions of the Software.\n"
-            "\n"
-            "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n"
-            "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n"
-            "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\n"
-            "AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\n"
-            "LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\n"
-            "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\n"
-            "SOFTWARE\n"
-            "\n"
-            "Windows Community Toolkit\n"
-            "\n"
-            "MIT License\n"
-            "\n"
-            "Copyright © .NET Foundation and Contributors. All rights reserved.\n"
-            "\n"
-            "Permission is hereby granted, free of charge, to any person obtaining a copy\n"
-            "of this software and associated documentation files (the \"Software\"), to deal\n"
-            "in the Software without restriction, including without limitation the rights\n"
-            "to use, copy, modify, merge, publish, distribute, sublicense, and/or sell\n"
-            "copies of the Software, and to permit persons to whom the Software is\n"
-            "furnished to do so, subject to the following conditions:\n"
-            "\n"
-            "The above copyright notice and this permission notice shall be included in all\n"
-            "copies or substantial portions of the Software.\n"
-            "\n"
-            "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n"
-            "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n"
-            "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\n"
-            "AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\n"
-            "LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\n"
-            "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\n"
-            "SOFTWARE\n"
-            "\n"
+#include "AppDepsLicense.rawstr.txt"
         ));
         cd.CloseButtonText(::BiliUWP::App::res_str(L"App/Common/Close"));
         ::BiliUWP::App::get()->tab_from_page(*this)->show_dialog(cd);

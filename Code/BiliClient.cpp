@@ -478,7 +478,7 @@ namespace BiliUWP {
 }
 
 namespace BiliUWP {
-    // NOTE: User-defined as / try_as conversions starts here
+    // NOTE: User-defined as / try_as conversions start here
     // WARN: Injected functions should only depend on public interfaces
 
     // User-defined adapters for member function scope
@@ -543,7 +543,7 @@ namespace BiliUWP {
         private:
             std::vector<T>& m_vec;
         };
-        // NOTE: Same as assign_vec, except that null is interpected as an empty array
+        // NOTE: Same as assign_vec, except that null is interpreted as an empty array
         template<typename T>
         struct assign_vec_or_null_as_empty {
             assign_vec_or_null_as_empty(std::vector<T>& vec) : m_vec(vec) {}
@@ -658,6 +658,20 @@ namespace BiliUWP {
             jov.populate(result.official.type, "type");
         }, "official");
         jov.populate(result.follower_count, "follower");
+        return result;
+    }
+    template<>
+    VideoInfoV2_Subtitle JsonValueVisitor::as(void) {
+        VideoInfoV2_Subtitle result;
+        auto jov = this->as<JsonObjectVisitor>();
+        jov.populate(result.id, "id");
+        jov.populate(result.language, "lan");
+        jov.populate(result.language_doc, "lan_doc");
+        jov.populate(result.locked, "is_lock");
+        jov.populate(result.subtitle_url, "subtitle_url");
+        if (result.subtitle_url.starts_with(L"//")) {
+            result.subtitle_url = L"https:" + result.subtitle_url;
+        }
         return result;
     }
     template<>
@@ -859,7 +873,15 @@ namespace BiliUWP {
         jov.populate(result.length_str, "length");
         jov.populate(result.mid, "mid");
         jov.populate(result.cover_url, "pic");
-        jov.populate(result.play_count, "play");
+        jov.scope([&](JsonValueVisitor jvv) {
+            if (jvv.try_as<winrt::hstring>() == L"--") {
+                result.play_count = std::nullopt;
+            }
+            else {
+                jvv.populate(result.play_count);
+            }
+        }, "play");
+        //jov.populate(result.play_count, "play");
         jov.populate(result.review, "review");
         jov.populate(result.subtitle, "subtitle");
         jov.populate(result.title, "title");
@@ -896,6 +918,12 @@ namespace BiliUWP {
     }
     void BiliClient::set_cookies(winrt::BiliUWP::UserCookies const& value) {
         m_bili_client.data_cookies(value);
+    }
+    winrt::BiliUWP::APISignKeys BiliClient::get_api_sign_keys(void) {
+        return m_api_sign_keys;
+    }
+    void BiliClient::set_api_sign_keys(winrt::BiliUWP::APISignKeys const& value) {
+        m_api_sign_keys = value;
     }
 
     // Authentication
@@ -980,6 +1008,7 @@ namespace BiliUWP {
             this->set_access_token(result.access_token);
             this->set_refresh_token(result.refresh_token);
             this->set_cookies(result.user_cookies);
+            this->set_api_sign_keys(keys::api_tv_1);
         }
 
         co_return result;
@@ -991,25 +1020,41 @@ namespace BiliUWP {
         cancellation_token.enable_propagation();
 
         auto jo = co_await m_bili_client.api_passport_api_v2_oauth2_refresh_token(
-            keys::api_android_1, m_refresh_token
+            m_api_sign_keys, m_refresh_token
         );
         util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
-        // TODO: Breakpoint here to verify actual JSON response
         jov.scope([&](JsonObjectVisitor jov) {
             jov.scope([&](JsonObjectVisitor jov) {
+                jov.populate(result.mid, "mid");
                 jov.populate(result.access_token, "access_token");
                 jov.populate(result.refresh_token, "refresh_token");
+                jov.populate(result.expires_in, "expires_in");
             }, "token_info");
-            jov.populate(result.expires_in, "expires_in");
             jov.scope([&](JsonObjectVisitor jov) {
-                jov.populate(result.user_cookies.SESSDATA, "SESSDATA");
-                jov.populate(result.user_cookies.bili_jct, "bili_jct");
-                jov.populate(result.user_cookies.DedeUserID, "DedeUserID");
-                jov.populate(result.user_cookies.DedeUserID__ckMd5, "DedeUserID__ckMd5");
-                jov.populate(result.user_cookies.sid, "sid");
+                jov.scope([&](JsonArrayVisitor jav) {
+                    jav.scope_enumerate([&](size_t, JsonObjectVisitor jov) {
+                        winrt::hstring name;
+                        jov.populate(name, "name");
+                        if (name == L"SESSDATA") {
+                            jov.populate(result.user_cookies.SESSDATA, "value");
+                        }
+                        else if (name == L"bili_jct") {
+                            jov.populate(result.user_cookies.bili_jct, "value");
+                        }
+                        else if (name == L"DedeUserID") {
+                            jov.populate(result.user_cookies.DedeUserID, "value");
+                        }
+                        else if (name == L"DedeUserID__ckMd5") {
+                            jov.populate(result.user_cookies.DedeUserID__ckMd5, "value");
+                        }
+                        else if (name == L"sid") {
+                            jov.populate(result.user_cookies.sid, "value");
+                        }
+                    });
+                }, "cookies");
             }, "cookie_info");
         }, "data");
 
@@ -1446,7 +1491,15 @@ namespace BiliUWP {
             }, "owner");
             jov.scope([&](JsonObjectVisitor jov) {
                 jov.populate(result.stat.avid, "aid");
-                jov.populate(result.stat.view_count, "view");
+                jov.scope([&](JsonValueVisitor jvv) {
+                    if (jvv.as<int64_t>() < 0) {
+                        result.stat.view_count = std::nullopt;
+                    }
+                    else {
+                        jvv.populate(result.stat.view_count);
+                    }
+                }, "view");
+                //jov.populate(result.stat.view_count, "view");
                 jov.populate(result.stat.danmaku_count, "danmaku");
                 jov.populate(result.stat.reply_count, "reply");
                 jov.populate(result.stat.favorite_count, "favorite");
@@ -1479,6 +1532,48 @@ namespace BiliUWP {
         std::variant<uint64_t, winrt::hstring> vid
     ) {
         throw winrt::hresult_not_implemented();
+    }
+    util::winrt::task<VideoInfoV2Result> BiliClient::video_info_v2(
+        std::variant<uint64_t, winrt::hstring> vid, uint64_t cid
+    ) {
+        VideoInfoV2Result result;
+        uint64_t avid = 0;
+        winrt::hstring bvid = L"";
+
+        auto cancellation_token = co_await winrt::get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        std::visit([&](auto&& arg) {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, uint64_t>) {
+                avid = arg;
+            }
+            else if constexpr (std::is_same_v<T, winrt::hstring>) {
+                bvid = arg;
+            }
+            else {
+                static_assert(util::misc::always_false_v<T>, "Unknown video id type");
+            }
+        }, vid);
+
+        auto jo = co_await m_bili_client.api_api_x_player_v2(avid, bvid, cid);
+        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
+        check_json_code(jo);
+        JsonPropsWalkTree json_props_walk;
+        JsonObjectVisitor jov{ std::move(jo), json_props_walk };
+        jov.scope([&](JsonObjectVisitor jov) {
+            jov.populate(result.avid, "aid");
+            jov.populate(result.bvid, "bvid");
+            jov.populate(result.cid, "cid");
+            jov.populate(result.page_no, "page_no");
+            jov.populate(result.online_count, "online_count");
+            jov.scope([&](JsonObjectVisitor jov) {
+                jov.populate(result.subtitle.allow_submit, "allow_submit");
+                jov.populate(result.subtitle.list, "subtitles");
+            }, "subtitle");
+        }, "data");
+
+        co_return result;
     }
     util::winrt::task<VideoPlayUrlResult> BiliClient::video_play_url(
         std::variant<uint64_t, winrt::hstring> vid, uint64_t cid,

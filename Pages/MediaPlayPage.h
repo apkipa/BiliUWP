@@ -129,12 +129,37 @@ namespace winrt::BiliUWP::implementation {
     private:
         friend struct DetailedStatsContext;
 
-        BiliUWP::AppCfgModel m_cfg_model;
+        using MediaSrcDetailedStatsPair =
+            std::pair<Windows::Media::Core::MediaSource, std::shared_ptr<DetailedStatsProvider>>;
+        // [video_stream, audio_stream]
+        using PlayUrlDashStreamPair =
+            std::pair<::BiliUWP::VideoPlayUrl_Dash_Stream, ::BiliUWP::VideoPlayUrl_Dash_Stream>;
 
         Windows::Foundation::IAsyncAction NavHandleVideoPlay(uint64_t avid, hstring bvid);
         Windows::Foundation::IAsyncAction NavHandleAudioPlay(uint64_t auid);
         util::winrt::task<> UpdateVideoInfoInner(std::variant<uint64_t, hstring> vid);
         util::winrt::task<> UpdateVideoInfo(std::variant<uint64_t, hstring> vid);
+        Windows::Storage::Streams::IRandomAccessStream PlayVideoWithCidInner_DashNative_MakeDashMpdStream(
+            ::BiliUWP::VideoPlayUrl_Dash const& dash_info,
+            ::BiliUWP::VideoPlayUrl_Dash_Stream const& vstream,
+            ::BiliUWP::VideoPlayUrl_Dash_Stream const* pastream
+        );
+        util::winrt::task<MediaSrcDetailedStatsPair> PlayVideoWithCidInner_DashNativeNative(
+            ::BiliUWP::VideoPlayUrl_Dash const& dash_info,
+            ::BiliUWP::VideoPlayUrl_Dash_Stream const& vstream,
+            ::BiliUWP::VideoPlayUrl_Dash_Stream const* pastream
+        );
+        util::winrt::task<MediaSrcDetailedStatsPair> PlayVideoWithCidInner_DashNativeHras(
+            ::BiliUWP::VideoPlayUrl_Dash const& dash_info,
+            ::BiliUWP::VideoPlayUrl_Dash_Stream const& vstream,
+            ::BiliUWP::VideoPlayUrl_Dash_Stream const& astream,
+            std::function<util::winrt::task<PlayUrlDashStreamPair>(void)> get_new_stream_fn
+        );
+        util::winrt::task<MediaSrcDetailedStatsPair> PlayVideoWithCidInner_DashNativeHrasNoAudio(
+            ::BiliUWP::VideoPlayUrl_Dash const& dash_info,
+            ::BiliUWP::VideoPlayUrl_Dash_Stream const& vstream,
+            std::function<util::winrt::task<::BiliUWP::VideoPlayUrl_Dash_Stream>(void)> get_new_stream_fn
+        );
         util::winrt::task<> PlayVideoWithCidInner(uint64_t cid);
         util::winrt::task<> PlayVideoWithCid(uint64_t cid);
         util::winrt::task<> UpdateAudioInfoInner(uint64_t auid);
@@ -151,7 +176,10 @@ namespace winrt::BiliUWP::implementation {
         void TriggerMediaDetailedStatsUpdate(void);
         void EstablishMediaPlayerVolumeTwoWayBinding(Windows::Media::Playback::MediaPlayer const& player);
 
-        Windows::Web::Http::HttpClient m_http_client;
+        BiliUWP::AppCfgModel m_cfg_model;
+
+        // NOTE: HttpClient for general-purpose fetching and media fetching
+        Windows::Web::Http::HttpClient m_http_client, m_http_client_m;
 
         util::winrt::async_storage m_cur_async;
 
@@ -167,6 +195,10 @@ namespace winrt::BiliUWP::implementation {
 
         Windows::UI::Xaml::DispatcherTimer m_detailed_stats_update_timer;
         std::shared_ptr<DetailedStatsProvider> m_detailed_stats_provider;
+
+        // One-time flag to save a HTTP request and speed up 1p video playing
+        // TODO: Use m_use_1p_data
+        bool m_use_1p_data;
     };
 }
 

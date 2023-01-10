@@ -1,0 +1,5 @@
+syntax = "proto3";
+
+package bilibili.community.service.dm.v1;
+
+// TODO...

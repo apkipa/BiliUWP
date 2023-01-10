@@ -47,6 +47,7 @@ namespace BiliUWP {
         };
         update_log_level_fn();
         auto update_bili_client_fn = [this] {
+            m_bili_client->set_api_sign_keys({ m_cfg_model.User_ApiKey(), m_cfg_model.User_ApiKeySec() });
             m_bili_client->set_access_token(m_cfg_model.User_AccessToken());
             m_bili_client->set_refresh_token(m_cfg_model.User_RefreshToken());
             winrt::BiliUWP::UserCookies user_cookies;
@@ -68,7 +69,10 @@ namespace BiliUWP {
         };
         m_cfg_model.PropertyChanged([=](IInspectable const&, PropertyChangedEventArgs const& e) {
             auto prop_name = e.PropertyName();
-            if (prop_name == L"User_AccessToken") {
+            if (prop_name == L"User_ApiKey" || prop_name == L"User_ApiKeySec") {
+                m_bili_client->set_api_sign_keys({ m_cfg_model.User_ApiKey(), m_cfg_model.User_ApiKeySec() });
+            }
+            else if (prop_name == L"User_AccessToken") {
                 m_bili_client->set_access_token(m_cfg_model.User_AccessToken());
             }
             else if (prop_name == L"User_RefreshToken") {
@@ -142,12 +146,8 @@ namespace BiliUWP {
         if (!m_cfg_app_use_tab_view) {
             throw hresult_not_implemented();
         }
-        if (!new_tab) {
-            return;
-        }
-        if (!tab_view) {
-            return;
-        }
+        if (!new_tab) { return; }
+        if (!tab_view) { return; }
         auto tvi = new_tab->get_tab_view_item();
         hack_tab_view_item(tvi);
         tab_view.TabItems().Append(tvi);
@@ -207,17 +207,11 @@ namespace BiliUWP {
             return false;
         }
         auto tab_item = tab->get_tab_view_item();
-        if (tab_item.IsLoaded()) {
-            this->parent_of_tab(tab).SelectedItem(tab_item);
-        }
-        else {
-            // Postpone activation until tab is loaded
-            auto revoke_et = std::make_shared_for_overwrite<event_token>();
-            *revoke_et = tab_item.Loaded([=](IInspectable const& sender, RoutedEventArgs const&) {
-                this->parent_of_tab(tab).SelectedItem(sender);
-                tab_item.Loaded(*revoke_et);
-            });
-        }
+        util::winrt::run_when_loaded([=](Microsoft::UI::Xaml::Controls::TabViewItem const& tvi) {
+            if (auto tv = this->parent_of_tab(tab)) {
+                tv.SelectedItem(tvi);
+            }
+        }, tab_item);
         return true;
     }
     hstring AppInst::res_str_raw(hstring const& res_id) {
@@ -301,6 +295,8 @@ namespace BiliUWP {
     }
     Windows::Foundation::IAsyncAction AppInst::request_logout(void) {
         co_await m_bili_client->revoke_login();
+        m_cfg_model.User_ApiKey(L"");
+        m_cfg_model.User_ApiKeySec(L"");
         m_cfg_model.User_AccessToken(L"");
         m_cfg_model.User_RefreshToken(L"");
         m_cfg_model.User_Cookies_SESSDATA(L"");
@@ -331,23 +327,14 @@ namespace BiliUWP {
     }
     void AppInst::hack_tab_view_item(Microsoft::UI::Xaml::Controls::TabViewItem const& tvi) {
         using Microsoft::UI::Xaml::Controls::TabViewItem;
-        auto run_fn = [](TabViewItem const& tvi) {
+        util::winrt::run_when_loaded([](Microsoft::UI::Xaml::Controls::TabViewItem const& tvi) {
             auto elem = util::winrt::get_child_elem(tvi, L"LayoutRoot");
             elem = util::winrt::get_child_elem(elem, L"TabContainer");
             ToolTipService::SetToolTip(
                 util::winrt::get_child_elem(elem, L"CloseButton"),
                 box_value(App::res_str(L"App/Override/SR_TabViewCloseButtonTooltipWithKA"))
             );
-        };
-        if (tvi.IsLoaded()) {
-            run_fn(tvi);
-        }
-        else {
-            auto et = std::make_shared_for_overwrite<event_token>();
-            *et = tvi.Loaded([=](IInspectable const& sender, RoutedEventArgs const&) {
-                run_fn(sender.as<TabViewItem>());
-            });
-        }
+        }, tvi);
     }
     void AppInst::append_log_entry(LogDesc log_desc) {
         static auto str_from_logdesc_fn = [](LogDesc const& ld) {
@@ -940,7 +927,7 @@ namespace BiliUWP {
 
         m_root_grid.Children().Append(dialog);
         m_show_dlg_op = dialog.ShowAsync();
-        deferred([weak_this = this->weak_from_this()] {
+        deferred([weak_this = weak_from_this()] {
             auto strong_this = weak_this.lock();
             if (!strong_this) { return; }
             strong_this->m_root_grid.Children().RemoveAtEnd();
@@ -1098,9 +1085,7 @@ void winrt::BiliUWP::implementation::App::OnLaunched(LaunchActivatedEventArgs co
             m_is_fully_launched = true;
 
             if (m_app_inst->cfg_model().App_ShowDebugConsole()) {
-                [](auto* app_inst) -> fire_forget_except {
-                    app_inst->debug_console() = co_await ::BiliUWP::DebugConsole::CreateAsync();
-                }(m_app_inst);
+                m_app_inst->enable_debug_console(true, true);
             }
         }
     }

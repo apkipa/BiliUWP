@@ -73,9 +73,14 @@
                 <TextBlock x:Uid="App/Page/SettingsPage/Appearance" Style="{StaticResource RegionHeaderTextBlockStyle}"/>
                 <ToggleSwitch x:Uid="App/Page/SettingsPage/App_ShowTabThumbnails" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_ShowTabThumbnails,Mode=TwoWay}"/>
                 <TextBlock x:Uid="App/Page/SettingsPage/Playing" Style="{StaticResource RegionHeaderTextBlockStyle}"/>
-                <Slider x:Uid="App/Page/SettingsPage/App_GlobalVolume" Width="200" HorizontalAlignment="Left" Minimum="0" Maximum="100" StepFrequency="0.01" Style="{StaticResource ItemSliderStyle}" Value="{x:Bind CfgModel.App_GlobalVolume,Converter={StaticResource NumberScaleConverter},ConverterParameter=0.01,Mode=TwoWay}"/>
+                <Slider x:Uid="App/Page/SettingsPage/App_GlobalVolume" Width="300" HorizontalAlignment="Left" Minimum="0" Maximum="100" StepFrequency="0.01" Style="{StaticResource ItemSliderStyle}" Value="{x:Bind CfgModel.App_GlobalVolume,Converter={StaticResource NumberScaleConverter},ConverterParameter=0.01,Mode=TwoWay}"/>
                 <ToggleSwitch x:Uid="App/Page/SettingsPage/App_AlwaysSyncPlayingCfg" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_AlwaysSyncPlayingCfg,Mode=TwoWay}"/>
                 <ToggleSwitch x:Uid="App/Page/SettingsPage/App_UseHRASForVideo" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_UseHRASForVideo,Mode=TwoWay}"/>
+                <TextBlock x:Uid="App/Page/SettingsPage/Subtitle" Style="{StaticResource GroupHeaderTextBlockStyle}"/>
+                <TextBlock x:Uid="App/Page/SettingsPage/Subtitle_ManagedBySystem" Style="{StaticResource ItemTextBlockStyle}"/>
+                <HyperlinkButton x:Uid="App/Page/SettingsPage/Subtitle_OpenSettings"
+                                 Style="{StaticResource TightHyperlinkButtonStyle}"
+                                 NavigateUri="ms-settings:easeofaccess-closedcaptioning"/>
                 <TextBlock x:Uid="App/Page/SettingsPage/Misc" Style="{StaticResource RegionHeaderTextBlockStyle}"/>
                 <ToggleSwitch x:Uid="App/Page/SettingsPage/App_PersistClipboardAfterExit" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_PersistClipboardAfterExit,Mode=TwoWay}"/>
                 <StackPanel x:Name="DeveloperPane" Visibility="{x:Bind CfgModel.App_IsDeveloper,Mode=OneWay}">
@@ -101,7 +106,7 @@
                         <TextBlock x:Name="ClearCacheSuccessMark" Style="{StaticResource InlineCheckMarkTextBoxStyle}"/>
                     </StackPanel>
                     <TextBlock x:Uid="App/Page/SettingsPage/Log" Style="{StaticResource GroupHeaderTextBlockStyle}"/>
-                    <Button Content="Switch debug console" Click="SwitchDebugConsoleButton_Click"/>
+                    <Button Content="Switch debug console" Click="SwitchDebugConsoleButton_Click" Style="{StaticResource ItemButtonStyle}"/>
                     <ToggleSwitch Header="Open debug console when application starts" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_ShowDebugConsole,Mode=TwoWay}"/>
                     <ToggleSwitch x:Uid="App/Page/SettingsPage/App_StoreLogs" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_StoreLogs,Mode=TwoWay}"/>
                     <ToggleSwitch x:Uid="App/Page/SettingsPage/App_RedactLogs" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_RedactLogs,Mode=TwoWay}"/>
@@ -112,6 +117,14 @@
                         <x:String>Warn</x:String>
                         <x:String>Error</x:String>
                     </ComboBox>
+                    <TextBlock x:Uid="App/Page/SettingsPage/Credentials" Style="{StaticResource GroupHeaderTextBlockStyle}"/>
+                    <TextBlock x:Name="CredentialsExpireAfterText" Style="{StaticResource ItemTextBlockStyle}"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Uid="App/Page/SettingsPage/RefreshCredentialTokensButton" Click="RefreshCredentialTokensButton_Click" Style="{StaticResource ItemButtonStyle}"/>
+                        <ProgressRing x:Name="RefreshCredentialTokensProgRing" Style="{StaticResource InlineProgressRingStyle}"/>
+                        <TextBlock x:Name="RefreshCredentialTokensSuccessMark" Style="{StaticResource InlineCheckMarkTextBoxStyle}"/>
+                    </StackPanel>
+                    <ToggleSwitch Header="Enable app frame rate counter (system)" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind AppDebugSettings.EnableFrameRateCounter,Mode=TwoWay}"/>
                 </StackPanel>
                 <TextBlock x:Uid="App/Page/SettingsPage/About" Style="{StaticResource RegionHeaderTextBlockStyle}"/>
                 <TextBlock x:Name="AppNameVerText" Text="BiliUWP (Dev) v0.1.0" Style="{StaticResource ItemTextBlockStyle}"
@@ -135,6 +148,10 @@
                 <HyperlinkButton Style="{StaticResource TightHyperlinkButtonStyle}"
                                  NavigateUri="https://github.com/CommunityToolkit/WindowsCommunityToolkit">
                     Windows Community Toolkit © Microsoft Corporation. (MIT License)
+                </HyperlinkButton>
+                <HyperlinkButton Style="{StaticResource TightHyperlinkButtonStyle}"
+                                 NavigateUri="https://github.com/protocolbuffers/protobuf">
+                    Protocol Buffers © Google Inc. (New BSD License)
                 </HyperlinkButton>
                 <Button x:Name="ViewLicensesButton" Click="ViewLicensesButton_Click" Content="View licenses" Style="{StaticResource ItemButtonStyle}"/>
                 <TextBlock x:Uid="App/Page/SettingsPage/About_Details2" Style="{StaticResource ItemTextBlockStyle}"/>

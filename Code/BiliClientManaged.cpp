@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "util.hpp"
 #include "BiliClientManaged.h"
 #include "BiliClientManaged.g.cpp"
@@ -195,7 +195,7 @@ namespace winrt::BiliUWP::implementation {
         // TODO: Figure out the real structure of local_id, or simply ignore it
         //param_maker.add_param(L"local_id", util::winrt::to_hstring(local_id));
         param_maker.add_param(L"local_id", L"0");
-        param_maker.add_param(L"mobi_app", L"android");
+        param_maker.add_param(L"mobi_app", L"win");
         param_maker.add_param_ts();
         param_maker.finalize(keys);
         auto uri = make_uri(
@@ -439,6 +439,31 @@ namespace winrt::BiliUWP::implementation {
         auto uri = make_uri(
             L"https://api.bilibili.com",
             L"/x/web-interface/view",
+            param_maker.get_as_str()
+        );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
+        co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
+    }
+    AsyncJsonObjectResult BiliClientManaged::api_api_x_player_v2(
+        uint64_t avid,
+        hstring bvid,
+        uint64_t cid
+    ) {
+        ApiParamMaker param_maker;
+
+        auto cancellation_token = co_await get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        if (bvid != L"") {
+            param_maker.add_param(L"bvid", bvid);
+        }
+        else {
+            param_maker.add_param(L"aid", to_hstring(avid));
+        }
+        param_maker.add_param(L"cid", to_hstring(cid));
+        auto uri = make_uri(
+            L"https://api.bilibili.com",
+            L"/x/player/v2",
             param_maker.get_as_str()
         );
         util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));

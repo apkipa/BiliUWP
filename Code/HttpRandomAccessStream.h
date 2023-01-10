@@ -9,7 +9,7 @@ namespace winrt::BiliUWP::implementation {
         BiliUWP::HttpRandomAccessStream, BiliUWP::NewUriRequestedEventArgs>;
 
     struct NewUriRequestedEventArgs : NewUriRequestedEventArgsT<NewUriRequestedEventArgs>,
-                                      deferrable_event_args<NewUriRequestedEventArgs> {};
+                                      util::winrt::deferrable_event_args<NewUriRequestedEventArgs> {};
 
     struct HttpRandomAccessStreamImpl : std::enable_shared_from_this<HttpRandomAccessStreamImpl> {
         virtual void SupplyNewUri(array_view<Windows::Foundation::Uri const> new_uris) = 0;
