@@ -359,6 +359,32 @@ namespace util {
         };
     }
 
+    namespace mem {
+        // Source: https://stackoverflow.com/a/21028912
+        template <typename T, typename A = std::allocator<T>>
+        class default_init_allocator : public A {
+            typedef std::allocator_traits<A> a_t;
+        public:
+            template <typename U> struct rebind {
+                using other =
+                    default_init_allocator<
+                    U, typename a_t::template rebind_alloc<U>>;
+            };
+
+            using A::A;
+
+            template <typename U>
+            void construct(U* ptr) noexcept(std::is_nothrow_default_constructible<U>::value) {
+                ::new(static_cast<void*>(ptr)) U;
+            }
+            template <typename U, typename...Args>
+            void construct(U* ptr, Args&&... args) {
+                a_t::construct(static_cast<A&>(*this),
+                    ptr, std::forward<Args>(args)...);
+            }
+        };
+    }
+
     namespace container {
         // TODO: Make monotonic_vector more feature complete like std::vector
         // WARN: All operations changing the content may cause iterators to be invalidated, use with caution
@@ -474,6 +500,16 @@ namespace util {
     auto CONCAT_3(temp_capture_, val, __LINE__){ &(val) };  \
     auto& val{ *CONCAT_3(temp_capture_, val, __LINE__) }
 #define co_safe_capture(val) co_safe_capture_val(val)
+
+        // WARN: Make sure operations surrounded by the following pair of
+        //       macros are idempotent!
+#define http_client_safe_invoke_begin do { try {
+#define http_client_safe_invoke_end }                                               \
+    catch (winrt::hresult_error const& e) {                                         \
+        util::debug::log_debug(L"http_client_safe_invoke: Detected exception");     \
+        if (e.code() == E_CHANGED_STATE) { continue; }                              \
+        throw;                                                                      \
+    } } while (false)
 
         // TODO: Check if this function should be placed in util::debug instead
         inline void log_current_exception(std::source_location const& loc = std::source_location::current()) noexcept {

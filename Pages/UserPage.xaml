@@ -84,6 +84,58 @@
                     <x:String>Item 3</x:String>
                 </ListView>
             </PivotItem>
+            <PivotItem x:Uid="App/Page/UserPage/Tabs/Audios">
+                <local:AdaptiveGridView x:Name="AudiosItemsGridView"
+                                        SelectionMode="None"
+                                        IsItemClickEnabled="True"
+                                        ItemClick="AudiosItemsGridView_ItemClick"
+                                        StretchContentForSingleRow="False"
+                                        DesiredWidth="350"
+                                        ItemHeight="90">
+                    <local:AdaptiveGridView.ItemContainerStyle>
+                        <Style TargetType="GridViewItem">
+                            <Setter Property="Margin" Value="3,6,3,0"/>
+                        </Style>
+                    </local:AdaptiveGridView.ItemContainerStyle>
+                    <local:AdaptiveGridView.ItemTemplate>
+                        <DataTemplate x:DataType="local:UserAudiosViewItem">
+                            <Grid Background="{ThemeResource SystemControlBackgroundAltHighBrush}" Padding="5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Image Grid.Column="0" Margin="0,0,10,0" Width="128">
+                                    <Image.Source>
+                                        <BitmapImage UriSource="{x:Bind CoverUrl}" AutoPlay="False"/>
+                                    </Image.Source>
+                                </Image>
+                                <Grid Grid.Column="1">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" TextLineBounds="Tight" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Row="1" Orientation="Horizontal">
+                                        <TextBlock FontFamily="{ThemeResource SymbolThemeFontFamily}" Text="&#xED5A;  " FontSize="12" VerticalAlignment="Center" TextLineBounds="Tight"/>
+                                        <TextBlock Text="{x:Bind PublishTimeStr}" TextLineBounds="Tight" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="20">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock FontFamily="{ThemeResource SymbolThemeFontFamily}" Text="&#xE768;  " FontSize="12" Margin="0,0,0,1" VerticalAlignment="Center" TextLineBounds="Tight"/>
+                                            <TextBlock Text="{x:Bind PlayCount}" TextLineBounds="Tight" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock FontFamily="{ThemeResource SymbolThemeFontFamily}" Text="&#xE90A;  " FontSize="12" VerticalAlignment="Center" TextLineBounds="Tight"/>
+                                            <TextBlock Text="{x:Bind CommentsCount}" TextLineBounds="Tight" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </DataTemplate>
+                    </local:AdaptiveGridView.ItemTemplate>
+                </local:AdaptiveGridView>
+            </PivotItem>
             <PivotItem x:Uid="App/Page/UserPage/Tabs/Columns">
                 <ListView>
                     <x:String>Item 1</x:String>
@@ -93,12 +145,12 @@
             </PivotItem>
             <PivotItem x:Uid="App/Page/UserPage/Tabs/Favourites">
                 <local:AdaptiveGridView x:Name="FavouritesItemsGridView"
-                                    SelectionMode="None"
-                                    IsItemClickEnabled="True"
-                                    ItemClick="FavouritesItemsGridView_ItemClick"
-                                    StretchContentForSingleRow="False"
-                                    DesiredWidth="350"
-                                    ItemHeight="90">
+                                        SelectionMode="None"
+                                        IsItemClickEnabled="True"
+                                        ItemClick="FavouritesItemsGridView_ItemClick"
+                                        StretchContentForSingleRow="False"
+                                        DesiredWidth="350"
+                                        ItemHeight="90">
                     <local:AdaptiveGridView.ItemContainerStyle>
                         <Style TargetType="GridViewItem">
                             <Setter Property="Margin" Value="3,6,3,0"/>

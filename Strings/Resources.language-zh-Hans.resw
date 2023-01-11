@@ -392,6 +392,9 @@
   <data name="App.Page.UserPage.Error.Unknown" xml:space="preserve">
     <value>发生了未知错误</value>
   </data>
+  <data name="App.Page.UserPage.Tabs.Audios.Header" xml:space="preserve">
+    <value>音频</value>
+  </data>
   <data name="App.Page.UserPage.Tabs.Columns.Header" xml:space="preserve">
     <value>专栏</value>
   </data>

@@ -788,7 +788,11 @@ namespace util {
             }
         private:
             mutable std::mutex m_mutex;
+#ifdef _DEBUG
             std::vector<unsigned char> m_buf;
+#else
+            std::vector<unsigned char, util::mem::default_init_allocator<unsigned char>> m_buf;
+#endif
             bool m_expand_on_overflow = true;
         };
         InMemoryStream::InMemoryStream() : m_impl(std::make_shared<details::InMemoryStreamImpl>()) {}

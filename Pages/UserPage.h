@@ -28,11 +28,16 @@ namespace winrt::BiliUWP::implementation {
         void VideosItemsGridView_ItemClick(
             Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::ItemClickEventArgs const& e
         );
+        void AudiosItemsGridView_ItemClick(
+            Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::ItemClickEventArgs const& e
+        );
         void FavouritesItemsGridView_ItemClick(
             Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::ItemClickEventArgs const& e
         );
 
         static void final_release(std::unique_ptr<UserPage> ptr) {
+            ptr->VideosItemsGridView().ItemsSource(nullptr);
+            ptr->AudiosItemsGridView().ItemsSource(nullptr);
             ptr->FavouritesItemsGridView().ItemsSource(nullptr);
         }
 

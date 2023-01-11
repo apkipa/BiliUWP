@@ -577,6 +577,31 @@ namespace BiliUWP {
         } page;
         std::optional<UserSpacePublishedVideos_EpisodicButton> episodic_button;
     };
+    struct UserSpacePublishedAudios_Audio {
+        uint64_t id;
+        uint64_t mid;
+        winrt::hstring uname;
+        winrt::hstring title;
+        winrt::hstring cover_url;
+        uint64_t duration;
+        uint64_t coin_count;
+        uint64_t passtime;  // Pass time; in seconds
+        uint64_t ctime;     // Creation time; in milliseconds
+        struct {
+            uint64_t sid;
+            uint64_t play_count;
+            uint64_t favourite_count;
+            uint64_t comment_count;
+            uint64_t share_count;
+        } statistics;
+    };
+    struct UserSpacePublishedAudiosResult {
+        uint64_t cur_page;
+        uint64_t page_count;
+        uint64_t page_size;
+        uint64_t total_size;
+        std::vector<UserSpacePublishedAudios_Audio> data;
+    };
     struct VideoViewInfo_Dimension {
         uint32_t width;
         uint32_t height;
@@ -943,6 +968,11 @@ namespace BiliUWP {
         ByClickCount,
         ByFavouriteCount,
     };
+    enum class UserPublishedAudiosOrderParam {
+        ByPublishTime,
+        ByPlayCount,
+        ByFavouriteCount,
+    };
     struct FavItemLookupParam {
         uint64_t nid;
         ResItemType type;
@@ -986,6 +1016,9 @@ namespace BiliUWP {
         util::winrt::task<UserSpaceUpStatInfoResult> user_space_upstat_info(uint64_t mid);
         util::winrt::task<UserSpacePublishedVideosResult> user_space_published_videos(
             uint64_t mid, PageParam page, winrt::hstring search_keyword, UserPublishedVideosOrderParam order
+        );
+        util::winrt::task<UserSpacePublishedAudiosResult> user_space_published_audios(
+            uint64_t mid, PageParam page, UserPublishedAudiosOrderParam order
         );
 
         // Video information

@@ -32,4 +32,13 @@ namespace BiliUWP {
         UInt64 AvId{ get; };
         Boolean IsUnionVideo{ get; };
     };
+    runtimeclass UserAudiosViewItem {
+        String Title{ get; };
+        // NOTE: If an item has no cover, this property will return a placeholder cover url
+        String CoverUrl{ get; };
+        String PublishTimeStr{ get; };
+        UInt64 PlayCount{ get; };
+        UInt64 CommentsCount{ get; };
+        UInt64 AuId{ get; };
+    };
 }

@@ -50,6 +50,11 @@ namespace winrt::BiliUWP::implementation {
             uint64_t tid,
             BiliUWP::ApiParam_SpaceArcSearchOrder order
         );
+        AsyncJsonObjectResult api_api_audio_music_service_web_song_upper(
+            uint64_t mid,
+            BiliUWP::ApiParam_Page page,
+            BiliUWP::ApiParam_AudioMusicServiceWebSongUpperOrder order
+        );
 
         // Video information
         AsyncJsonObjectResult api_api_x_web_interface_view(

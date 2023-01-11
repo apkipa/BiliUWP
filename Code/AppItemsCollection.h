@@ -3,6 +3,7 @@
 #include "FavouritesFolderViewItem.g.h"
 #include "FavouritesUserViewItem.g.h"
 #include "UserVideosViewItem.g.h"
+#include "UserAudiosViewItem.g.h"
 #include "IncrementalLoadingCollection.h"
 #include "BiliClient.hpp"
 #include "util.hpp"
@@ -73,6 +74,24 @@ namespace winrt::BiliUWP::implementation {
     private:
         ::BiliUWP::UserSpacePublishedVideos_Video m_data;
     };
+    struct UserAudiosViewItem : UserAudiosViewItemT<UserAudiosViewItem> {
+        // TODO: UserAudiosViewItem
+        UserAudiosViewItem(::BiliUWP::UserSpacePublishedAudios_Audio const& data) : m_data(data) {}
+        hstring Title() { return m_data.title; }
+        hstring CoverUrl() {
+            if (m_data.cover_url != L"") {
+                return m_data.cover_url;
+            }
+            return L"https://s1.hdslb.com/bfs/static/jinkela/space/assets/playlistbg.png";
+        }
+        hstring PublishTimeStr();
+        uint64_t PlayCount() { return m_data.statistics.play_count; }
+        uint64_t CommentsCount() { return m_data.statistics.comment_count; }
+        uint64_t AuId() { return m_data.id; }
+
+    private:
+        ::BiliUWP::UserSpacePublishedAudios_Audio m_data;
+    };
 }
 
 namespace BiliUWP {
@@ -114,6 +133,21 @@ namespace BiliUWP {
     };
     struct UserVideosViewItemsSource : ::BiliUWP::IIncrementalSource {
         UserVideosViewItemsSource(uint64_t mid) :
+            m_mid(mid), m_pn(0), m_ps(20), m_total_items_count(0) {}
+        util::winrt::task<std::vector<winrt::Windows::Foundation::IInspectable>> GetMoreItemsAsync(
+            uint32_t expected_count
+        );
+        void Reset(void);
+
+        uint32_t TotalItemsCount(void) { return m_total_items_count; }
+
+    private:
+        uint64_t m_mid;
+        uint32_t m_pn, m_ps;
+        uint32_t m_total_items_count;
+    };
+    struct UserAudiosViewItemsSource : ::BiliUWP::IIncrementalSource {
+        UserAudiosViewItemsSource(uint64_t mid) :
             m_mid(mid), m_pn(0), m_ps(20), m_total_items_count(0) {}
         util::winrt::task<std::vector<winrt::Windows::Foundation::IInspectable>> GetMoreItemsAsync(
             uint32_t expected_count

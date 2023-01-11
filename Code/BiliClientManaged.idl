@@ -30,6 +30,11 @@ namespace BiliUWP {
         ByClickCount,
         ByFavouriteCount,
     };
+    enum ApiParam_AudioMusicServiceWebSongUpperOrder {
+        ByPublishTime,
+        ByPlayCount,
+        ByFavouriteCount,
+    };
     struct ApiParam_VideoPlayUrlPreference {
         Boolean prefer_dash;
         Boolean prefer_hdr;
@@ -108,6 +113,12 @@ namespace BiliUWP {
             String keyword,         // Optional
             UInt64 tid,
             ApiParam_SpaceArcSearchOrder order
+        );
+        //   https://api.bilibili.com/audio/music-service/web/song/upper | cookies
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_audio_music_service_web_song_upper(
+            UInt64 mid,
+            ApiParam_Page page,
+            ApiParam_AudioMusicServiceWebSongUpperOrder order
         );
 
         // Video information

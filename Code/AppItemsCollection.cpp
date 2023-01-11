@@ -7,6 +7,14 @@
 using namespace winrt;
 using namespace Windows::Foundation;
 
+winrt::hstring timestamp_to_str(uint64_t seconds) {
+    auto tp = std::chrono::round<std::chrono::seconds>(
+        std::chrono::system_clock::time_point(std::chrono::seconds(seconds)));
+    return winrt::hstring(std::format(L"{0:%F} {0:%T}",
+        std::chrono::zoned_time{ std::chrono::current_zone(), tp }
+    ));
+}
+
 namespace winrt::BiliUWP::implementation {
     hstring FavouritesUserViewItem::AttrStr() {
         if (m_data.attr & 1) {
@@ -17,11 +25,10 @@ namespace winrt::BiliUWP::implementation {
         }
     }
     hstring UserVideosViewItem::PublishTimeStr() {
-        auto tp = std::chrono::round<std::chrono::seconds>(
-            std::chrono::system_clock::time_point(std::chrono::seconds(m_data.publish_time)));
-        return hstring(std::format(L"{0:%F} {0:%T}",
-            std::chrono::zoned_time{ std::chrono::current_zone(), tp }
-        ));
+        return timestamp_to_str(m_data.publish_time);
+    }
+    hstring UserAudiosViewItem::PublishTimeStr() {
+        return timestamp_to_str(m_data.passtime);
     }
 }
 
@@ -114,6 +121,35 @@ namespace BiliUWP {
         co_return vec;
     }
     void UserVideosViewItemsSource::Reset(void) {
+        m_pn = 0;
+        m_total_items_count = 0;
+    }
+    util::winrt::task<std::vector<IInspectable>> UserAudiosViewItemsSource::GetMoreItemsAsync(
+        uint32_t expected_count
+    ) {
+        auto cancellation_token = co_await get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        if (m_pn > 0 && m_pn * m_ps >= m_total_items_count) { co_return{}; }
+
+        auto bili_client = ::BiliUWP::App::get()->bili_client();
+
+        auto result = std::move(co_await bili_client->user_space_published_audios(
+            m_mid, { .n = m_pn + 1, .size = m_ps },
+            ::BiliUWP::UserPublishedAudiosOrderParam::ByPublishTime
+        ));
+        m_total_items_count = static_cast<uint32_t>(result.total_size);
+        std::vector<IInspectable> vec;
+        vec.reserve(result.data.size());
+        for (auto const& i : result.data) {
+            vec.push_back(winrt::make<winrt::BiliUWP::implementation::UserAudiosViewItem>(i));
+        }
+
+        m_pn++;
+
+        co_return vec;
+    }
+    void UserAudiosViewItemsSource::Reset(void) {
         m_pn = 0;
         m_total_items_count = 0;
     }

@@ -38,13 +38,14 @@ IAsyncOperation<Color> get_dominant_color_from_image_stream(
     cancellation_token.enable_propagation();
     co_await resume_background();
     auto decoder = co_await BitmapDecoder::CreateAsync(stream.CloneStream());
-    auto bmp_trans_1x1 = BitmapTransform();
-    bmp_trans_1x1.ScaledWidth(1);
-    bmp_trans_1x1.ScaledHeight(1);
+    auto bmp_transform = BitmapTransform();
+    //bmp_transform.ScaledWidth(1);
+    bmp_transform.ScaledWidth(2);
+    bmp_transform.ScaledHeight(1);
     auto pixels = co_await decoder.GetPixelDataAsync(
         BitmapPixelFormat::Rgba8,
         BitmapAlphaMode::Ignore,
-        bmp_trans_1x1,
+        bmp_transform,
         ExifOrientationMode::IgnoreExifOrientation,
         ColorManagementMode::DoNotColorManage
     );
@@ -479,6 +480,11 @@ namespace winrt::BiliUWP::implementation {
                             std::make_shared<::BiliUWP::UserVideosViewItemsSource>(that->m_uid))
                     );
                     apply_items_src(
+                        that->AudiosItemsGridView(),
+                        MakeIncrementalLoadingCollection(
+                            std::make_shared<::BiliUWP::UserAudiosViewItemsSource>(that->m_uid))
+                    );
+                    apply_items_src(
                         that->FavouritesItemsGridView(),
                         MakeIncrementalLoadingCollection(
                             std::make_shared<::BiliUWP::FavouritesUserViewItemsSource>(that->m_uid))
@@ -594,6 +600,16 @@ namespace winrt::BiliUWP::implementation {
         tab->navigate(
             xaml_typename<winrt::BiliUWP::MediaPlayPage>(),
             box_value(MediaPlayPageNavParam{ winrt::BiliUWP::MediaPlayPage_MediaType::Video, vi.AvId(), L""})
+        );
+        ::BiliUWP::App::get()->add_tab(tab);
+        tab->activate();
+    }
+    void UserPage::AudiosItemsGridView_ItemClick(IInspectable const&, ItemClickEventArgs const& e) {
+        auto vi = e.ClickedItem().as<BiliUWP::UserAudiosViewItem>();
+        auto tab = ::BiliUWP::make<::BiliUWP::AppTab>();
+        tab->navigate(
+            xaml_typename<winrt::BiliUWP::MediaPlayPage>(),
+            box_value(MediaPlayPageNavParam{ winrt::BiliUWP::MediaPlayPage_MediaType::Audio, vi.AuId(), L"" })
         );
         ::BiliUWP::App::get()->add_tab(tab);
         tab->activate();

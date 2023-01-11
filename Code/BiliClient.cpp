@@ -897,6 +897,28 @@ namespace BiliUWP {
         jov.populate(result.uri, "uri");
         return result;
     }
+    template<>
+    UserSpacePublishedAudios_Audio JsonValueVisitor::as(void) {
+        UserSpacePublishedAudios_Audio result;
+        auto jov = this->as<JsonObjectVisitor>();
+        jov.populate(result.id, "id");
+        jov.populate(result.mid, "uid");
+        jov.populate(result.uname, "uname");
+        jov.populate(result.title, "title");
+        jov.populate(result.cover_url, "cover");
+        jov.populate(result.duration, "duration");
+        jov.populate(result.coin_count, "coin_num");
+        jov.populate(result.passtime, "passtime");
+        jov.populate(result.ctime, "ctime");
+        jov.scope([&](JsonObjectVisitor jov) {
+            jov.populate(result.statistics.sid, "sid");
+            jov.populate(result.statistics.play_count, "play");
+            jov.populate(result.statistics.favourite_count, "collect");
+            jov.populate(result.statistics.comment_count, "comment");
+            jov.populate(result.statistics.share_count, "share");
+        }, "statistic");
+        return result;
+    }
 
     BiliClient::BiliClient() :
         m_bili_client(winrt::BiliUWP::BiliClientManaged()), m_refresh_token() {}
@@ -1420,6 +1442,47 @@ namespace BiliUWP {
                 jov.populate(result.page.ps, "ps");
             }, "page");
             jov.populate(result.episodic_button, "episodic_button");
+        }, "data");
+
+        co_return result;
+    }
+    util::winrt::task<UserSpacePublishedAudiosResult> BiliClient::user_space_published_audios(
+        uint64_t mid, PageParam page, UserPublishedAudiosOrderParam order
+    ) {
+        using winrt::BiliUWP::ApiParam_AudioMusicServiceWebSongUpperOrder;
+
+        UserSpacePublishedAudiosResult result;
+
+        auto cancellation_token = co_await winrt::get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        ApiParam_AudioMusicServiceWebSongUpperOrder param_order;
+        switch (order) {
+        case UserPublishedAudiosOrderParam::ByPublishTime:
+            param_order = ApiParam_AudioMusicServiceWebSongUpperOrder::ByPublishTime;
+            break;
+        case UserPublishedAudiosOrderParam::ByPlayCount:
+            param_order = ApiParam_AudioMusicServiceWebSongUpperOrder::ByPlayCount;
+            break;
+        case UserPublishedAudiosOrderParam::ByFavouriteCount:
+            param_order = ApiParam_AudioMusicServiceWebSongUpperOrder::ByFavouriteCount;
+            break;
+        default:
+            throw winrt::hresult_invalid_argument();
+        }
+        auto jo = co_await m_bili_client.api_api_audio_music_service_web_song_upper(
+            mid, winrt::BiliUWP::ApiParam_Page{ page.n, page.size }, param_order
+        );
+        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
+        check_json_code(jo);
+        JsonPropsWalkTree json_props_walk;
+        JsonObjectVisitor jov{ std::move(jo), json_props_walk };
+        jov.scope([&](JsonObjectVisitor jov) {
+            jov.populate(result.cur_page, "curPage");
+            jov.populate(result.page_count, "pageCount");
+            jov.populate(result.page_size, "pageSize");
+            jov.populate(result.total_size, "totalSize");
+            jov.scope(adapter::assign_vec_or_null_as_empty{ result.data }, "data");
         }, "data");
 
         co_return result;

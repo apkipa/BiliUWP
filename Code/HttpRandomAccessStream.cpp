@@ -676,6 +676,8 @@ namespace winrt::BiliUWP::implementation {
 
         co_await resume_background();
 
+        http_client_safe_invoke_begin;
+
         if (buffer_options == HttpRandomAccessStreamBufferOptions::ImmediateFull) {
             // This option does not require partial downloading, so handle this separately
             auto http_resp = co_await http_client.GetAsync(http_uri, HttpCompletionOption::ResponseHeadersRead);
@@ -733,6 +735,8 @@ namespace winrt::BiliUWP::implementation {
             // TODO...
             throw hresult_not_implemented();
         }
+
+        http_client_safe_invoke_end;
     }
     void HttpRandomAccessStream::SupplyNewUri(array_view<Uri const> new_uris) {
         std::shared_lock guard_impl(m_impl_mutex);
