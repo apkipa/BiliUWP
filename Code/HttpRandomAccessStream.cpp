@@ -692,14 +692,28 @@ namespace winrt::BiliUWP::implementation {
         }
 
         // Check whether server supports range header
-        auto http_req = HttpRequestMessage();
-        http_req.Method(HttpMethod::Head());
-        http_req.Headers().Append(L"Range", L"bytes=0-");
-        http_req.RequestUri(http_uri);
+        auto make_partial_http_req_fn = [](Uri const& uri, bool use_head_method) {
+            auto http_req = HttpRequestMessage();
+            http_req.Method(use_head_method ? HttpMethod::Head() : HttpMethod::Get());
+            http_req.Headers().Append(L"Range", L"bytes=0-");
+            http_req.RequestUri(uri);
+            return http_req;
+        };
         auto http_resp = co_await http_client.SendRequestAsync(
-            http_req, HttpCompletionOption::ResponseHeadersRead
+            make_partial_http_req_fn(http_uri, true), HttpCompletionOption::ResponseHeadersRead
         );
-        auto status_code = http_resp.EnsureSuccessStatusCode().StatusCode();
+        auto status_code = http_resp.StatusCode();
+        if (!http_resp.IsSuccessStatusCode()) {
+            // Hack: retry with HTTP GET method
+            util::debug::log_warn(std::format(
+                L"HRAS: Requested resource is invalid (HTTP {}), retrying",
+                std::to_underlying(status_code)
+            ));
+            http_resp = co_await http_client.SendRequestAsync(
+                make_partial_http_req_fn(http_uri, false), HttpCompletionOption::ResponseHeadersRead
+            );
+        }
+        status_code = http_resp.EnsureSuccessStatusCode().StatusCode();
         if (status_code != HttpStatusCode::PartialContent) {
             util::debug::log_warn(std::format(
                 L"HRAS: Requested resource does not support partial downloading (HTTP {}), "
@@ -717,7 +731,7 @@ namespace winrt::BiliUWP::implementation {
         auto cont_type = http_resp_cont_hdrs.ContentType().MediaType();
         auto nullable_cont_len = http_resp_cont_hdrs.ContentLength();
         if (!nullable_cont_len) {
-            throw hresult_error(E_FAIL, L"HTTP partial response does not have Content-Length set");
+            throw hresult_error(E_FAIL, L"HTTP response does not have Content-Length set");
         }
         auto cont_len = nullable_cont_len.Value();
 

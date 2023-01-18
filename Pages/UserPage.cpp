@@ -6,6 +6,7 @@
 #include "AppItemsCollection.h"
 #include "App.h"
 #include <regex>
+#include "ImageEx.h"
 
 // NOTE: Keep these values in sync with XAML!
 constexpr double HEADER_MAX_HEIGHT = 200;
@@ -39,6 +40,7 @@ IAsyncOperation<Color> get_dominant_color_from_image_stream(
     co_await resume_background();
     auto decoder = co_await BitmapDecoder::CreateAsync(stream.CloneStream());
     auto bmp_transform = BitmapTransform();
+    bmp_transform.InterpolationMode(BitmapInterpolationMode::Fant);
     //bmp_transform.ScaledWidth(1);
     bmp_transform.ScaledWidth(2);
     bmp_transform.ScaledHeight(1);
@@ -493,10 +495,12 @@ namespace winrt::BiliUWP::implementation {
                     // Update user info
                     auto client = ::BiliUWP::App::get()->bili_client();
                     auto result = std::move(co_await weak_store.ual(client->user_space_info(that->m_uid)));
-                    auto http_client = Windows::Web::Http::HttpClient();
                     // TODO: Improve logic later (concurrency & caching)
+                    /*auto http_client = Windows::Web::Http::HttpClient();
                     auto space_img_stream = winrt::make<util::winrt::BufferBackedRandomAccessStream>(
-                        co_await weak_store.ual(http_client.GetBufferAsync(Uri(result.top_photo_url))));
+                        co_await weak_store.ual(http_client.GetBufferAsync(Uri(result.top_photo_url))));*/
+                    auto space_img_stream = co_await weak_store.ual(
+                        ::BiliUWP::get_image_ex_http_cache().fetch_async(Uri(result.top_photo_url)));
                     auto text_fore_clr = get_contrast_white_black(
                         co_await weak_store.ual(get_dominant_color_from_image_stream(space_img_stream)));
                     auto apply_theme_fn = [&](ElementTheme theme) {

@@ -71,11 +71,25 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
+                            <!--
                             <Image Grid.Column="0" Margin="0,0,10,0" Width="128">
                                 <Image.Source>
                                     <BitmapImage UriSource="{x:Bind CoverUrl,Converter={StaticResource StrToUri}}" AutoPlay="False"/>
                                 </Image.Source>
                             </Image>
+                            -->
+                            <!--
+                            <local:ImageEx Grid.Column="0" Margin="0,0,10,0" Width="128">
+                                <local:ImageEx.Source>
+                                    <local:ImageExSource UriSource="{x:Bind CoverUrl}" CacheOptions="5"/>
+                                </local:ImageEx.Source>
+                            </local:ImageEx>
+                            -->
+                            <local:ImageEx2 Grid.Column="0" Margin="0,0,10,0" Width="128">
+                                <local:ImageEx2.Source>
+                                    <local:ImageEx2Source UriSource="{x:Bind CoverUrl}"/>
+                                </local:ImageEx2.Source>
+                            </local:ImageEx2>
                             <Grid Grid.Column="1">
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="*"/>
@@ -84,11 +98,18 @@
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" TextLineBounds="Tight" VerticalAlignment="Center"/>
                                 <StackPanel Grid.Row="1" Orientation="Horizontal">
+                                    <!--
                                     <PersonPicture Width="22" Height="22" Margin="0,0,6,0">
                                         <PersonPicture.ProfilePicture>
                                             <BitmapImage UriSource="{x:Bind UpFaceUrl}" DecodePixelType="Logical" DecodePixelWidth="22" DecodePixelHeight="22" AutoPlay="False"/>
                                         </PersonPicture.ProfilePicture>
                                     </PersonPicture>
+                                    -->
+                                    <local:ImageEx2 Grid.Column="0" Margin="0,0,6,0" Width="24" Height="24" CornerRadius="100" BorderBrush="Gray" BorderThickness="0.5">
+                                        <local:ImageEx2.Source>
+                                            <local:ImageEx2Source UriSource="{x:Bind UpFaceUrl}"/>
+                                        </local:ImageEx2.Source>
+                                    </local:ImageEx2>
                                     <TextBlock Text="{x:Bind UpName}" TextLineBounds="Tight" VerticalAlignment="Center"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="20">

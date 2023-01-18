@@ -288,11 +288,58 @@ namespace util {
             }
             return GetLastError() == ERROR_ALREADY_EXISTS;
         }
+        bool create_dir_all(const wchar_t* path) noexcept {
+            if (!path || *path == L'\0') { return false; }
+
+            bool succeeded = true;
+            auto orig_path_len = wcslen(path);
+            auto buf = new(std::nothrow) wchar_t[orig_path_len + 1];
+            if (!buf) { return false; }
+            memcpy(buf, path, sizeof(wchar_t) * (orig_path_len + 1));
+            auto buf_cur = buf;
+
+            auto is_separator_fn = [](wchar_t ch) {
+                return ch == '/' || ch == '\\';
+            };
+
+            while (true) {
+                if (*buf_cur == L'\0') { break; }
+                if (is_separator_fn(*buf_cur)) {
+                    *buf_cur = L'\0';
+                    // NOTE: Earlier errors (ERROR_ACCESS_DENIED, etc.) do not
+                    //       necessarily indicate final failure; just keep on creating
+                    succeeded = create_dir(buf);
+                    *buf_cur = L'\\';
+                }
+                buf_cur++;
+            }
+            if (!is_separator_fn(buf_cur[-1])) {
+                succeeded = create_dir(buf);
+            }
+
+            delete[] buf;
+            return succeeded;
+        }
         bool path_exists(const wchar_t* path) noexcept {
             return GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES;
         }
         bool delete_file(const wchar_t* path) noexcept {
             return DeleteFileW(path) != 0;
+        }
+        bool delete_file_if_exists(const wchar_t* path) noexcept {
+            if (DeleteFileW(path)) { return true; }
+            switch (GetLastError()) {
+            case ERROR_FILE_NOT_FOUND:
+            case ERROR_PATH_NOT_FOUND:
+                return true;
+            }
+            return false;
+        }
+        bool touch_file(const wchar_t* path) noexcept {
+            auto hfile = CreateFile2FromAppW(path, GENERIC_WRITE, 0, OPEN_ALWAYS, nullptr);
+            if (hfile == INVALID_HANDLE_VALUE) { return false; }
+            CloseHandle(hfile);
+            return true;
         }
         bool rename_path(const wchar_t* orig_path, const wchar_t* new_path) noexcept {
             return MoveFileExW(orig_path, new_path, 0);

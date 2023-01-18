@@ -1,0 +1,34 @@
+import "Controls/ImageEx.idl";
+
+namespace BiliUWP {
+    [default_interface]
+    runtimeclass ImageEx2Source : Windows.UI.Xaml.DependencyObject {
+        ImageEx2Source();
+
+        Windows.Foundation.IAsyncAction SetSourceAsync(
+            Windows.Storage.Streams.IRandomAccessStream streamSource
+        );
+
+        // Delays loading until connected to the control(uri resources only);
+        // useful for optimizing uris and memory usage
+        static Windows.UI.Xaml.DependencyProperty EnableDelayedLoadProperty{ get; };
+        Boolean EnableDelayedLoad;  // Default is true
+        static Windows.UI.Xaml.DependencyProperty UriSourceProperty{ get; };
+        Windows.Foundation.Uri UriSource;
+        IImageExUriPreprocessor UriPreprocessor;
+        event Windows.Foundation.TypedEventHandler<ImageEx2Source, ImageExDownloadProgressEventArgs> DownloadProgress;
+        event Windows.UI.Xaml.RoutedEventHandler ImageOpened;
+        event Windows.UI.Xaml.ExceptionRoutedEventHandler ImageFailed;
+    };
+
+    [default_interface]
+    runtimeclass ImageEx2 : Windows.UI.Xaml.Controls.UserControl {
+        ImageEx2();
+        static Windows.UI.Xaml.DependencyProperty SourceProperty{ get; };
+        ImageEx2Source Source;
+        static Windows.UI.Xaml.DependencyProperty StretchProperty{ get; };
+        Windows.UI.Xaml.Media.Stretch Stretch;
+        event Windows.UI.Xaml.RoutedEventHandler ImageOpened;
+        event Windows.UI.Xaml.ExceptionRoutedEventHandler ImageFailed;
+    };
+}

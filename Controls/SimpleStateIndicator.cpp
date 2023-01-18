@@ -65,7 +65,7 @@ namespace winrt::BiliUWP::implementation {
             Windows::UI::Xaml::PropertyMetadata{ __VA_ARGS__ }                              \
     )
 
-    gen_dp_instantiation(LayoutType, box_value(SimpleStateIndicatorLayoutType::Full), 
+    gen_dp_instantiation(LayoutType, box_value(SimpleStateIndicatorLayoutType::Full),
         PropertyChangedCallback{ &SimpleStateIndicator::OnLayoutTypeValueChanged });
 
 #undef gen_dp_instantiation

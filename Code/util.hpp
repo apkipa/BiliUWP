@@ -477,8 +477,11 @@ namespace util {
 
     namespace fs {
         bool create_dir(const wchar_t* path) noexcept;
+        bool create_dir_all(const wchar_t* path) noexcept;
         bool path_exists(const wchar_t* path) noexcept;
         bool delete_file(const wchar_t* path) noexcept;
+        bool delete_file_if_exists(const wchar_t* path) noexcept;
+        bool touch_file(const wchar_t* path) noexcept;
         // NOTE: This function does not guarantee success for paths
         //       across different volumes / file systems
         bool rename_path(const wchar_t* orig_path, const wchar_t* new_path) noexcept;
@@ -509,7 +512,7 @@ namespace util {
         util::debug::log_debug(L"http_client_safe_invoke: Detected exception");     \
         if (e.code() == E_CHANGED_STATE) { continue; }                              \
         throw;                                                                      \
-    } } while (false)
+    } break; } while (true)
 
         // TODO: Check if this function should be placed in util::debug instead
         inline void log_current_exception(std::source_location const& loc = std::source_location::current()) noexcept {
@@ -694,9 +697,8 @@ namespace util {
             ::winrt::Windows::UI::Xaml::XamlRoot const& xaml_root,
             ::winrt::Windows::UI::Xaml::ElementTheme theme
         ) {
-            auto ivec = ::winrt::Windows::UI::Xaml::Media::VisualTreeHelper::GetOpenPopupsForXamlRoot(
-                xaml_root
-            );
+            using ::winrt::Windows::UI::Xaml::Media::VisualTreeHelper;
+            auto ivec = VisualTreeHelper::GetOpenPopupsForXamlRoot(xaml_root);
             for (auto&& i : ivec) {
                 i.RequestedTheme(theme);
             }
@@ -905,7 +907,7 @@ namespace util {
                 if (!*this) { return; }
                 m_task.then([](concurrency::task<ReturnWrapType> const& task) {
                     try { task.wait(); }
-                    catch (...) {}
+                    catch (...) { util::winrt::log_current_exception(); }
                 });
             }
         private:
@@ -1011,7 +1013,7 @@ namespace util {
                 if (!*this) { return; }
                 m_task.then([](concurrency::task<void> const& task) {
                     try { task.wait(); }
-                    catch (...) {}
+                    catch (...) { util::winrt::log_current_exception(); }
                 });
             }
         private:
@@ -1063,7 +1065,7 @@ namespace util {
             }
 
             template<typename Functor, typename... Args>
-            void cancel_and_run(Functor&& functor, Args... args) {
+            void cancel_and_run(Functor&& functor, Args&&... args) {
                 std::scoped_lock method_call_guard{ m_method_lock };
                 safe_cancel_clear();
                 auto async = transform_async(
@@ -1077,7 +1079,7 @@ namespace util {
             }
             // NOTE: Returns whether new task is run
             template<typename Functor, typename... Args>
-            bool run_if_idle(Functor&& functor, Args... args) {
+            bool run_if_idle(Functor&& functor, Args&&... args) {
                 std::scoped_lock method_call_guard{ m_method_lock };
                 {
                     std::scoped_lock guard{ m_data->lock };

@@ -171,15 +171,17 @@ namespace winrt::BiliUWP::implementation {
                 prog_ring.Visibility(Visibility::Visible);
 
                 auto local_cache_folder_path = ApplicationData::Current().LocalCacheFolder().Path();
+                auto temp_state_folder_path = ApplicationData::Current().TemporaryFolder().Path();
                 auto ac_inetcache_folder_path = local_cache_folder_path + L"\\..\\AC\\INetCache";
                 auto local_cache_size = co_await util::winrt::calc_folder_size(local_cache_folder_path);
+                auto temp_state_size = co_await util::winrt::calc_folder_size(temp_state_folder_path);
                 auto sys_cache_size = co_await util::winrt::calc_folder_size(ac_inetcache_folder_path);
-                result_text.Text(
-                    util::str::byte_size_to_str(local_cache_size + sys_cache_size, cache_size_precision)
-                );
+                result_text.Text(util::str::byte_size_to_str(
+                    local_cache_size + temp_state_size + sys_cache_size,
+                    cache_size_precision));
                 ToolTipService::SetToolTip(result_text, box_value(::BiliUWP::App::res_str(
                     L"App/Page/SettingsPage/CalculateCacheResultText_ToolTip",
-                    util::str::byte_size_to_str(local_cache_size, cache_size_precision),
+                    util::str::byte_size_to_str(local_cache_size + temp_state_size, cache_size_precision),
                     util::str::byte_size_to_str(sys_cache_size, cache_size_precision)
                 )));
 
@@ -216,8 +218,10 @@ namespace winrt::BiliUWP::implementation {
 
                 // NOTE: Currently not guaranteed that all caches will be removed
                 auto local_cache_folder_path = ApplicationData::Current().LocalCacheFolder().Path();
+                auto temp_state_folder_path = ApplicationData::Current().TemporaryFolder().Path();
                 auto ac_inetcache_folder_path = local_cache_folder_path + L"\\..\\AC\\INetCache";
                 co_await util::winrt::delete_all_inside_folder(local_cache_folder_path);
+                co_await util::winrt::delete_all_inside_folder(temp_state_folder_path);
                 co_await util::winrt::delete_all_inside_folder(ac_inetcache_folder_path);
 
                 success_mark.Visibility(Visibility::Visible);

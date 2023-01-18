@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="packages\Microsoft.UI.Xaml.2.8.2\build\native\Microsoft.UI.Xaml.props" Condition="Exists('packages\Microsoft.UI.Xaml.2.8.2\build\native\Microsoft.UI.Xaml.props')" />
   <Import Project="packages\Microsoft.Windows.CppWinRT.2.0.221104.6\build\native\Microsoft.Windows.CppWinRT.props" Condition="Exists('packages\Microsoft.Windows.CppWinRT.2.0.221104.6\build\native\Microsoft.Windows.CppWinRT.props')" />
-  <Import Project="packages\Microsoft.UI.Xaml.2.8.1\build\native\Microsoft.UI.Xaml.props" Condition="Exists('packages\Microsoft.UI.Xaml.2.8.1\build\native\Microsoft.UI.Xaml.props')" />
   <PropertyGroup Label="Globals">
     <CppWinRTOptimized>true</CppWinRTOptimized>
     <CppWinRTRootNamespaceAutoMerge>true</CppWinRTRootNamespaceAutoMerge>
@@ -15,8 +15,8 @@
     <AppContainerApplication>true</AppContainerApplication>
     <ApplicationType>Windows Store</ApplicationType>
     <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
-    <WindowsTargetPlatformVersion Condition=" '$(WindowsTargetPlatformVersion)' == '' ">10.0.19041.0</WindowsTargetPlatformVersion>
-    <WindowsTargetPlatformMinVersion>10.0.18362.0</WindowsTargetPlatformMinVersion>
+    <WindowsTargetPlatformVersion Condition=" '$(WindowsTargetPlatformVersion)' == '' ">10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformMinVersion>10.0.20348.0</WindowsTargetPlatformMinVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <ItemGroup Label="ProjectConfigurations">
@@ -134,6 +134,18 @@
     <Midl>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)Code\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </Midl>
+    <Link>
+      <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">winsqlite3.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <Link>
+      <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">winsqlite3.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <Link>
+      <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">winsqlite3.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <Link>
+      <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">winsqlite3.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
     <ClCompile>
@@ -154,6 +166,10 @@
       <GenerateMapFile Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</GenerateMapFile>
       <GenerateMapFile Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</GenerateMapFile>
       <GenerateMapFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</GenerateMapFile>
+      <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">winsqlite3.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">winsqlite3.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">winsqlite3.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Release|x64'">winsqlite3.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Midl>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">$(ProjectDir)Code\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -175,11 +191,20 @@
     <ClInclude Include="Code\BiliClientManaged.h" />
     <ClInclude Include="Code\Converters.h" />
     <ClInclude Include="Code\DebugConsole.hpp" />
+    <ClInclude Include="Code\HttpCache.h" />
     <ClInclude Include="Code\HttpRandomAccessStream.h" />
     <ClInclude Include="Code\IncrementalLoadingCollection.h" />
     <ClInclude Include="Code\json.h" />
     <ClInclude Include="Code\util.hpp" />
     <ClInclude Include="Controls\AdaptiveGridView.h" />
+    <ClInclude Include="Controls\ImageEx.h">
+      <DependentUpon>Controls\ImageEx.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClInclude>
+    <ClInclude Include="Controls\ImageEx2.h">
+      <DependentUpon>Controls\ImageEx2.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClInclude>
     <ClInclude Include="Controls\SimpleContentDialog.h">
       <DependentUpon>Controls\SimpleContentDialog.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -241,6 +266,12 @@
     <ApplicationDefinition Include="App.xaml">
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Page Include="Controls\ImageEx.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Controls\ImageEx2.xaml">
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="Controls\SimpleContentDialog.xaml">
       <SubType>Designer</SubType>
     </Page>
@@ -293,11 +324,20 @@
     <ClCompile Include="Code\BiliClientManaged.cpp" />
     <ClCompile Include="Code\Converters.cpp" />
     <ClCompile Include="Code\DebugConsole.cpp" />
+    <ClCompile Include="Code\HttpCache.cpp" />
     <ClCompile Include="Code\HttpRandomAccessStream.cpp" />
     <ClCompile Include="Code\IncrementalLoadingCollection.cpp" />
     <ClCompile Include="Code\json.cpp" />
     <ClCompile Include="Code\util.cpp" />
     <ClCompile Include="Controls\AdaptiveGridView.cpp" />
+    <ClCompile Include="Controls\ImageEx.cpp">
+      <DependentUpon>Controls\ImageEx.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClCompile>
+    <ClCompile Include="Controls\ImageEx2.cpp">
+      <DependentUpon>Controls\ImageEx2.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClCompile>
     <ClCompile Include="Controls\SimpleContentDialog.cpp">
       <DependentUpon>Controls\SimpleContentDialog.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -379,6 +419,14 @@
     <Midl Include="Code\IBiliResource.idl" />
     <Midl Include="Code\IncrementalLoadingCollection.idl" />
     <Midl Include="Controls\AdaptiveGridView.idl" />
+    <Midl Include="Controls\ImageEx.idl">
+      <DependentUpon>Controls\ImageEx.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
+    <Midl Include="Controls\ImageEx2.idl">
+      <DependentUpon>Controls\ImageEx2.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
     <Midl Include="Controls\SimpleContentDialog.idl">
       <DependentUpon>Controls\SimpleContentDialog.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -528,18 +576,20 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="packages\Microsoft.UI.Xaml.2.8.1\build\native\Microsoft.UI.Xaml.targets" Condition="Exists('packages\Microsoft.UI.Xaml.2.8.1\build\native\Microsoft.UI.Xaml.targets')" />
-    <Import Project="packages\Microsoft.Web.WebView2.1.0.1418.22\build\native\Microsoft.Web.WebView2.targets" Condition="Exists('packages\Microsoft.Web.WebView2.1.0.1418.22\build\native\Microsoft.Web.WebView2.targets')" />
     <Import Project="packages\Microsoft.Windows.CppWinRT.2.0.221104.6\build\native\Microsoft.Windows.CppWinRT.targets" Condition="Exists('packages\Microsoft.Windows.CppWinRT.2.0.221104.6\build\native\Microsoft.Windows.CppWinRT.targets')" />
+    <Import Project="packages\Microsoft.Web.WebView2.1.0.1462.37\build\native\Microsoft.Web.WebView2.targets" Condition="Exists('packages\Microsoft.Web.WebView2.1.0.1462.37\build\native\Microsoft.Web.WebView2.targets')" />
+    <Import Project="packages\Microsoft.UI.Xaml.2.8.2\build\native\Microsoft.UI.Xaml.targets" Condition="Exists('packages\Microsoft.UI.Xaml.2.8.2\build\native\Microsoft.UI.Xaml.targets')" />
+    <Import Project="packages\Win2D.uwp.1.26.0\build\native\Win2D.uwp.targets" Condition="Exists('packages\Win2D.uwp.1.26.0\build\native\Win2D.uwp.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
-    <Error Condition="!Exists('packages\Microsoft.UI.Xaml.2.8.1\build\native\Microsoft.UI.Xaml.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.UI.Xaml.2.8.1\build\native\Microsoft.UI.Xaml.props'))" />
-    <Error Condition="!Exists('packages\Microsoft.UI.Xaml.2.8.1\build\native\Microsoft.UI.Xaml.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.UI.Xaml.2.8.1\build\native\Microsoft.UI.Xaml.targets'))" />
-    <Error Condition="!Exists('packages\Microsoft.Web.WebView2.1.0.1418.22\build\native\Microsoft.Web.WebView2.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Web.WebView2.1.0.1418.22\build\native\Microsoft.Web.WebView2.targets'))" />
     <Error Condition="!Exists('packages\Microsoft.Windows.CppWinRT.2.0.221104.6\build\native\Microsoft.Windows.CppWinRT.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Windows.CppWinRT.2.0.221104.6\build\native\Microsoft.Windows.CppWinRT.props'))" />
     <Error Condition="!Exists('packages\Microsoft.Windows.CppWinRT.2.0.221104.6\build\native\Microsoft.Windows.CppWinRT.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Windows.CppWinRT.2.0.221104.6\build\native\Microsoft.Windows.CppWinRT.targets'))" />
+    <Error Condition="!Exists('packages\Microsoft.Web.WebView2.1.0.1462.37\build\native\Microsoft.Web.WebView2.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Web.WebView2.1.0.1462.37\build\native\Microsoft.Web.WebView2.targets'))" />
+    <Error Condition="!Exists('packages\Microsoft.UI.Xaml.2.8.2\build\native\Microsoft.UI.Xaml.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.UI.Xaml.2.8.2\build\native\Microsoft.UI.Xaml.props'))" />
+    <Error Condition="!Exists('packages\Microsoft.UI.Xaml.2.8.2\build\native\Microsoft.UI.Xaml.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.UI.Xaml.2.8.2\build\native\Microsoft.UI.Xaml.targets'))" />
+    <Error Condition="!Exists('packages\Win2D.uwp.1.26.0\build\native\Win2D.uwp.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Win2D.uwp.1.26.0\build\native\Win2D.uwp.targets'))" />
   </Target>
 </Project>

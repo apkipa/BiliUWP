@@ -79,7 +79,14 @@
                     <ScrollViewer IsScrollInertiaEnabled="True"
                       VerticalScrollBarVisibility="Auto">
                         <StackPanel Orientation="Vertical" Spacing="5" Padding="10,8,10,8">
+                            <!--
                             <Image Source="{x:Bind MediaCoverImageUrl}" CanDrag="True"/>
+                            -->
+                            <local:ImageEx2 CanDrag="True">
+                                <local:ImageEx2.Source>
+                                    <local:ImageEx2Source UriSource="{x:Bind MediaCoverImageUrl}"/>
+                                </local:ImageEx2.Source>
+                            </local:ImageEx2>
                             <TextBlock Text="{x:Bind MediaTitle}" FontSize="19" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
                             <ListView x:Name="UpListView" ItemsSource="{x:Bind UpList}" ItemClick="UpListView_ItemClick" SelectionMode="None" IsItemClickEnabled="True" ScrollViewer.VerticalScrollMode="Disabled">
                                 <ListView.ItemContainerTransitions>
@@ -93,11 +100,18 @@
                                 <ListView.ItemTemplate>
                                     <DataTemplate x:DataType="local:MediaPlayPage_UpItem">
                                         <StackPanel Orientation="Horizontal">
+                                            <!--
                                             <PersonPicture Height="36" Width="36" Margin="0,0,8,0">
                                                 <PersonPicture.ProfilePicture>
                                                     <BitmapImage UriSource="{x:Bind UpFaceUrl}" DecodePixelType="Logical" DecodePixelWidth="36" DecodePixelHeight="36" AutoPlay="False"/>
                                                 </PersonPicture.ProfilePicture>
                                             </PersonPicture>
+                                            -->
+                                            <local:ImageEx2 Width="36" Height="36" Margin="0,0,8,0" CornerRadius="100" BorderBrush="Gray" BorderThickness="0.5">
+                                                <local:ImageEx2.Source>
+                                                    <local:ImageEx2Source UriSource="{x:Bind UpFaceUrl}"/>
+                                                </local:ImageEx2.Source>
+                                            </local:ImageEx2>
                                             <TextBlock Text="{x:Bind UpName}" TextLineBounds="Tight" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </DataTemplate>

@@ -70,6 +70,9 @@
     <ClCompile Include="Code\AppItemsCollection.cpp">
       <Filter>Code</Filter>
     </ClCompile>
+    <ClCompile Include="Code\HttpCache.cpp">
+      <Filter>Code</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -107,6 +110,9 @@
       <Filter>Code</Filter>
     </ClInclude>
     <ClInclude Include="Code\AppItemsCollection.h">
+      <Filter>Code</Filter>
+    </ClInclude>
+    <ClInclude Include="Code\HttpCache.h">
       <Filter>Code</Filter>
     </ClInclude>
   </ItemGroup>
@@ -192,6 +198,12 @@
     </Page>
     <Page Include="Pages\DebugConsoleWindowPage.xaml">
       <Filter>Pages</Filter>
+    </Page>
+    <Page Include="Controls\ImageEx.xaml">
+      <Filter>Controls</Filter>
+    </Page>
+    <Page Include="Controls\ImageEx2.xaml">
+      <Filter>Controls</Filter>
     </Page>
   </ItemGroup>
   <ItemGroup>

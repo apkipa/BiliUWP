@@ -6,6 +6,10 @@
 #include <shared_mutex>
 #include <queue>
 #include <regex>
+#include "ImageEx.h"
+
+#define SQLITE_EXTERN __declspec(dllimport) extern
+#include <winsqlite/winsqlite3.h>
 
 using namespace winrt;
 using namespace Windows::ApplicationModel;
@@ -1046,6 +1050,25 @@ void winrt::BiliUWP::implementation::App::OnLaunched(LaunchActivatedEventArgs co
         if (!cur_window.Content()) {
             m_app_inst->init_current_window();
         }
+        // NOTE: Init sqlite3
+        if (!sqlite3_temp_directory) {
+            auto temp_path = Windows::Storage::ApplicationData::Current().TemporaryFolder().Path();
+            sqlite3_temp_directory = sqlite3_mprintf("%s", to_string(temp_path).c_str());
+            sqlite3_config(SQLITE_CONFIG_LOG, +[](void* pArg, int iErrCode, const char* zMsg) {
+                std::ignore = pArg;
+                if ((iErrCode & 0xff) == SQLITE_WARNING) {
+                    util::debug::log_warn(std::format(L"sqlite3 warning: [{}] {}", iErrCode, to_hstring(zMsg)));
+                }
+                else {
+                    util::debug::log_debug(std::format(L"sqlite3 log: [{}] {}", iErrCode, to_hstring(zMsg)));
+                }
+            }, nullptr);
+        }
+        // NOTE: Init ImageEx
+        []() -> fire_forget_except {
+            // TODO: Maybe improve ImageEx init logic
+            co_await ::BiliUWP::init_image_ex_async();
+        }();
 
         if (e.PreviousExecutionState() == ApplicationExecutionState::Terminated) {
             // Restore the saved session state only when appropriate, scheduling the

@@ -45,11 +45,18 @@
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
+                                <!--
                                 <Image Grid.Column="0" Margin="0,0,10,0" Width="128">
                                     <Image.Source>
                                         <BitmapImage UriSource="{x:Bind CoverUrl}" AutoPlay="False"/>
                                     </Image.Source>
                                 </Image>
+                                -->
+                                <local:ImageEx2 Grid.Column="0" Margin="0,0,10,0" Width="128">
+                                    <local:ImageEx2.Source>
+                                        <local:ImageEx2Source UriSource="{x:Bind CoverUrl}"/>
+                                    </local:ImageEx2.Source>
+                                </local:ImageEx2>
                                 <Grid Grid.Column="1">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="*"/>
@@ -104,11 +111,18 @@
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
+                                <!--
                                 <Image Grid.Column="0" Margin="0,0,10,0" Width="128">
                                     <Image.Source>
                                         <BitmapImage UriSource="{x:Bind CoverUrl}" AutoPlay="False"/>
                                     </Image.Source>
                                 </Image>
+                                -->
+                                <local:ImageEx2 Grid.Column="0" Margin="0,0,10,0" Width="128">
+                                    <local:ImageEx2.Source>
+                                        <local:ImageEx2Source UriSource="{x:Bind CoverUrl}"/>
+                                    </local:ImageEx2.Source>
+                                </local:ImageEx2>
                                 <Grid Grid.Column="1">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="*"/>
@@ -163,11 +177,18 @@
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
+                                <!--
                                 <Image Grid.Column="0" Margin="0,0,10,0" Width="128">
                                     <Image.Source>
                                         <BitmapImage UriSource="{x:Bind CoverUrl}" AutoPlay="False"/>
                                     </Image.Source>
                                 </Image>
+                                -->
+                                <local:ImageEx2 Grid.Column="0" Margin="0,0,10,0" Width="128">
+                                    <local:ImageEx2.Source>
+                                        <local:ImageEx2Source UriSource="{x:Bind CoverUrl}"/>
+                                    </local:ImageEx2.Source>
+                                </local:ImageEx2>
                                 <Grid Grid.Column="1">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="*"/>

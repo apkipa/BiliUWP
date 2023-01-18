@@ -8,7 +8,7 @@
     mc:Ignorable="d"
     Background="{ThemeResource SystemControlBackgroundAltHighBrush}">
 
-    <Grid>
+    <Grid x:Name="LayoutRoot">
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
             <AutoSuggestBox x:Uid="App/Page/NewPage/SearchBox" x:Name="SearchBox" QueryIcon="Find" MinWidth="350"
                             TextChanged="SearchBox_TextChanged" QuerySubmitted="SearchBox_QuerySubmitted"/>

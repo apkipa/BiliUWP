@@ -7,6 +7,9 @@
 
 namespace winrt::BiliUWP::implementation {
     struct UserPage : UserPageT<UserPage> {
+        // NOTE: Keep the count in sync with XAML!
+        static constexpr unsigned TOTAL_VIEWS_COUNT = 7;
+
         UserPage();
 
         bool IsBiliResReady(void) { return m_bili_res_is_ready; }
@@ -51,11 +54,10 @@ namespace winrt::BiliUWP::implementation {
             double progress;
         };
 
-        // NOTE: Keep the capacity in sync with items count in XAML!
-        std::array<sv_state_record, 6> m_view_offsets = {};
+        std::array<sv_state_record, TOTAL_VIEWS_COUNT> m_view_offsets = {};
         // NOTE: is_volatile means the view is known to be changing soon,
         //       and its current state should not be relied on
-        std::array<bool, 6> m_view_is_volatile = {};
+        std::array<bool, TOTAL_VIEWS_COUNT> m_view_is_volatile = {};
         uint32_t m_cur_tab_idx = 0;
         // NOTE: -1 means there are active animations and progress is not available
         float m_latest_p = -1;

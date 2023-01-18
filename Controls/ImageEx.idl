@@ -1,0 +1,84 @@
+namespace BiliUWP {
+    // NOTE: Default value is "EnableLocal,EnableMemory,EnableVideo"
+    [flags]
+    enum ImageExCacheOptions {
+        // Whether to use underlying HttpCache to cache HTTP uris
+        EnableLocal = 0x00000001,
+        // Whether to persist image in memory after loaded (not recommended to disable;
+        // cannot opt out if resource type is not uri)
+        EnableMemory = 0x00000002,
+        // Whether to persist image in video memory even when disconnected
+        // from the visual tree
+        EnableVideo = 0x00000004,
+    };
+
+    // Provides additional information to apply optimizations to uris where possible
+    interface IImageExUriPreprocessor {
+        // NOTE: Size of value 0 indicates unspecified size
+        Windows.Foundation.Uri ProcessUri(
+            Windows.Foundation.Uri uri,
+            UInt32 containerWidth,
+            UInt32 containerHeight,
+            Windows.UI.Xaml.Media.Stretch stretch
+        );
+    };
+
+    runtimeclass ImageExFailedEventArgs {
+        Windows.Foundation.HResult Exception{ get; };
+        String Message{ get; };
+    };
+    // WARN: The progress values are not guaranteed to be bytes
+    runtimeclass ImageExDownloadProgressEventArgs {
+        UInt64 Current{ get; };
+        Windows.Foundation.IReference<UInt64> Total{ get; };
+    };
+
+    [default_interface]
+    runtimeclass ImageExSource : Windows.UI.Xaml.DependencyObject {
+        ImageExSource();
+
+        Windows.Foundation.IAsyncAction SetSourceAsync(
+            Windows.Storage.Streams.IRandomAccessStream streamSource
+        );
+
+        static Windows.UI.Xaml.DependencyProperty CacheOptionsProperty{ get; };
+        ImageExCacheOptions CacheOptions;
+        // Delays first-phase loading until connected to the visual tree(uri resources only);
+        // useful for optimizing uris and memory usage
+        static Windows.UI.Xaml.DependencyProperty EnableDelayedLoadProperty{ get; };
+        Boolean EnableDelayedLoad;  // Default is true
+        static Windows.UI.Xaml.DependencyProperty UriSourceProperty{ get; };
+        Windows.Foundation.Uri UriSource;
+        IImageExUriPreprocessor UriPreprocessor;
+        event Windows.Foundation.TypedEventHandler<ImageExSource, ImageExDownloadProgressEventArgs> DownloadProgress;
+        // NOTE: The ImageOpened & ImageFailed events only account for the first two phases
+        //       (RemoteFetch -> MemoryDecode -> VideoRescale); for the third phase,
+        //       handle corresponding events in ImageExBrush / ImageEx
+        // WARN: The ImageOpened & ImageFailed events may fire multiple times if a reload
+        //       occurs (for example, EnableMemory caching is not applied)
+        event Windows.Foundation.TypedEventHandler<ImageExSource, Object> ImageOpened;
+        event Windows.Foundation.TypedEventHandler<ImageExSource, ImageExFailedEventArgs> ImageFailed;
+    };
+
+    [default_interface]
+    runtimeclass ImageExBrush : Windows.UI.Xaml.Media.XamlCompositionBrushBase {
+        ImageExBrush();
+        static Windows.UI.Xaml.DependencyProperty SourceProperty{ get; };
+        ImageExSource Source;
+        static Windows.UI.Xaml.DependencyProperty StretchProperty{ get; };
+        Windows.UI.Xaml.Media.Stretch Stretch;
+        // TODO: Implement events in ImageExBrush
+    };
+
+    [default_interface]
+    runtimeclass ImageEx : Windows.UI.Xaml.Controls.UserControl {
+        ImageEx();
+        static Windows.UI.Xaml.DependencyProperty SourceProperty{ get; };
+        ImageExSource Source;
+        static Windows.UI.Xaml.DependencyProperty StretchProperty{ get; };
+        Windows.UI.Xaml.Media.Stretch Stretch;
+        // TODO: Implement events in ImageEx
+        /*event Windows.UI.Xaml.RoutedEventHandler ImageOpened;
+        event Windows.UI.Xaml.ExceptionRoutedEventHandler ImageFailed;*/
+    };
+}

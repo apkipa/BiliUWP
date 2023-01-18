@@ -1640,7 +1640,7 @@ namespace winrt::BiliUWP::implementation {
         auto audio_uri = Uri(audio_pinfo.urls.at(0));
         auto http_stream = co_await weak_store.ual(BiliUWP::HttpRandomAccessStream::CreateAsync(
             audio_uri,
-            m_http_client,
+            m_http_client_m,
             HttpRandomAccessStreamBufferOptions::Full,
             0, false
         ));
