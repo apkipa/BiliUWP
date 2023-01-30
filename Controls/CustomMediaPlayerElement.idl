@@ -1,0 +1,10 @@
+namespace BiliUWP {
+    [default_interface]
+    runtimeclass CustomMediaPlayerElement : Windows.UI.Xaml.Controls.MediaPlayerElement {
+        CustomMediaPlayerElement();
+        static Windows.UI.Xaml.DependencyProperty MiddleLayerContentProperty{ get; };
+        Object MiddleLayerContent;
+        static Windows.UI.Xaml.DependencyProperty UpperLayerContentProperty{ get; };
+        Object UpperLayerContent;
+    }
+}

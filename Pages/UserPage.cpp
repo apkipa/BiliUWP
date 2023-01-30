@@ -519,11 +519,16 @@ namespace winrt::BiliUWP::implementation {
                     img_brush.ImageSource(bmp_img);
                     that->HeaderBackground().Background(img_brush);
                     that->Header().Background(img_brush);
-                    auto user_face_bmp_img = BitmapImage(Uri(result.face_url));
+                    /*auto user_face_bmp_img = BitmapImage(Uri(result.face_url));
                     user_face_bmp_img.DecodePixelType(DecodePixelType::Logical);
                     user_face_bmp_img.DecodePixelWidth(80);
                     user_face_bmp_img.DecodePixelHeight(80);
-                    that->UserFace().ProfilePicture(user_face_bmp_img);
+                    that->UserFace().ProfilePicture(user_face_bmp_img);*/
+                    {
+                        auto user_face_img_src = BiliUWP::ImageEx2Source();
+                        user_face_img_src.UriSource(Uri(result.face_url));
+                        that->UserFace().Source(user_face_img_src);
+                    }
                     that->UserName().Text(result.name);
                     //that->UserName().Foreground(text_fore_brush);
                     std::wstring user_sign{ result.sign };
@@ -554,7 +559,7 @@ namespace winrt::BiliUWP::implementation {
             illegal_nav_fn();
         }
 
-        util::winrt::discard_ctrl_tab_for_elem(TabsPivot(), *this);
+        //util::winrt::discard_ctrl_tab_for_elem(TabsPivot(), *this);
 
         SizeChanged([this](IInspectable const&, SizeChangedEventArgs const&) {
             this->ApplyHacksToCurrentItem();

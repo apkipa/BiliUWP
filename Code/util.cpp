@@ -65,6 +65,13 @@ namespace util {
             auto res = std::chrono::duration_cast<std::chrono::seconds>(cur_t.time_since_epoch()).count();
             return static_cast<uint64_t>(res);
         }
+
+        ::winrt::hstring timestamp_to_str(uint64_t seconds) {
+            auto tp = std::chrono::round<std::chrono::seconds>(
+                std::chrono::system_clock::time_point(std::chrono::seconds(seconds)));
+            return ::winrt::hstring(std::format(L"{0:%F} {0:%T}",
+                std::chrono::zoned_time{ std::chrono::current_zone(), tp }));
+        }
     }
 
     namespace debug {

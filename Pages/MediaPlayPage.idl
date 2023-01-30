@@ -1,5 +1,6 @@
 import "IBiliResource.idl";
 import "AppCfgModel.idl";
+import "Controls/CustomMediaPlayerElement.idl";
 
 namespace BiliUWP {
     runtimeclass MediaPlayPage_UpItem {
@@ -29,11 +30,16 @@ namespace BiliUWP {
     runtimeclass MediaPlayPage : Windows.UI.Xaml.Controls.Page, IBiliResource {
         MediaPlayPage();
 
-        Windows.UI.Xaml.Controls.MediaPlayerElement MediaPlayerElem{ get; };
+        //Windows.UI.Xaml.Controls.MediaPlayerElement MediaPlayerElem{ get; };
+        CustomMediaPlayerElement MediaPlayerElem{ get; };
 
         String MediaTitle{ get; };
         String MediaCoverImageUrl{ get; };
         String MediaDescription{ get; };
+        String MediaPublishTimeStr{ get; };
+        UInt64 MediaPlayCount{ get; };
+        UInt64 MediaDanmakuCount{ get; };
+        UInt64 MediaCommentsCount{ get; };
         IObservableVector<IInspectable> UpList{ get; };
         Boolean ShouldShowPartsList{ get; };
         IObservableVector<IInspectable> PartsList{ get; };

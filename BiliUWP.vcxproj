@@ -197,6 +197,18 @@
     <ClInclude Include="Code\json.h" />
     <ClInclude Include="Code\util.hpp" />
     <ClInclude Include="Controls\AdaptiveGridView.h" />
+    <ClInclude Include="Controls\CustomMediaPlayerElement.h">
+      <DependentUpon>Controls\CustomMediaPlayerElement.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClInclude>
+    <ClInclude Include="Controls\CustomMediaTransportControls.h">
+      <DependentUpon>Controls\CustomMediaTransportControls.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClInclude>
+    <ClInclude Include="Controls\CustomPivot.h">
+      <DependentUpon>Controls\CustomPivot.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClInclude>
     <ClInclude Include="Controls\ImageEx.h">
       <DependentUpon>Controls\ImageEx.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -266,6 +278,15 @@
     <ApplicationDefinition Include="App.xaml">
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Page Include="Controls\CustomMediaPlayerElement.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Controls\CustomMediaTransportControls.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Controls\CustomPivot.xaml">
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="Controls\ImageEx.xaml">
       <SubType>Designer</SubType>
     </Page>
@@ -330,6 +351,18 @@
     <ClCompile Include="Code\json.cpp" />
     <ClCompile Include="Code\util.cpp" />
     <ClCompile Include="Controls\AdaptiveGridView.cpp" />
+    <ClCompile Include="Controls\CustomMediaPlayerElement.cpp">
+      <DependentUpon>Controls\CustomMediaPlayerElement.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClCompile>
+    <ClCompile Include="Controls\CustomMediaTransportControls.cpp">
+      <DependentUpon>Controls\CustomMediaTransportControls.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClCompile>
+    <ClCompile Include="Controls\CustomPivot.cpp">
+      <DependentUpon>Controls\CustomPivot.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClCompile>
     <ClCompile Include="Controls\ImageEx.cpp">
       <DependentUpon>Controls\ImageEx.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -419,6 +452,18 @@
     <Midl Include="Code\IBiliResource.idl" />
     <Midl Include="Code\IncrementalLoadingCollection.idl" />
     <Midl Include="Controls\AdaptiveGridView.idl" />
+    <Midl Include="Controls\CustomMediaPlayerElement.idl">
+      <DependentUpon>Controls\CustomMediaPlayerElement.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
+    <Midl Include="Controls\CustomMediaTransportControls.idl">
+      <DependentUpon>Controls\CustomMediaTransportControls.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
+    <Midl Include="Controls\CustomPivot.idl">
+      <DependentUpon>Controls\CustomPivot.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
     <Midl Include="Controls\ImageEx.idl">
       <DependentUpon>Controls\ImageEx.xaml</DependentUpon>
       <SubType>Code</SubType>

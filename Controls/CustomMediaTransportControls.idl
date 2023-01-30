@@ -1,0 +1,6 @@
+namespace BiliUWP {
+    [default_interface]
+    runtimeclass CustomMediaTransportControls : Windows.UI.Xaml.Controls.MediaTransportControls {
+        CustomMediaTransportControls();
+    }
+}

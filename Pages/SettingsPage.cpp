@@ -5,6 +5,8 @@
 #endif
 #include "App.h"
 
+#include <winsqlite/winsqlite3.h>
+
 constexpr unsigned ENTER_DEV_MODE_TAP_TIMES = 3;
 
 using namespace winrt;
@@ -82,6 +84,9 @@ namespace winrt::BiliUWP::implementation {
                 std::format("{}", std::chrono::zoned_time{ std::chrono::current_zone(), tp })
             )
         );
+
+        SqliteVersionTextBlock().Text(
+            L"winsqlite3 version: " + to_hstring(sqlite3_libversion()));
     }
     void SettingsPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const&) {
         auto tab = ::BiliUWP::App::get()->tab_from_page(*this);

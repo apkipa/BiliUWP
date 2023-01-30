@@ -3,17 +3,10 @@
 #include "FavouritesUserViewItem.g.cpp"
 #include "AppItemsCollection.h"
 #include "App.h"
+#include "util.hpp"
 
 using namespace winrt;
 using namespace Windows::Foundation;
-
-winrt::hstring timestamp_to_str(uint64_t seconds) {
-    auto tp = std::chrono::round<std::chrono::seconds>(
-        std::chrono::system_clock::time_point(std::chrono::seconds(seconds)));
-    return winrt::hstring(std::format(L"{0:%F} {0:%T}",
-        std::chrono::zoned_time{ std::chrono::current_zone(), tp }
-    ));
-}
 
 namespace winrt::BiliUWP::implementation {
     hstring FavouritesUserViewItem::AttrStr() {
@@ -25,10 +18,10 @@ namespace winrt::BiliUWP::implementation {
         }
     }
     hstring UserVideosViewItem::PublishTimeStr() {
-        return timestamp_to_str(m_data.publish_time);
+        return util::time::timestamp_to_str(m_data.publish_time);
     }
     hstring UserAudiosViewItem::PublishTimeStr() {
-        return timestamp_to_str(m_data.passtime);
+        return util::time::timestamp_to_str(m_data.passtime);
     }
 }
 

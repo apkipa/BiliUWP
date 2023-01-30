@@ -192,8 +192,8 @@
   <data name="App.Menu.MediaPlayer.ShowDetailedStats.Text" xml:space="preserve">
     <value>显示详细统计信息</value>
   </data>
-  <data name="App.Menu.MediaPlayer.UseSystemControls.Text" xml:space="preserve">
-    <value>使用系统媒体控件</value>
+  <data name="App.Menu.MediaPlayer.ShowTransportControls.Text" xml:space="preserve">
+    <value>显示媒体控件</value>
   </data>
   <data name="App.Override.SR_TabViewCloseButtonTooltipWithKA" xml:space="preserve">
     <value>关闭选项卡(Ctrl+W)</value>
@@ -258,14 +258,23 @@
   <data name="App.Page.MediaPlayPage.LoadingSubtitles" xml:space="preserve">
     <value>正在加载字幕...</value>
   </data>
+  <data name="App.Page.MediaPlayPage.Sidebar.Comments.Header" xml:space="preserve">
+    <value>评论</value>
+  </data>
   <data name="App.Page.MediaPlayPage.Sidebar.CopyPartTitle" xml:space="preserve">
     <value>复制分集标题</value>
+  </data>
+  <data name="App.Page.MediaPlayPage.Sidebar.Danmaku.Header" xml:space="preserve">
+    <value>弹幕</value>
   </data>
   <data name="App.Page.MediaPlayPage.Sidebar.Details.Header" xml:space="preserve">
     <value>详情</value>
   </data>
   <data name="App.Page.MediaPlayPage.Sidebar.Parts.Text" xml:space="preserve">
     <value>分集</value>
+  </data>
+  <data name="App.Page.MediaPlayPage.Sidebar.Recommendations.Header" xml:space="preserve">
+    <value>推荐</value>
   </data>
   <data name="App.Page.MediaPlayPage.Title" xml:space="preserve">
     <value>媒体播放页</value>

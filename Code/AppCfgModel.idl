@@ -19,6 +19,7 @@ namespace BiliUWP {
         Boolean App_AlwaysSyncPlayingCfg;
         UInt32 App_GlobalVolume;            // Range: [0, 10000]
         Boolean App_UseHRASForVideo;
+        Boolean App_UseCustomVideoPresenter;
         // Misc
         Boolean App_PersistClipboardAfterExit;
         Double App_SimplifyVisualsLevel;    // Range: [0, 1]

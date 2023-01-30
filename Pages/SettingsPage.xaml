@@ -87,6 +87,7 @@
                     <TextBlock x:Uid="App/Page/SettingsPage/Dev" Style="{StaticResource RegionHeaderTextBlockStyle}"/>
                     <ToggleSwitch x:Uid="App/Page/SettingsPage/App_IsDeveloper" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_IsDeveloper,Mode=TwoWay}"/>
                     <ToggleSwitch x:Uid="App/Page/SettingsPage/App_ShowDetailedStats" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_ShowDetailedStats,Mode=TwoWay}"/>
+                    <ToggleSwitch Header="[EXPERIMENTAL] Use custom video presenter (may greatly reduce composition overhead)" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_UseCustomVideoPresenter,Mode=TwoWay}"/>
                     <TextBlock x:Uid="App/Page/SettingsPage/Config" Style="{StaticResource GroupHeaderTextBlockStyle}"/>
                     <StackPanel Orientation="Horizontal">
                         <Button x:Uid="App/Page/SettingsPage/ExportConfigToClipboard" x:Name="ExportConfigToClipboardButton" Click="ExportConfigToClipboardButton_Click" Style="{StaticResource ItemButtonStyle}"/>
@@ -153,6 +154,7 @@
                                  NavigateUri="https://github.com/protocolbuffers/protobuf">
                     Protocol Buffers © Google Inc. (New BSD License)
                 </HyperlinkButton>
+                <TextBlock x:Name="SqliteVersionTextBlock" Style="{StaticResource ItemTextBlockStyle}"/>
                 <Button x:Name="ViewLicensesButton" Click="ViewLicensesButton_Click" Content="View licenses" Style="{StaticResource ItemButtonStyle}"/>
                 <TextBlock x:Uid="App/Page/SettingsPage/About_Details2" Style="{StaticResource ItemTextBlockStyle}"/>
                 <HyperlinkButton Style="{StaticResource TightHyperlinkButtonStyle}"

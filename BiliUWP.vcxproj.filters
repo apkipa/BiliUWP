@@ -205,6 +205,15 @@
     <Page Include="Controls\ImageEx2.xaml">
       <Filter>Controls</Filter>
     </Page>
+    <Page Include="Controls\CustomMediaPlayerElement.xaml">
+      <Filter>Controls</Filter>
+    </Page>
+    <Page Include="Controls\CustomPivot.xaml">
+      <Filter>Controls</Filter>
+    </Page>
+    <Page Include="Controls\CustomMediaTransportControls.xaml">
+      <Filter>Controls</Filter>
+    </Page>
   </ItemGroup>
   <ItemGroup>
     <PRIResource Include="Strings\Resources.language-en-US.resw">

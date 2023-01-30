@@ -37,43 +37,38 @@
         </VisualStateManager.VisualStateGroups>
         -->
         <Grid x:Name="MediaPlayerPane" Grid.Column="0">
-            <MediaPlayerElement x:Name="MediaPlayerElem"
+            <local:CustomMediaPlayerElement x:Name="MediaPlayerElem"
                                 AutoPlay="True">
-                <MediaPlayerElement.ContextFlyout>
+                <local:CustomMediaPlayerElement.ContextFlyout>
                     <MenuFlyout>
-                        <ToggleMenuFlyoutItem x:Uid="App/Menu/MediaPlayer/UseSystemControls" IsChecked="{x:Bind MediaPlayerElem.AreTransportControlsEnabled,Mode=TwoWay}"/>
+                        <ToggleMenuFlyoutItem x:Uid="App/Menu/MediaPlayer/ShowTransportControls" IsChecked="{x:Bind MediaPlayerElem.AreTransportControlsEnabled,Mode=TwoWay}"/>
                         <ToggleMenuFlyoutItem x:Name="MediaDetailedStatsToggleMenuItem" x:Uid="App/Menu/MediaPlayer/ShowDetailedStats" Visibility="{x:Bind CfgModel.App_IsDeveloper,Mode=OneWay}"/>
                     </MenuFlyout>
-                </MediaPlayerElement.ContextFlyout>
-                <MediaPlayerElement.TransportControls>
-                    <MediaTransportControls IsPlaybackRateButtonVisible="False" IsPlaybackRateEnabled="True">
-                        <!--
-                        <MediaTransportControls.ContextFlyout>
-                            <MenuFlyout>
-                                <ToggleMenuFlyoutItem x:Uid="App/Menu/MediaPlayer/UseSystemControls" IsChecked="{x:Bind MediaPlayerElem.AreTransportControlsEnabled,Mode=TwoWay}"/>
-                                <ToggleMenuFlyoutItem x:Name="MediaDetailedStatsToggleMenuItem" x:Uid="App/Menu/MediaPlayer/ShowDetailedStats" Visibility="{x:Bind CfgModel.App_IsDeveloper,Mode=OneWay}"/>
-                            </MenuFlyout>
-                        </MediaTransportControls.ContextFlyout>
-                        -->
-                    </MediaTransportControls>
-                </MediaPlayerElement.TransportControls>
-            </MediaPlayerElement>
-            <local:SimpleStateIndicator x:Name="MediaPlayerStateOverlay"/>
-            <Grid x:Name="MediaDetailedStatsOverlay" ColumnSpacing="10" RowSpacing="2" Background="#99000000" Margin="10,10,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" CornerRadius="4" Padding="8,6" Visibility="Collapsed">
-                <Grid.Resources>
-                    <Style TargetType="TextBlock">
-                        <Setter Property="FontFamily" Value="Consolas"/>
-                        <Setter Property="Foreground" Value="White"/>
-                        <Setter Property="FontSize" Value="12"/>
-                    </Style>
-                </Grid.Resources>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-            </Grid>
+                </local:CustomMediaPlayerElement.ContextFlyout>
+                <local:CustomMediaPlayerElement.TransportControls>
+                    <local:CustomMediaTransportControls x:Name="MediaTransportCtrl" IsPlaybackRateButtonVisible="True" IsPlaybackRateEnabled="True"/>
+                </local:CustomMediaPlayerElement.TransportControls>
+                <local:CustomMediaPlayerElement.MiddleLayerContent>
+                    <Grid>
+                        <local:SimpleStateIndicator x:Name="MediaPlayerStateOverlay"/>
+                        <Grid x:Name="MediaDetailedStatsOverlay" ColumnSpacing="10" RowSpacing="2" Background="#99000000" Margin="10,10,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" CornerRadius="4" Padding="8,6" Visibility="Collapsed">
+                            <Grid.Resources>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="FontFamily" Value="Consolas"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                    <Setter Property="FontSize" Value="12"/>
+                                </Style>
+                            </Grid.Resources>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                        </Grid>
+                    </Grid>
+                </local:CustomMediaPlayerElement.MiddleLayerContent>
+            </local:CustomMediaPlayerElement>
         </Grid>
-        <Pivot x:Name="MediaSidebar" Grid.Column="1" Width="300">
+        <local:CustomPivot x:Name="MediaSidebar" Grid.Column="1" Width="300">
             <PivotItem x:Uid="App/Page/MediaPlayPage/Sidebar/Details">
                 <Grid>
                     <ScrollViewer IsScrollInertiaEnabled="True"
@@ -88,6 +83,24 @@
                                 </local:ImageEx2.Source>
                             </local:ImageEx2>
                             <TextBlock Text="{x:Bind MediaTitle}" FontSize="19" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
+                            <StackPanel Orientation="Horizontal" Spacing="20">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontFamily="{ThemeResource SymbolThemeFontFamily}" Text="&#xE768;  " FontSize="12" Margin="0,0,0,1" VerticalAlignment="Center" TextLineBounds="Tight"/>
+                                    <TextBlock Text="{x:Bind MediaPlayCount}" Margin="0,-2,0,0" VerticalAlignment="Center" IsTextSelectionEnabled="True"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontFamily="{ThemeResource SymbolThemeFontFamily}" Text="&#xEA55;  " FontSize="12" VerticalAlignment="Center" TextLineBounds="Tight"/>
+                                    <TextBlock Text="{x:Bind MediaDanmakuCount}" Margin="0,-2,0,0" VerticalAlignment="Center" IsTextSelectionEnabled="True"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontFamily="{ThemeResource SymbolThemeFontFamily}" Text="&#xE90A;  " FontSize="12" VerticalAlignment="Center" TextLineBounds="Tight"/>
+                                    <TextBlock Text="{x:Bind MediaCommentsCount}" Margin="0,-2,0,0" VerticalAlignment="Center" IsTextSelectionEnabled="True"/>
+                                </StackPanel>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock FontFamily="{ThemeResource SymbolThemeFontFamily}" Text="&#xED5A;  " FontSize="12" VerticalAlignment="Center" TextLineBounds="Tight"/>
+                                <TextBlock Text="{x:Bind MediaPublishTimeStr}" Margin="0,-2,0,0" VerticalAlignment="Center" IsTextSelectionEnabled="True"/>
+                            </StackPanel>
                             <ListView x:Name="UpListView" ItemsSource="{x:Bind UpList}" ItemClick="UpListView_ItemClick" SelectionMode="None" IsItemClickEnabled="True" ScrollViewer.VerticalScrollMode="Disabled">
                                 <ListView.ItemContainerTransitions>
                                     <TransitionCollection/>
@@ -147,15 +160,15 @@
                     <local:SimpleStateIndicator x:Name="MediaDetailsOverlay"/>
                 </Grid>
             </PivotItem>
-            <PivotItem Header="Comments">
+            <PivotItem x:Uid="App/Page/MediaPlayPage/Sidebar/Comments">
                 <TextBlock Text="Comments go here"/>
             </PivotItem>
-            <PivotItem Header="Danmaku">
+            <PivotItem x:Uid="App/Page/MediaPlayPage/Sidebar/Danmaku">
                 <TextBlock Text="Danmaku goes here"/>
             </PivotItem>
-            <PivotItem Header="Recommendations">
+            <PivotItem x:Uid="App/Page/MediaPlayPage/Sidebar/Recommendations">
                 <TextBlock Text="Recommendations go here"/>
             </PivotItem>
-        </Pivot>
+        </local:CustomPivot>
     </Grid>
 </Page>

@@ -71,6 +71,8 @@ namespace winrt::BiliUWP::implementation {
         }
 
         void OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e);
+        void OnKeyDown(Windows::UI::Xaml::Input::KeyRoutedEventArgs const& e);
+        void OnPointerReleased(Windows::UI::Xaml::Input::PointerRoutedEventArgs const& e);
 
         void UpListView_ItemClick(
             Windows::Foundation::IInspectable const&, Windows::UI::Xaml::Controls::ItemClickEventArgs const& e
@@ -110,7 +112,44 @@ namespace winrt::BiliUWP::implementation {
             if (auto p = std::get_if<::BiliUWP::AudioBasicInfoResult>(&m_media_info)) {
                 return p->audio_intro;
             }
-            return L"";
+            return {};
+        }
+        hstring MediaPublishTimeStr() {
+            uint64_t ts{};
+            if (auto p = std::get_if<::BiliUWP::VideoViewInfoResult>(&m_media_info)) {
+                ts = p->ctime;
+            }
+            if (auto p = std::get_if<::BiliUWP::AudioBasicInfoResult>(&m_media_info)) {
+                ts = p->pubtime;
+            }
+            return util::time::timestamp_to_str(ts);
+        }
+        uint64_t MediaPlayCount() {
+            if (auto p = std::get_if<::BiliUWP::VideoViewInfoResult>(&m_media_info)) {
+                return p->stat.view_count.value_or(0);
+            }
+            if (auto p = std::get_if<::BiliUWP::AudioBasicInfoResult>(&m_media_info)) {
+                return p->statistic.play_count;
+            }
+            return {};
+        }
+        uint64_t MediaDanmakuCount() {
+            if (auto p = std::get_if<::BiliUWP::VideoViewInfoResult>(&m_media_info)) {
+                return p->stat.danmaku_count;
+            }
+            if (auto p = std::get_if<::BiliUWP::AudioBasicInfoResult>(&m_media_info)) {
+                return 0;
+            }
+            return {};
+        }
+        uint64_t MediaCommentsCount() {
+            if (auto p = std::get_if<::BiliUWP::VideoViewInfoResult>(&m_media_info)) {
+                return p->stat.reply_count;
+            }
+            if (auto p = std::get_if<::BiliUWP::AudioBasicInfoResult>(&m_media_info)) {
+                return p->statistic.comment_count;
+            }
+            return {};
         }
         Windows::Foundation::Collections::IObservableVector<Windows::Foundation::IInspectable> UpList() {
             return m_up_list;
@@ -182,6 +221,7 @@ namespace winrt::BiliUWP::implementation {
         Windows::Web::Http::HttpClient m_http_client, m_http_client_m;
 
         util::winrt::async_storage m_cur_async;
+        util::winrt::async_storage m_async_danmaku;
 
         bool m_bili_res_is_ready;
 

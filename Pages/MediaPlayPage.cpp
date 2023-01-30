@@ -35,6 +35,8 @@ using ::BiliUWP::App::res_str;
 
 // TODO: Add support for App_AlwaysSyncPlayingCfg
 
+// TODO: Implement custom video presenter with Win2D
+
 namespace winrt::BiliUWP::implementation {
     struct DetailedStatsContext {
         DetailedStatsContext(MediaPlayPage* page) :
@@ -146,8 +148,6 @@ namespace winrt::BiliUWP::implementation {
         using namespace Windows::Web::Http;
         using namespace Windows::Web::Http::Filters;
 
-        MediaPlayPageT::InitializeComponent();
-
         auto make_http_client_fn = [] {
             auto http_filter = HttpBaseProtocolFilter();
             auto cache_control = http_filter.CacheControl();
@@ -173,25 +173,35 @@ namespace winrt::BiliUWP::implementation {
             ToggleMenuFlyoutItem::IsCheckedProperty(),
             [this](DependencyObject const& sender, DependencyProperty const&) {
                 auto media_detailed_stats_overlay = MediaDetailedStatsOverlay();
-        if (sender.as<ToggleMenuFlyoutItem>().IsChecked()) {
-            media_detailed_stats_overlay.Visibility(Visibility::Visible);
-            if (m_detailed_stats_update_timer) {
-                m_detailed_stats_update_timer.Start();
-                m_detailed_stats_provider->TimerStarted();
-            }
-        }
-        else {
-            media_detailed_stats_overlay.Visibility(Visibility::Collapsed);
-            if (m_detailed_stats_update_timer) {
-                m_detailed_stats_update_timer.Stop();
-                m_detailed_stats_provider->TimerStopped();
-            }
-        }
+                if (sender.as<ToggleMenuFlyoutItem>().IsChecked()) {
+                    media_detailed_stats_overlay.Visibility(Visibility::Visible);
+                    if (m_detailed_stats_update_timer) {
+                        m_detailed_stats_update_timer.Start();
+                        m_detailed_stats_provider->TimerStarted();
+                    }
+                }
+                else {
+                    media_detailed_stats_overlay.Visibility(Visibility::Collapsed);
+                    if (m_detailed_stats_update_timer) {
+                        m_detailed_stats_update_timer.Stop();
+                        m_detailed_stats_provider->TimerStopped();
+                    }
+                }
             }
         );
         MediaDetailedStatsToggleMenuItem().IsChecked(m_cfg_model.App_ShowDetailedStats());
 
         this->SubmitMediaPlaybackSourceToNativePlayer(nullptr);
+
+        Loaded([this](auto&&, auto&&) {
+            util::winrt::force_focus_element(*this, FocusState::Programmatic);
+        });
+        MediaPlayerElem().RegisterPropertyChangedCallback(
+            MediaPlayerElement::IsFullWindowProperty(),
+            [this](DependencyObject const& sender, DependencyProperty const&) {
+                util::winrt::force_focus_element(*this, FocusState::Programmatic);
+            }
+        );
     }
     fire_forget_except MediaPlayPage::final_release(std::unique_ptr<MediaPlayPage> ptr) noexcept {
         // Gracefully release MediaPlayer and prevent UI from freezing
@@ -201,9 +211,10 @@ namespace winrt::BiliUWP::implementation {
         auto dispatcher = ptr->Dispatcher();
         MediaPlayer player{ nullptr };
         auto cleanup_mediaplayer_fn = [&] {
-            ptr->MediaPlayerElem().AreTransportControlsEnabled(false);
-            player = ptr->MediaPlayerElem().MediaPlayer();
-            ptr->MediaPlayerElem().SetMediaPlayer(nullptr);
+            auto player_elem = ptr->MediaPlayerElem();
+            player_elem.AreTransportControlsEnabled(false);
+            player = player_elem.MediaPlayer();
+            player_elem.SetMediaPlayer(nullptr);
             if (player && player.Source()) {
                 auto session = player.PlaybackSession();
                 if (session && session.CanPause()) {
@@ -253,6 +264,34 @@ namespace winrt::BiliUWP::implementation {
             util::debug::log_error(L"OnNavigatedTo only expects MediaPlayPageNavParam");
             illegal_nav_fn();
         }
+    }
+    void MediaPlayPage::OnKeyDown(Windows::UI::Xaml::Input::KeyRoutedEventArgs const& e) {
+        using Windows::System::VirtualKey;
+        auto key = e.Key();
+        if (key == VirtualKey::Space) {
+            auto player = MediaPlayerElem().MediaPlayer();
+            if (auto session = util::winrt::try_get_media_playback_session(player)) {
+                switch (session.PlaybackState()) {
+                case MediaPlaybackState::Paused:
+                    player.Play();
+                    break;
+                case MediaPlaybackState::Playing:
+                    if (session.CanPause()) {
+                        player.Pause();
+                    }
+                    break;
+                }
+            }
+            e.Handled(true);
+        }
+        else if (key == VirtualKey::F11) {
+            MediaPlayerElem().IsFullWindow(true);
+            e.Handled(true);
+        }
+    }
+    void MediaPlayPage::OnPointerReleased(Windows::UI::Xaml::Input::PointerRoutedEventArgs const& e) {
+        util::winrt::force_focus_element(*this, FocusState::Programmatic);
+        e.Handled(true);
     }
     void MediaPlayPage::UpListView_ItemClick(IInspectable const&, ItemClickEventArgs const& e) {
         auto vi = e.ClickedItem().as<BiliUWP::MediaPlayPage_UpItem>();
@@ -344,7 +383,11 @@ namespace winrt::BiliUWP::implementation {
         media_player_state_overlay.SwitchToHidden();
         */
         // Simply select the corresponding part item in list
-        PartsListView().SelectedIndex(0);
+        Dispatcher().RunAsync(Windows::UI::Core::CoreDispatcherPriority::High,
+            [that = get_strong()] {
+                that->PartsListView().SelectedIndex(0);
+            }
+        );
     }
     IAsyncAction MediaPlayPage::NavHandleAudioPlay(uint64_t auid) {
         auto cancellation_token = co_await get_cancellation_token();
@@ -1390,6 +1433,7 @@ namespace winrt::BiliUWP::implementation {
             auto& video_dash = *video_pinfo.dash;
             auto* pvideo_stream = &video_dash.video.at(0);
             for (auto& i : video_dash.video) {
+                // TODO: Remove this hack, and let user choose
                 // Skip avc codec
                 if (i.codecid == 7) { continue; }
                 pvideo_stream = &i;
@@ -1798,6 +1842,10 @@ namespace winrt::BiliUWP::implementation {
         }
 
         auto media_player = MediaPlayer();
+        // TODO: Handle App_UseCustomVideoPresenter
+        if (::BiliUWP::App::get()->cfg_model().App_UseCustomVideoPresenter()) {
+            media_player.IsVideoFrameServerEnabled(true);
+        }
         media_player.AudioCategory(MediaPlayerAudioCategory::Media);
         media_player.Source(source);
         // TODO: Add individual volume support (+ optionally sync to global)

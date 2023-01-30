@@ -10,6 +10,7 @@
     functor(App_AlwaysSyncPlayingCfg, true);                                        \
     functor(App_GlobalVolume, 1000);                                                \
     functor(App_UseHRASForVideo, true);                                             \
+    functor(App_UseCustomVideoPresenter, false);                                    \
     functor(App_PersistClipboardAfterExit, false);                                  \
     functor(App_SimplifyVisualsLevel, 0);                                           \
     functor(App_IsDeveloper, false);                                                \

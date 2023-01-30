@@ -133,6 +133,41 @@ namespace winrt::BiliUWP::implementation {
                 that->InnerImage().Margin(thickness);
             }
         );
+        DragStarting([this](auto&&, DragStartingEventArgs const& e) {
+            // TODO: Maybe improve image drag handling
+            using namespace Windows::ApplicationModel::DataTransfer;
+            using namespace Windows::Storage;
+            auto source = Source();
+            if (!source) { return; }
+            auto uri = get_self<ImageEx2Source>(source)->UriSource();
+            if (!uri) { return; }
+            e.AllowedOperations(DataPackageOperation::Copy);
+            auto data_pkg = e.Data();
+            if (util::winrt::is_web_link_uri(uri)) {
+                data_pkg.SetWebLink(uri);
+                /*auto html = HtmlFormatHelper::CreateHtmlFormat(std::format(
+                    L"<img src='{}'>", uri));
+                data_pkg.SetHtmlFormat(html);*/
+                data_pkg.SetDataProvider(StandardDataFormats::StorageItems(),
+                    [uri](DataProviderRequest request) -> fire_forget_except {
+                        co_safe_capture(uri);
+                        auto deferral = request.GetDeferral();
+                        deferred([&] { deferral.Complete(); });
+                        auto local_uri_path = (co_await ::BiliUWP::get_image_ex_http_cache()
+                            .fetch_as_local_uri_async(uri)).Path();
+                        std::wstring local_path{ std::wstring_view(local_uri_path).substr(1) };
+                        for (auto& ch : local_path) {
+                            if (ch == L'/') { ch = L'\\'; }
+                        }
+                        std::vector files{ co_await StorageFile::GetFileFromPathAsync(local_path) };
+                        request.SetData(single_threaded_vector(std::move(files)));
+                    }
+                );
+            }
+            else {
+                data_pkg.SetApplicationLink(uri);
+            }
+        });
     }
     ImageEx2::~ImageEx2() {
         if (auto source = Source()) {
@@ -162,6 +197,9 @@ namespace winrt::BiliUWP::implementation {
         }
         if (auto new_value = e.NewValue()) {
             auto source = new_value.as<ImageEx2Source>();
+            if (that->IsLoaded()) {
+                source->UpdateInnerSource();
+            }
             that->InnerImage().Source(source->GetInnerSource());
             that->m_et_source_changed = source->SourceChanged([](BiliUWP::ImageEx2Source const& sender, auto&&) {
                 get_self<ImageEx2Source>(sender)->UpdateInnerSource();

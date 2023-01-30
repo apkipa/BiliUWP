@@ -192,6 +192,8 @@ namespace util {
     namespace time {
         std::wstring pretty_time(void);
         uint64_t get_secs_since_epoch(void);
+
+        ::winrt::hstring timestamp_to_str(uint64_t seconds);
     }
 
     namespace num {
@@ -730,6 +732,20 @@ namespace util {
             );
         }
 
+        inline void force_focus_element(
+            ::winrt::Windows::UI::Xaml::Controls::Control const& elem,
+            ::winrt::Windows::UI::Xaml::FocusState state
+        ) {
+            auto is_tab_stop = elem.IsTabStop();
+            if (!is_tab_stop) {
+                elem.IsTabStop(true);
+            }
+            elem.Focus(state);
+            if (!is_tab_stop) {
+                elem.IsTabStop(false);
+            }
+        }
+
         // NOTE: This function discards Ctrl+Tab event for target elements by
         //       temporarily shifting focus to helper element, then restoring
         //       focus quickly
@@ -765,6 +781,19 @@ namespace util {
                     }
                 }
             );
+        }
+
+        inline ::winrt::Windows::Media::Playback::MediaPlaybackSession try_get_media_playback_session(
+            ::winrt::Windows::Media::Playback::MediaPlayer const& mp
+        ) {
+            if (!mp) { return nullptr; }
+            if (!mp.Source()) { return nullptr; }
+            return mp.PlaybackSession();
+        }
+
+        inline bool is_web_link_uri(::winrt::Windows::Foundation::Uri const& uri) {
+            auto scheme = uri.SchemeName();
+            return scheme == L"https" || scheme == L"http";
         }
 
         inline auto make_text_block(::winrt::hstring const& text) {

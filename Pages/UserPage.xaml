@@ -24,7 +24,7 @@
             <RectangleGeometry Rect="0,0,100000,100000"/>
         </Grid.Clip>
         <Grid Name="HeaderBackground" Height="200" VerticalAlignment="Top" Background="{ThemeResource SystemControlBackgroundAltHighBrush}"/>
-        <Pivot x:Name="TabsPivot">
+        <local:CustomPivot x:Name="TabsPivot">
             <PivotItem x:Uid="App/Page/UserPage/Tabs/Videos">
                 <local:AdaptiveGridView x:Name="VideosItemsGridView"
                                         SelectionMode="None"
@@ -221,7 +221,7 @@
                     <x:String>Item 3</x:String>
                 </ListView>
             </PivotItem>
-        </Pivot>
+        </local:CustomPivot>
         <Grid>
             <Grid.Clip>
                 <RectangleGeometry Rect="0,56,100000,100000"/>
@@ -239,7 +239,10 @@
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
+                    <!--
                     <PersonPicture x:Name="UserFace" Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" Width="80" Height="80"/>
+                    -->
+                    <local:ImageEx2 x:Name="UserFace" Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" Width="80" Height="80" CornerRadius="10000" BorderBrush="Gray" BorderThickness="0.5"/>
                     <TextBlock x:Name="UserName" Grid.Row="0" Grid.Column="1" FontSize="28" Text="User name" VerticalAlignment="Center" HorizontalAlignment="Left" IsTextSelectionEnabled="True"/>
                     <TextBlock x:Name="UserSign" Grid.Row="1" Grid.Column="1" FontSize="17" Text="User signature" VerticalAlignment="Center" IsTextSelectionEnabled="True" MaxLines="1"/>
                 </Grid>
