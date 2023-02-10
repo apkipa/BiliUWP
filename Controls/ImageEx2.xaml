@@ -7,12 +7,10 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Border x:Name="Container">
-        <Grid x:Name="LayoutRoot"
-              CornerRadius="{x:Bind CornerRadius,Mode=OneWay}"
-              BorderBrush="{x:Bind BorderBrush,Mode=OneWay}"
-              BorderThickness="{x:Bind BorderThickness,Mode=OneWay}">
-            <Image x:Name="InnerImage" Stretch="{x:Bind Stretch,Mode=OneWay}"/>
-        </Grid>
-    </Border>
+    <Grid x:Name="LayoutRoot"
+          CornerRadius="{x:Bind CornerRadius,Mode=OneWay}"
+          BorderBrush="{x:Bind BorderBrush,Mode=OneWay}"
+          BorderThickness="{x:Bind BorderThickness,Mode=OneWay}">
+        <Image x:Name="InnerImage" Stretch="{x:Bind Stretch,Mode=OneWay}"/>
+    </Grid>
 </UserControl>

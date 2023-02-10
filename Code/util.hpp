@@ -1164,16 +1164,28 @@ namespace util {
 
             template<typename T>
             void set_completed_handler_for_async(T&& async) {
-                async.Completed(
-                    [data = m_data](auto&& sender, ::winrt::Windows::Foundation::AsyncStatus status) {
-                        if (status == ::winrt::Windows::Foundation::AsyncStatus::Started) { return; }
-                        std::scoped_lock guard{ data->lock };
-                        if (sender == data->async) {
-                            // NOTE: Coroutine is not freed if IAsyncInfo is still alive
-                            data->async = nullptr;
+                struct disconnect_aware_handler {
+                    disconnect_aware_handler(std::shared_ptr<data> data) : m_data(std::move(data)) {}
+                    ~disconnect_aware_handler() {
+                        if (m_data) {
+                            (*this)(std::decay_t<T>{}, ::winrt::Windows::Foundation::AsyncStatus::Error);
                         }
                     }
-                );
+                    void operator()(auto&& sender, ::winrt::Windows::Foundation::AsyncStatus status) {
+                        if (status == ::winrt::Windows::Foundation::AsyncStatus::Started) { return; }
+                        {
+                            std::scoped_lock guard{ m_data->lock };
+                            if (sender == m_data->async) {
+                                // NOTE: Coroutine is not freed if IAsyncInfo is still alive
+                                m_data->async = nullptr;
+                            }
+                        }
+                        m_data = nullptr;
+                    }
+                private:
+                    std::shared_ptr<data> m_data;
+                };
+                async.Completed(disconnect_aware_handler{ m_data });
             }
 
             struct data {

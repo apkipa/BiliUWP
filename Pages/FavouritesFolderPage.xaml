@@ -64,6 +64,11 @@
                         <Setter Property="Margin" Value="3,6,3,0"/>
                     </Style>
                 </local:AdaptiveGridView.ItemContainerStyle>
+                <local:AdaptiveGridView.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ItemsWrapGrid Orientation="Horizontal" CacheLength="0"/>
+                    </ItemsPanelTemplate>
+                </local:AdaptiveGridView.ItemsPanel>
                 <local:AdaptiveGridView.ItemTemplate>
                     <DataTemplate x:DataType="local:FavouritesFolderViewItem">
                         <Grid Background="{ThemeResource SystemControlBackgroundAltHighBrush}" Padding="5">

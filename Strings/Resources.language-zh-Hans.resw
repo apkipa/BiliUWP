@@ -334,6 +334,12 @@
   <data name="App.Page.SettingsPage.App_StoreLogs.Header" xml:space="preserve">
     <value>保存日志文件</value>
   </data>
+  <data name="App.Page.SettingsPage.App_UseCustomVideoPresenter.Header" xml:space="preserve">
+    <value>[实验性] 使用自定义视频呈现器</value>
+  </data>
+  <data name="App.Page.SettingsPage.App_UseCustomVideoPresenter.[using:Windows.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>默认情况下，应用将使用两个交换链(其中一个由系统管理)来渲染视频与叠加层内容(如弹幕)。启用此开关后，应用将自行合成视频与叠加层内容并使用单个交换链渲染。这可能会帮助 GPU 绕过系统合成引擎进行渲染，并节省开销。</value>
+  </data>
   <data name="App.Page.SettingsPage.App_UseHRASForVideo.Header" xml:space="preserve">
     <value>播放视频时总是使用 HRAS 取流(若不选中则偏好原生取流)</value>
   </data>

@@ -141,7 +141,7 @@ namespace winrt::BiliUWP::implementation {
     void AdaptiveGridView::PrepareContainerForItemOverride(
         DependencyObject const& obj, IInspectable const& item
     ) {
-        AdaptiveGridViewT<AdaptiveGridView>::PrepareContainerForItemOverride(obj, item);
+        base_type::PrepareContainerForItemOverride(obj, item);
 
         if (auto element = obj.try_as<FrameworkElement>()) {
             auto height_binding = Binding();
@@ -196,7 +196,7 @@ namespace winrt::BiliUWP::implementation {
         return (container_width / columns) - item_margin.Left - item_margin.Right;
     }
     void AdaptiveGridView::OnApplyTemplate() {
-        AdaptiveGridViewT<AdaptiveGridView>::OnApplyTemplate();
+        base_type::OnApplyTemplate();
 
         OnOneRowModeEnabledChanged(*this, box_value(OneRowModeEnabled()));
     }

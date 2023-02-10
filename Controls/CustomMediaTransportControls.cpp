@@ -40,18 +40,34 @@ namespace winrt::BiliUWP::implementation {
             auto app_view = ApplicationView::GetForCurrentView();
             if (app_view.IsFullScreenMode()) {
                 app_view.ExitFullScreenMode();
+                e.Handled(true);
             }
         }
         else if (key == VirtualKey::F11) {
-            auto app_view = ApplicationView::GetForCurrentView();
-            if (app_view.IsFullScreenMode()) {
-                app_view.ExitFullScreenMode();
+            switch_fullscreen();
+            e.Handled(true);
+        }
+    }
+    void CustomMediaTransportControls::OnDoubleTapped(DoubleTappedRoutedEventArgs const& e) {
+        if (e.OriginalSource() == GetTemplateChild(L"RootGrid")) {
+            // TODO: Maybe let user choose double-click behavior?
+            //switch_fullscreen();
+            auto cmd_mgr = try_get_command_manager();
+            if (!cmd_mgr) { return; }
+            auto player = cmd_mgr.MediaPlayer();
+            if (auto session = util::winrt::try_get_media_playback_session(player)) {
+                switch (session.PlaybackState()) {
+                case MediaPlaybackState::Paused:
+                    player.Play();
+                    break;
+                case MediaPlaybackState::Playing:
+                    if (session.CanPause()) {
+                        player.Pause();
+                    }
+                    break;
+                }
             }
-            else {
-                auto container = try_get_parent_container();
-                if (!container) { return; }
-                container.IsFullWindow(!container.IsFullWindow());
-            }
+            e.Handled(true);
         }
     }
     MediaPlayerElement CustomMediaTransportControls::try_get_parent_container() {
@@ -67,5 +83,16 @@ namespace winrt::BiliUWP::implementation {
             .try_as<MediaPlayerPresenter>();
         if (!presenter) { return nullptr; }
         return presenter.MediaPlayer().CommandManager();
+    }
+    void CustomMediaTransportControls::switch_fullscreen(void) {
+        auto app_view = ApplicationView::GetForCurrentView();
+        if (app_view.IsFullScreenMode()) {
+            app_view.ExitFullScreenMode();
+        }
+        else {
+            auto container = try_get_parent_container();
+            if (!container) { return; }
+            container.IsFullWindow(!container.IsFullWindow());
+        }
     }
 }

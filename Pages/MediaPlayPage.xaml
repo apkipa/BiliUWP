@@ -46,7 +46,9 @@
                     </MenuFlyout>
                 </local:CustomMediaPlayerElement.ContextFlyout>
                 <local:CustomMediaPlayerElement.TransportControls>
-                    <local:CustomMediaTransportControls x:Name="MediaTransportCtrl" IsPlaybackRateButtonVisible="True" IsPlaybackRateEnabled="True"/>
+                    <local:CustomMediaTransportControls x:Name="MediaTransportCtrl"
+                                                        IsPlaybackRateButtonVisible="True" IsPlaybackRateEnabled="True"
+                                                        IsCompactOverlayButtonVisible="True" IsCompactOverlayEnabled="True"/>
                 </local:CustomMediaPlayerElement.TransportControls>
                 <local:CustomMediaPlayerElement.MiddleLayerContent>
                     <Grid>

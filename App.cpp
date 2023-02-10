@@ -453,8 +453,14 @@ namespace BiliUWP {
         using util::winrt::color_from_argb;
 
         auto window = Window::Current();
-        auto av_title_bar = ApplicationView::GetForCurrentView().TitleBar();
+        auto av = ApplicationView::GetForCurrentView();
+        auto av_title_bar = av.TitleBar();
         auto cav_title_bar = CoreApplication::GetCurrentView().TitleBar();
+
+        // TODO: Remove this
+        if constexpr (false) {
+            av.IsScreenCaptureEnabled(false);
+        }
 
         Color bg_normal_clr, bg_hover_clr, bg_pressed_clr;
         if (m_cfg_app_use_tab_view) {
@@ -583,7 +589,16 @@ namespace BiliUWP {
             // UNLIKELY TODO: SystemOverlayLeftInset (header_textblock can act as padding)
             cav_title_bar.LayoutMetricsChanged(
                 [=](CoreApplicationViewTitleBar const& sender, IInspectable const&) {
-                    footer_grid.Width(sender.SystemOverlayRightInset());
+                    // TODO: Use a proper workaround for TabView padding (for MiniView)
+                    auto desired_width = sender.SystemOverlayRightInset();
+                    auto final_width = footer_grid.Width();
+                    if (std::isnan(final_width)) {
+                        final_width = desired_width;
+                    }
+                    else {
+                        final_width = std::max(final_width, desired_width);
+                    }
+                    footer_grid.Width(final_width);
                 }
             );
 

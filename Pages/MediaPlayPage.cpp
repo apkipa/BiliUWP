@@ -196,6 +196,11 @@ namespace winrt::BiliUWP::implementation {
         Loaded([this](auto&&, auto&&) {
             util::winrt::force_focus_element(*this, FocusState::Programmatic);
         });
+        Unloaded([this](auto&&, auto&&) {
+            if (MediaPlayerElem().IsFullWindow()) {
+                MediaPlayerElem().IsFullWindow(false);
+            }
+        });
         MediaPlayerElem().RegisterPropertyChangedCallback(
             MediaPlayerElement::IsFullWindowProperty(),
             [this](DependencyObject const& sender, DependencyProperty const&) {
@@ -1381,12 +1386,13 @@ namespace winrt::BiliUWP::implementation {
             auto client = ::BiliUWP::App::get()->bili_client();
             auto vinfo2 = co_await weak_store.ual(client->video_info_v2(bvid, cid));
             for (auto const& st : vinfo2.subtitle.list) {
+                // TODO: Use ExternalTimedMetadataTracks to populate subtitles instead
                 // Add BOM header so that TimedTextSource can load subtitles correctly
                 std::wstring srt_str{ 0xfeff };
                 auto jo = Windows::Data::Json::JsonObject::Parse(
                     co_await weak_store.ual(weak_store->m_http_client.GetStringAsync(Uri(st.subtitle_url)))
                 );
-                for (size_t idx = 0; auto && i : jo.GetNamedArray(L"body")) {
+                for (size_t idx = 0; auto&& i : jo.GetNamedArray(L"body")) {;
                     auto secs_to_srt_time_str_fn = [](double t) {
                         double hrs = std::floor(t / 60 / 60);
                         t -= hrs * 60 * 60;
@@ -1561,8 +1567,6 @@ namespace winrt::BiliUWP::implementation {
         });
 
         std::tie(media_src, ds_provider) = co_await weak_store.ual(video_task);
-
-        // TODO: Fix SMTC loop button control (ModernFlyouts has this functionality)
 
         // TODO: Add configurable support for heartbeat packages
 
@@ -1851,6 +1855,16 @@ namespace winrt::BiliUWP::implementation {
         // TODO: Add individual volume support (+ optionally sync to global)
         this->EstablishMediaPlayerVolumeTwoWayBinding(media_player);
         media_player.IsLoopingEnabled(true);
+        auto media_cmd_mgr = media_player.CommandManager();
+        media_cmd_mgr.AutoRepeatModeReceived(
+            [](MediaPlaybackCommandManager const& sender,
+                MediaPlaybackCommandManagerAutoRepeatModeReceivedEventArgs const& e)
+            {
+                auto media_player = sender.MediaPlayer();
+                media_player.IsLoopingEnabled(!media_player.IsLoopingEnabled());
+                e.Handled(true);
+            }
+        );
         // TODO: Maybe (?) set some of the handlers in XAML?
         // Workaround a MediaPlayer resource leak bug by keeping MediaPlayer alive until media is actually opened
         // (at the cost of wasting some data)
