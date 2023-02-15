@@ -797,16 +797,28 @@ namespace util {
             );
         }
 
-        struct details::InMemoryStreamImpl {
-            InMemoryStreamImpl() {}
+        struct details::InMemoryStreamImpl final {
+            InMemoryStreamImpl() : m_buf_ptr(nullptr), m_buf_size(0) {}
+            ~InMemoryStreamImpl() {
+                std::free(m_buf_ptr);
+            }
             void size(size_t value) {
                 std::scoped_lock guard(m_mutex);
-                m_buf.resize(value);
-                m_buf.shrink_to_fit();
+                // Deterministically free storage instead of relying on impl-def behaviors
+                if (value == 0) {
+                    std::free(m_buf_ptr);
+                    m_buf_ptr = nullptr;
+                }
+                else {
+                    auto new_ptr = std::realloc(m_buf_ptr, value);
+                    if (!new_ptr) { ::winrt::throw_hresult(E_OUTOFMEMORY); }
+                    m_buf_ptr = reinterpret_cast<unsigned char*>(new_ptr);
+                }
+                m_buf_size = value;
             }
             size_t size() const {
                 std::scoped_lock guard(m_mutex);
-                return m_buf.size();
+                return m_buf_size;
             }
             void expand_on_overflow(bool value) {
                 std::scoped_lock guard(m_mutex);
@@ -818,9 +830,9 @@ namespace util {
             }
             size_t read_at(void* buf, size_t pos, size_t count) const {
                 std::scoped_lock guard(m_mutex);
-                if (pos >= m_buf.size()) { return 0; }
-                auto actual_count = std::min(m_buf.size() - pos, count);
-                std::memcpy(buf, m_buf.data() + pos, actual_count);
+                if (pos >= m_buf_size) { return 0; }
+                auto actual_count = std::min(m_buf_size - pos, count);
+                std::memcpy(buf, m_buf_ptr + pos, actual_count);
                 return actual_count;
             }
             size_t write_at(const void* buf, size_t pos, size_t count) {
@@ -828,25 +840,22 @@ namespace util {
                 size_t actual_count;
                 if (m_expand_on_overflow) {
                     auto expected_min_size = pos + count;
-                    if (expected_min_size > m_buf.size()) {
-                        m_buf.resize(expected_min_size);
+                    if (expected_min_size > m_buf_size) {
+                        this->size(expected_min_size);
                     }
                     actual_count = count;
                 }
                 else {
-                    if (pos >= m_buf.size()) { return 0; }
-                    actual_count = std::min(m_buf.size() - pos, count);
+                    if (pos >= m_buf_size) { return 0; }
+                    actual_count = std::min(m_buf_size - pos, count);
                 }
-                std::memcpy(m_buf.data() + pos, buf, actual_count);
+                std::memcpy(m_buf_ptr + pos, buf, actual_count);
                 return actual_count;
             }
         private:
             mutable std::mutex m_mutex;
-#ifdef _DEBUG
-            std::vector<unsigned char> m_buf;
-#else
-            std::vector<unsigned char, util::mem::default_init_allocator<unsigned char>> m_buf;
-#endif
+            unsigned char* m_buf_ptr;
+            size_t m_buf_size;
             bool m_expand_on_overflow = true;
         };
         InMemoryStream::InMemoryStream() : m_impl(std::make_shared<details::InMemoryStreamImpl>()) {}
