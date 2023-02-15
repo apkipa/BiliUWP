@@ -207,6 +207,23 @@ namespace winrt::BiliUWP::implementation {
                 util::winrt::force_focus_element(*this, FocusState::Programmatic);
             }
         );
+
+        {
+            // TODO: Remove this (open local file temporaily)
+            KeyboardAccelerator ka_open;
+            ka_open.Key(Windows::System::VirtualKey::O);
+            ka_open.Invoked([this](auto&&, KeyboardAcceleratorInvokedEventArgs const& e) -> fire_forget_except {
+                e.Handled(true);
+                auto weak_store = util::winrt::make_weak_storage(*this);
+                auto picker = Windows::Storage::Pickers::FileOpenPicker();
+                picker.FileTypeFilter().Append(L".mp4");
+                auto file = co_await weak_store.ual(picker.PickSingleFileAsync());
+                if (!file) { co_return; }
+                auto media_source = MediaSource::CreateFromStorageFile(file);
+                this->SubmitMediaPlaybackSourceToNativePlayer(media_source);
+            });
+            KeyboardAccelerators().Append(ka_open);
+        }
     }
     fire_forget_except MediaPlayPage::final_release(std::unique_ptr<MediaPlayPage> ptr) noexcept {
         // Gracefully release MediaPlayer and prevent UI from freezing
@@ -1849,6 +1866,10 @@ namespace winrt::BiliUWP::implementation {
         // TODO: Handle App_UseCustomVideoPresenter
         if (::BiliUWP::App::get()->cfg_model().App_UseCustomVideoPresenter()) {
             media_player.IsVideoFrameServerEnabled(true);
+            /*media_player.VideoFrameAvailable([](MediaPlayer const& sender, auto&&) {
+                util::debug::log_debug(L"MediaPlayer: VideoFrameAvailable");
+                sender.CopyFrameToVideoSurface(nullptr);
+            });*/
         }
         media_player.AudioCategory(MediaPlayerAudioCategory::Media);
         media_player.Source(source);
