@@ -32,6 +32,9 @@ namespace winrt::BiliUWP::implementation {
         // TODO: Support multiple tab views / standalone views / single view
         // TODO: Add ExFrame which supports special popups(such as login prompts) (?)
         // TODO: Add support for Windows::UI::Core::SystemNavigationManager::BackRequested
+
+        auto get_app_inst() { return m_app_inst; }
+
     private:
         ::BiliUWP::AppInst* m_app_inst;
         bool m_is_fully_launched;
@@ -316,11 +319,17 @@ namespace BiliUWP {
     namespace App {
         // TODO: Provide shim APIs
         inline auto get(void) {
+#if true
             extern AppInst* g_app_inst;
             if (g_app_inst == nullptr) {
                 throw std::exception("Attempted to get an invalid app instance");
             }
             return g_app_inst;
+#else
+            return winrt::Windows::UI::Xaml::Application::Current()
+                .as<winrt::BiliUWP::implementation::App>()
+                ->get_app_inst();
+#endif
         }
 
         namespace details {
