@@ -299,6 +299,10 @@ namespace winrt::BiliUWP::implementation {
             }
         }, this);
     }
+    fire_forget_except SettingsPage::RestartSelfButton_Click(IInspectable const&, RoutedEventArgs const&) {
+        using namespace Windows::ApplicationModel::Core;
+        auto fail_reason = co_await CoreApplication::RequestRestartAsync({});
+    }
     void SettingsPage::ViewLicensesButton_Click(IInspectable const&, RoutedEventArgs const&) {
         BiliUWP::SimpleContentDialog cd;
         cd.Title(box_value(L"Open Source Licenses"));

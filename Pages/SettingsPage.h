@@ -35,6 +35,10 @@ namespace winrt::BiliUWP::implementation {
             Windows::Foundation::IInspectable const&,
             Windows::UI::Xaml::RoutedEventArgs const&
         );
+        fire_forget_except RestartSelfButton_Click(
+            Windows::Foundation::IInspectable const&,
+            Windows::UI::Xaml::RoutedEventArgs const&
+        );
         void ViewLicensesButton_Click(
             Windows::Foundation::IInspectable const&,
             Windows::UI::Xaml::RoutedEventArgs const&

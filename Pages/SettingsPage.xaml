@@ -127,6 +127,7 @@
                     </StackPanel>
                     <ToggleSwitch Header="Enable app frame rate counter (system)" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind AppDebugSettings.EnableFrameRateCounter,Mode=TwoWay}"/>
                     <ToggleSwitch Header="Enable text performance visualization (system)" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind AppDebugSettings.IsTextPerformanceVisualizationEnabled,Mode=TwoWay}"/>
+                    <Button Content="Restart this application" Click="RestartSelfButton_Click" Style="{StaticResource ItemButtonStyle}"/>
                 </StackPanel>
                 <TextBlock x:Uid="App/Page/SettingsPage/About" Style="{StaticResource RegionHeaderTextBlockStyle}"/>
                 <TextBlock x:Name="AppNameVerText" Text="BiliUWP (Dev) v0.1.0" Style="{StaticResource ItemTextBlockStyle}"
