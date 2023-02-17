@@ -92,6 +92,10 @@ namespace winrt::BiliUWP::implementation {
             util::debug::log_error(L"OnNavigatedTo only expects FavouritesUserPageNavParam");
         }
     }
+    void FavouritesUserPage::OnPointerReleased(Windows::UI::Xaml::Input::PointerRoutedEventArgs const& e) {
+        util::winrt::force_focus_element(*this, FocusState::Programmatic);
+        e.Handled(true);
+    }
     void FavouritesUserPage::AccKeyF5Invoked(
         KeyboardAccelerator const&,
         KeyboardAcceleratorInvokedEventArgs const& e

@@ -25,6 +25,7 @@ namespace winrt::BiliUWP::implementation {
         }
 
         void OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e);
+        void OnPointerReleased(Windows::UI::Xaml::Input::PointerRoutedEventArgs const& e);
         void AccKeyF5Invoked(
             Windows::UI::Xaml::Input::KeyboardAccelerator const&,
             Windows::UI::Xaml::Input::KeyboardAcceleratorInvokedEventArgs const& e

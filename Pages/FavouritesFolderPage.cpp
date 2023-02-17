@@ -71,6 +71,10 @@ namespace winrt::BiliUWP::implementation {
             util::debug::log_error(L"OnNavigatedTo only expects FavouritesFolderPageNavParam");
         }
     }
+    void FavouritesFolderPage::OnPointerReleased(Windows::UI::Xaml::Input::PointerRoutedEventArgs const& e) {
+        util::winrt::force_focus_element(*this, FocusState::Programmatic);
+        e.Handled(true);
+    }
     void FavouritesFolderPage::AccKeyF5Invoked(
         KeyboardAccelerator const&,
         KeyboardAcceleratorInvokedEventArgs const& e
