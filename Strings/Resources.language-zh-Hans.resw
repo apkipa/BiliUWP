@@ -319,6 +319,9 @@
   <data name="App.Page.SettingsPage.App_LogLevel.Header" xml:space="preserve">
     <value>日志等级</value>
   </data>
+  <data name="App.Page.SettingsPage.App_OverrideSpaceForPlaybackControl.Header" xml:space="preserve">
+    <value>在播放页中将空格键用于媒体控制而不是控件交互</value>
+  </data>
   <data name="App.Page.SettingsPage.App_PersistClipboardAfterExit.Header" xml:space="preserve">
     <value>应用关闭后保留剪切板内的易失性内容(不包括敏感信息)</value>
   </data>

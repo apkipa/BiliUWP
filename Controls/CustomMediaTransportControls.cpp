@@ -34,6 +34,13 @@ namespace winrt::BiliUWP::implementation {
             this->Hide();
         }
     }
+    void CustomMediaTransportControls::OnPreviewKeyDown(KeyRoutedEventArgs const& e) {
+        auto key = e.Key();
+        if (key == VirtualKey::Space && OverrideSpaceForPlaybackControl()) {
+            switch_play_pause();
+            e.Handled(true);
+        }
+    }
     void CustomMediaTransportControls::OnKeyDown(KeyRoutedEventArgs const& e) {
         auto key = e.Key();
         if (key == VirtualKey::Escape) {
@@ -52,23 +59,15 @@ namespace winrt::BiliUWP::implementation {
         if (e.OriginalSource() == GetTemplateChild(L"RootGrid")) {
             // TODO: Maybe let user choose double-click behavior?
             //switch_fullscreen();
-            auto cmd_mgr = try_get_command_manager();
-            if (!cmd_mgr) { return; }
-            auto player = cmd_mgr.MediaPlayer();
-            if (auto session = util::winrt::try_get_media_playback_session(player)) {
-                switch (session.PlaybackState()) {
-                case MediaPlaybackState::Paused:
-                    player.Play();
-                    break;
-                case MediaPlaybackState::Playing:
-                    if (session.CanPause()) {
-                        player.Pause();
-                    }
-                    break;
-                }
-            }
+            switch_play_pause();
             e.Handled(true);
         }
+    }
+    void CustomMediaTransportControls::OverrideSpaceForPlaybackControl(bool value) {
+        SetValue(m_OverrideSpaceForPlaybackControlProperty, box_value(value));
+    }
+    bool CustomMediaTransportControls::OverrideSpaceForPlaybackControl() {
+        return unbox_value<bool>(GetValue(m_OverrideSpaceForPlaybackControlProperty));
     }
     MediaPlayerElement CustomMediaTransportControls::try_get_parent_container() {
         auto dparent = VisualTreeHelper::GetParent(
@@ -95,4 +94,36 @@ namespace winrt::BiliUWP::implementation {
             container.IsFullWindow(!container.IsFullWindow());
         }
     }
+    void CustomMediaTransportControls::switch_play_pause(void) {
+        auto cmd_mgr = try_get_command_manager();
+        if (!cmd_mgr) { return; }
+        auto player = cmd_mgr.MediaPlayer();
+        if (auto session = util::winrt::try_get_media_playback_session(player)) {
+            switch (session.PlaybackState()) {
+            case MediaPlaybackState::Paused:
+                player.Play();
+                break;
+            case MediaPlaybackState::Playing:
+                if (session.CanPause()) {
+                    player.Pause();
+                }
+                break;
+            }
+        }
+    }
+
+#define gen_dp_instantiation(prop_name, ...)                                                \
+    DependencyProperty gen_dp_instantiation_self_type::m_ ## prop_name ## Property =        \
+        DependencyProperty::Register(                                                       \
+            L"" #prop_name,                                                                 \
+            winrt::xaml_typename<                                                           \
+                decltype(std::declval<gen_dp_instantiation_self_type>().prop_name())        \
+            >(),                                                                            \
+            winrt::xaml_typename<winrt::BiliUWP::gen_dp_instantiation_self_type>(),         \
+            Windows::UI::Xaml::PropertyMetadata{ __VA_ARGS__ }                              \
+    )
+
+#define gen_dp_instantiation_self_type CustomMediaTransportControls
+    gen_dp_instantiation(OverrideSpaceForPlaybackControl, box_value(false));
+#undef gen_dp_instantiation_self_type
 }

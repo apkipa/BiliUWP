@@ -208,6 +208,11 @@ namespace winrt::BiliUWP::implementation {
             }
         );
 
+        if (::BiliUWP::App::get()->cfg_model().App_OverrideSpaceForPlaybackControl()) {
+            MediaPlayerElem().TransportControls().as<BiliUWP::CustomMediaTransportControls>()
+                .OverrideSpaceForPlaybackControl(true);
+        }
+
         {
             // TODO: Remove this (open local file temporaily)
             KeyboardAccelerator ka_open;
@@ -287,23 +292,19 @@ namespace winrt::BiliUWP::implementation {
             illegal_nav_fn();
         }
     }
+    void MediaPlayPage::OnPreviewKeyDown(Windows::UI::Xaml::Input::KeyRoutedEventArgs const& e) {
+        using Windows::System::VirtualKey;
+        auto key = e.Key();
+        if (key == VirtualKey::Space && ::BiliUWP::App::get()->cfg_model().App_OverrideSpaceForPlaybackControl()) {
+            SwitchMediaPlayPause();
+            e.Handled(true);
+        }
+    }
     void MediaPlayPage::OnKeyDown(Windows::UI::Xaml::Input::KeyRoutedEventArgs const& e) {
         using Windows::System::VirtualKey;
         auto key = e.Key();
         if (key == VirtualKey::Space) {
-            auto player = MediaPlayerElem().MediaPlayer();
-            if (auto session = util::winrt::try_get_media_playback_session(player)) {
-                switch (session.PlaybackState()) {
-                case MediaPlaybackState::Paused:
-                    player.Play();
-                    break;
-                case MediaPlaybackState::Playing:
-                    if (session.CanPause()) {
-                        player.Pause();
-                    }
-                    break;
-                }
-            }
+            SwitchMediaPlayPause();
             e.Handled(true);
         }
         else if (key == VirtualKey::F11) {
@@ -1960,5 +1961,20 @@ namespace winrt::BiliUWP::implementation {
                 }
             }
         );
+    }
+    void MediaPlayPage::SwitchMediaPlayPause() {
+        auto player = MediaPlayerElem().MediaPlayer();
+        if (auto session = util::winrt::try_get_media_playback_session(player)) {
+            switch (session.PlaybackState()) {
+            case MediaPlaybackState::Paused:
+                player.Play();
+                break;
+            case MediaPlaybackState::Playing:
+                if (session.CanPause()) {
+                    player.Pause();
+                }
+                break;
+            }
+        }
     }
 }

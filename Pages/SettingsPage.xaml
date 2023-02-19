@@ -76,6 +76,7 @@
                 <Slider x:Uid="App/Page/SettingsPage/App_GlobalVolume" Width="300" HorizontalAlignment="Left" Minimum="0" Maximum="100" StepFrequency="0.01" Style="{StaticResource ItemSliderStyle}" Value="{x:Bind CfgModel.App_GlobalVolume,Converter={StaticResource NumberScaleConverter},ConverterParameter=0.01,Mode=TwoWay}"/>
                 <ToggleSwitch x:Uid="App/Page/SettingsPage/App_AlwaysSyncPlayingCfg" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_AlwaysSyncPlayingCfg,Mode=TwoWay}"/>
                 <ToggleSwitch x:Uid="App/Page/SettingsPage/App_UseHRASForVideo" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_UseHRASForVideo,Mode=TwoWay}"/>
+                <ToggleSwitch x:Uid="App/Page/SettingsPage/App_OverrideSpaceForPlaybackControl" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_OverrideSpaceForPlaybackControl,Mode=TwoWay}"/>
                 <TextBlock x:Uid="App/Page/SettingsPage/Subtitle" Style="{StaticResource GroupHeaderTextBlockStyle}"/>
                 <TextBlock x:Uid="App/Page/SettingsPage/Subtitle_ManagedBySystem" Style="{StaticResource ItemTextBlockStyle}"/>
                 <HyperlinkButton x:Uid="App/Page/SettingsPage/Subtitle_OpenSettings"
@@ -87,6 +88,7 @@
                     <TextBlock x:Uid="App/Page/SettingsPage/Dev" Style="{StaticResource RegionHeaderTextBlockStyle}"/>
                     <ToggleSwitch x:Uid="App/Page/SettingsPage/App_IsDeveloper" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_IsDeveloper,Mode=TwoWay}"/>
                     <ToggleSwitch x:Uid="App/Page/SettingsPage/App_ShowDetailedStats" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_ShowDetailedStats,Mode=TwoWay}"/>
+                    <!-- TODO: Move this item back to Playing section when custom video presenter stabilizes -->
                     <ToggleSwitch x:Uid="App/Page/SettingsPage/App_UseCustomVideoPresenter" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_UseCustomVideoPresenter,Mode=TwoWay}"/>
                     <TextBlock x:Uid="App/Page/SettingsPage/Config" Style="{StaticResource GroupHeaderTextBlockStyle}"/>
                     <StackPanel Orientation="Horizontal">

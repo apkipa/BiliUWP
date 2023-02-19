@@ -28,6 +28,8 @@ namespace winrt::BiliUWP::implementation {
         void App_GlobalVolume(uint32_t value);
         bool App_UseHRASForVideo();
         void App_UseHRASForVideo(bool value);
+        bool App_OverrideSpaceForPlaybackControl();
+        void App_OverrideSpaceForPlaybackControl(bool value);
         bool App_UseCustomVideoPresenter();
         void App_UseCustomVideoPresenter(bool value);
         bool App_PersistClipboardAfterExit();

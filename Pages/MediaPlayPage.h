@@ -71,6 +71,7 @@ namespace winrt::BiliUWP::implementation {
         }
 
         void OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e);
+        void OnPreviewKeyDown(Windows::UI::Xaml::Input::KeyRoutedEventArgs const& e);
         void OnKeyDown(Windows::UI::Xaml::Input::KeyRoutedEventArgs const& e);
         void OnPointerReleased(Windows::UI::Xaml::Input::PointerRoutedEventArgs const& e);
 
@@ -214,6 +215,7 @@ namespace winrt::BiliUWP::implementation {
         );
         void TriggerMediaDetailedStatsUpdate(void);
         void EstablishMediaPlayerVolumeTwoWayBinding(Windows::Media::Playback::MediaPlayer const& player);
+        void SwitchMediaPlayPause();
 
         BiliUWP::AppCfgModel m_cfg_model;
 
