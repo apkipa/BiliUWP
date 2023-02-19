@@ -2,7 +2,7 @@
 <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3" IgnorableNamespaces="uap mp uap3">
   <Identity
     Name="ecc85d74-3968-4720-8c1b-40edf41f8e97"
-    Publisher="CN=apkipa TestSigning"
+    Publisher="CN=apkipa"
     Version="1.0.0.0" />
   <mp:PhoneIdentity PhoneProductId="ecc85d74-3968-4720-8c1b-40edf41f8e97" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
   <Properties>

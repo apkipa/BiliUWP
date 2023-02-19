@@ -84,7 +84,7 @@
     <TargetPlatformMinVersion>10.0.18362.0</TargetPlatformMinVersion>
     <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
     <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
-    <PackageCertificateThumbprint>FC8C35D22E565A8015DA1351B2C128081B626734</PackageCertificateThumbprint>
+    <PackageCertificateThumbprint>D7F68C171341EE73230DBE1F616FFC1737D7935B</PackageCertificateThumbprint>
     <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
     <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
     <AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
@@ -525,6 +525,7 @@
     </Midl>
   </ItemGroup>
   <ItemGroup>
+    <None Include="BiliUWP_TemporaryKey.pfx" />
     <None Include="packages.config" />
     <None Include="PropertySheet.props" />
     <CustomBuild Include="Protos\bilibili\community\service\dm\v1\dm.proto">
