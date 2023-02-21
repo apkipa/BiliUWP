@@ -21,17 +21,14 @@ namespace winrt::BiliUWP::implementation {
         this->Show();
     }
     void CustomMediaTransportControls::OnPointerExited(PointerRoutedEventArgs const& e) {
-        VisualStateGroup vsg{ nullptr };
-        auto root_grid = GetTemplateChild(L"RootGrid").as<Grid>();
-        for (auto&& i : VisualStateManager::GetVisualStateGroups(root_grid)) {
-            if (i.Name() == L"PlayPauseStates") {
-                vsg = std::move(i);
-                break;
-            }
-        }
-        bool is_playing = vsg.CurrentState().Name() == L"PauseState";
-        if (is_playing) {
+        if (get_is_playing()) {
             this->Hide();
+        }
+    }
+    void CustomMediaTransportControls::OnPointerReleased(PointerRoutedEventArgs const& e) {
+        if (get_is_full_window()) {
+            util::winrt::force_focus_element(*this, FocusState::Programmatic);
+            e.Handled(true);
         }
     }
     void CustomMediaTransportControls::OnPreviewKeyDown(KeyRoutedEventArgs const& e) {
@@ -46,7 +43,9 @@ namespace winrt::BiliUWP::implementation {
         if (key == VirtualKey::Escape) {
             auto app_view = ApplicationView::GetForCurrentView();
             if (app_view.IsFullScreenMode()) {
-                app_view.ExitFullScreenMode();
+                auto mpe = try_get_mpe();
+                if (!mpe) { return; }
+                mpe->IsFullWindow(false);
                 e.Handled(true);
             }
         }
@@ -69,35 +68,40 @@ namespace winrt::BiliUWP::implementation {
     bool CustomMediaTransportControls::OverrideSpaceForPlaybackControl() {
         return unbox_value<bool>(GetValue(m_OverrideSpaceForPlaybackControlProperty));
     }
-    MediaPlayerElement CustomMediaTransportControls::try_get_parent_container() {
-        auto dparent = VisualTreeHelper::GetParent(
-            VisualTreeHelper::GetParent(VisualTreeHelper::GetParent(*this)));
-        return dparent.try_as<MediaPlayerElement>();
+    void CustomMediaTransportControls::LinkMPE(CustomMediaPlayerElement* mpe) {
+        m_weak_mpe = mpe->get_weak();
     }
-    MediaPlaybackCommandManager CustomMediaTransportControls::try_get_command_manager() {
-        auto layout_root = VisualTreeHelper::GetParent(
-            VisualTreeHelper::GetParent(*this)).try_as<Grid>();
-        if (!layout_root) { return nullptr; }
-        auto presenter = layout_root.FindName(L"MediaPlayerPresenter")
-            .try_as<MediaPlayerPresenter>();
-        if (!presenter) { return nullptr; }
-        return presenter.MediaPlayer().CommandManager();
+    void CustomMediaTransportControls::UnlinkMPE(void) {
+        m_weak_mpe = nullptr;
+    }
+    bool CustomMediaTransportControls::get_is_playing(void) {
+        auto mpe = try_get_mpe();
+        if (!mpe) { return false; }
+        if (auto session = util::winrt::try_get_media_playback_session(mpe->MediaPlayer())) {
+            return session.PlaybackState() == MediaPlaybackState::Playing;
+        }
+        return false;
+    }
+    bool CustomMediaTransportControls::get_is_full_window(void) {
+        auto mpe = try_get_mpe();
+        if (!mpe) { return false; }
+        return mpe->IsFullWindow();
     }
     void CustomMediaTransportControls::switch_fullscreen(void) {
+        auto mpe = try_get_mpe();
+        if (!mpe) { return; }
         auto app_view = ApplicationView::GetForCurrentView();
         if (app_view.IsFullScreenMode()) {
-            app_view.ExitFullScreenMode();
+            mpe->IsFullWindow(false);
         }
         else {
-            auto container = try_get_parent_container();
-            if (!container) { return; }
-            container.IsFullWindow(!container.IsFullWindow());
+            mpe->IsFullWindow(!mpe->IsFullWindow());
         }
     }
     void CustomMediaTransportControls::switch_play_pause(void) {
-        auto cmd_mgr = try_get_command_manager();
-        if (!cmd_mgr) { return; }
-        auto player = cmd_mgr.MediaPlayer();
+        auto mpe = try_get_mpe();
+        if (!mpe) { return; }
+        auto player = mpe->MediaPlayer();
         if (auto session = util::winrt::try_get_media_playback_session(player)) {
             switch (session.PlaybackState()) {
             case MediaPlaybackState::Paused:

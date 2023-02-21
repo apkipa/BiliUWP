@@ -1,14 +1,15 @@
 ﻿#pragma once
 
-#include "winrt/Windows.UI.Xaml.h"
-#include "winrt/Windows.UI.Xaml.Markup.h"
-#include "winrt/Windows.UI.Xaml.Interop.h"
-#include "winrt/Windows.UI.Xaml.Controls.Primitives.h"
 #include "CustomMediaPlayerElement.g.h"
 
 namespace winrt::BiliUWP::implementation {
+    struct CustomMediaTransportControls;
+
     struct CustomMediaPlayerElement : CustomMediaPlayerElementT<CustomMediaPlayerElement> {
         CustomMediaPlayerElement();
+        ~CustomMediaPlayerElement();
+
+        void OnApplyTemplate();
 
         Windows::Foundation::IInspectable MiddleLayerContent();
         void MiddleLayerContent(Windows::Foundation::IInspectable const& value);
@@ -19,8 +20,21 @@ namespace winrt::BiliUWP::implementation {
         static Windows::UI::Xaml::DependencyProperty UpperLayerContentProperty() { return m_UpperLayerContentProperty; }
 
     private:
+        friend struct CustomMediaTransportControls;
+
         static Windows::UI::Xaml::DependencyProperty m_MiddleLayerContentProperty;
         static Windows::UI::Xaml::DependencyProperty m_UpperLayerContentProperty;
+
+        void OnMediaPlayerChanged(
+            Windows::UI::Xaml::DependencyObject const& sender,
+            Windows::UI::Xaml::DependencyProperty const&
+        );
+        void OnAreTransportControlsEnabledChanged(
+            Windows::UI::Xaml::DependencyObject const& sender,
+            Windows::UI::Xaml::DependencyProperty const&
+        );
+
+        com_ptr<CustomMediaTransportControls> m_old_tc{ nullptr };
     };
 }
 

@@ -4,12 +4,46 @@
 #include "CustomMediaPlayerElement.g.cpp"
 #endif
 
+#include "CustomMediaTransportControls.h"
+
 using namespace winrt;
 using namespace Windows::Foundation;
 using namespace Windows::UI::Xaml;
+using namespace Windows::UI::Xaml::Controls;
 
 namespace winrt::BiliUWP::implementation {
-    CustomMediaPlayerElement::CustomMediaPlayerElement() {}
+    CustomMediaPlayerElement::CustomMediaPlayerElement() {
+        RegisterPropertyChangedCallback(
+            Windows::UI::Xaml::Controls::MediaPlayerElement::MediaPlayerProperty(),
+            { this, &CustomMediaPlayerElement::OnMediaPlayerChanged }
+        );
+        RegisterPropertyChangedCallback(
+            Windows::UI::Xaml::Controls::MediaPlayerElement::AreTransportControlsEnabledProperty(),
+            { this, &CustomMediaPlayerElement::OnAreTransportControlsEnabledChanged }
+        );
+    }
+    CustomMediaPlayerElement::~CustomMediaPlayerElement() {
+        if (m_old_tc) {
+            m_old_tc->UnlinkMPE();
+        }
+    }
+    void CustomMediaPlayerElement::OnApplyTemplate() {
+        auto tcp = GetTemplateChild(L"TransportControlsPresenter").as<ContentPresenter>();
+        tcp.RegisterPropertyChangedCallback(ContentPresenter::ContentProperty(),
+            [this](DependencyObject const& sender, DependencyProperty const&) {
+                auto tc = sender.as<ContentPresenter>().Content().try_as<CustomMediaTransportControls>();
+                if (!tc) {
+                    throw hresult_invalid_argument(L"CustomMediaPlayerElement only accepts CustomMediaTransportControls");
+                }
+                if (m_old_tc) {
+                    m_old_tc->UnlinkMPE();
+                }
+                m_old_tc = tc;
+                tc->LinkMPE(this);
+            }
+        );
+        base_type::OnApplyTemplate();
+    }
     IInspectable CustomMediaPlayerElement::MiddleLayerContent() {
         return GetValue(m_MiddleLayerContentProperty);
     }
@@ -21,6 +55,25 @@ namespace winrt::BiliUWP::implementation {
     }
     void CustomMediaPlayerElement::UpperLayerContent(IInspectable const& value) {
         SetValue(m_UpperLayerContentProperty, value);
+    }
+    void CustomMediaPlayerElement::OnMediaPlayerChanged(
+        DependencyObject const& sender, DependencyProperty const&
+    ) {
+        if (!m_old_tc) { return; }
+        if (AreTransportControlsEnabled()) {
+            m_old_tc->LinkMPE(this);
+        }
+    }
+    void CustomMediaPlayerElement::OnAreTransportControlsEnabledChanged(
+        DependencyObject const& sender, DependencyProperty const&
+    ) {
+        if (!m_old_tc) { return; }
+        if (AreTransportControlsEnabled()) {
+            m_old_tc->LinkMPE(this);
+        }
+        else {
+            m_old_tc->UnlinkMPE();
+        }
     }
 
 #define gen_dp_instantiation(prop_name, ...)                                                \
