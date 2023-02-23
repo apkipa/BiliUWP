@@ -39,6 +39,7 @@ namespace winrt::BiliUWP::implementation {
         static Windows::UI::Xaml::DependencyProperty m_OverrideSpaceForPlaybackControlProperty;
 
         weak_ref<CustomMediaPlayerElement> m_weak_mpe{ nullptr };
+        event_token m_ev_mp_volume_changed;
     };
 }
 

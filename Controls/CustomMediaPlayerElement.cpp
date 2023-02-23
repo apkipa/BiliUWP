@@ -39,7 +39,10 @@ namespace winrt::BiliUWP::implementation {
                     m_old_tc->UnlinkMPE();
                 }
                 m_old_tc = tc;
-                tc->LinkMPE(this);
+                if (MediaPlayer()) {
+                    // MediaPlayer is valid, we can link transport controls now
+                    tc->LinkMPE(this);
+                }
             }
         );
         base_type::OnApplyTemplate();

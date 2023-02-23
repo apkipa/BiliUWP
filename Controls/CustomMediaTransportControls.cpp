@@ -69,10 +69,23 @@ namespace winrt::BiliUWP::implementation {
         return unbox_value<bool>(GetValue(m_OverrideSpaceForPlaybackControlProperty));
     }
     void CustomMediaTransportControls::LinkMPE(CustomMediaPlayerElement* mpe) {
+        UnlinkMPE();
         m_weak_mpe = mpe->get_weak();
+        m_ev_mp_volume_changed = mpe->MediaPlayer().VolumeChanged(
+            [weak_this = get_weak(), dispatcher = Dispatcher()](MediaPlayer const& sender, IInspectable const&) {
+                dispatcher.RunAsync(Windows::UI::Core::CoreDispatcherPriority::Normal, [=] {
+                    auto that = weak_this.get();
+                    if (!that) { return; }
+                    that->GetTemplateChild(L"VolumeSlider").as<Slider>().Value(sender.Volume() * 100);
+                });
+            }
+        );
     }
     void CustomMediaTransportControls::UnlinkMPE(void) {
+        auto mpe = try_get_mpe();
+        if (!mpe) { return; }
         m_weak_mpe = nullptr;
+        mpe->MediaPlayer().VolumeChanged(m_ev_mp_volume_changed);
     }
     bool CustomMediaTransportControls::get_is_playing(void) {
         auto mpe = try_get_mpe();

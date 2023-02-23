@@ -1945,7 +1945,8 @@ namespace winrt::BiliUWP::implementation {
                 // NOTE: Currently, in order to correctly broadcast PropertyChanged to `x:Bind`s,
                 //       we must manually switch to UI threads
                 dispatcher.RunAsync(Windows::UI::Core::CoreDispatcherPriority::Normal,
-                    [volume = static_cast<uint32_t>(std::llround(sender.Volume() * 10000))] {
+                    [mp = sender] {
+                        auto volume = static_cast<uint32_t>(std::llround(mp.Volume() * 10000));
                         ::BiliUWP::App::get()->cfg_model().App_GlobalVolume(volume);
                     }
                 );
@@ -1954,10 +1955,10 @@ namespace winrt::BiliUWP::implementation {
         // GlobalConfig -> MediaPlayer
         m_cfg_changed_revoker = ::BiliUWP::App::get()->cfg_model().PropertyChanged(auto_revoke,
             [weak_mp = make_weak(player)](IInspectable const&, PropertyChangedEventArgs const& e) {
-                auto strong_mp = weak_mp.get();
-                if (!strong_mp) { return; }
+                auto mp = weak_mp.get();
+                if (!mp) { return; }
                 if (e.PropertyName() == L"App_GlobalVolume") {
-                    strong_mp.Volume(::BiliUWP::App::get()->cfg_model().App_GlobalVolume() / 10000.0);
+                    mp.Volume(::BiliUWP::App::get()->cfg_model().App_GlobalVolume() / 10000.0);
                 }
             }
         );
