@@ -60,6 +60,8 @@ namespace winrt::BiliUWP::implementation {
         auto that = d.as<ImageEx2Source>();
         that->m_need_update_inner_source = true;
         that->m_ev_source_changed(*that, nullptr);
+        // Explicitly clear previously loaded image
+        that->m_bitmap_image.UriSource(nullptr);
         if (that->EnableDelayedLoad()) { return; }
         that->UpdateInnerSource();
     }
