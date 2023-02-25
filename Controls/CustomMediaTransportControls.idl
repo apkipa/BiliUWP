@@ -1,9 +1,18 @@
 namespace BiliUWP {
+    runtimeclass CustomMediaTransportControlsHelper {
+        static Windows.UI.Xaml.DependencyProperty InsertBeforeProperty{ get; };
+        static String GetInsertBefore(Windows.UI.Xaml.UIElement target);
+        static void SetInsertBefore(Windows.UI.Xaml.UIElement target, String value);
+    };
+
     [default_interface]
     runtimeclass CustomMediaTransportControls : Windows.UI.Xaml.Controls.MediaTransportControls {
         CustomMediaTransportControls();
 
         static Windows.UI.Xaml.DependencyProperty OverrideSpaceForPlaybackControlProperty{ get; };
         Boolean OverrideSpaceForPlaybackControl;
-    }
+        // NOTE: MenuFlyoutItemBase -> SettingsFlyout; ICommandBarElement -> MediaControlsCommandBar;
+        //       other items will be rejected
+        IObservableVector<Windows.UI.Xaml.UIElement> AdditionalItems{ get; };
+    };
 }

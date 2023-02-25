@@ -156,6 +156,12 @@
   <data name="App.Common.Yes" xml:space="preserve">
     <value>是</value>
   </data>
+  <data name="App.Control.CustomMediaTransportControls.CastMenuItem.Text" xml:space="preserve">
+    <value>投放到设备</value>
+  </data>
+  <data name="App.Control.CustomMediaTransportControls.ZoomMenuItem.Text" xml:space="preserve">
+    <value>缩放填充</value>
+  </data>
   <data name="App.Dialog.AskEnableDevMode.Content" xml:space="preserve">
     <value>此操作将启用部分面向开发者与高级用户的功能。如果不知道这意味着什么或是误操作，请点击“否”。</value>
   </data>
@@ -257,6 +263,12 @@
   </data>
   <data name="App.Page.MediaPlayPage.LoadingSubtitles" xml:space="preserve">
     <value>正在加载字幕...</value>
+  </data>
+  <data name="App.Page.MediaPlayPage.MTCDanmakuSwitchButton.[using:Windows.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>切换弹幕开关</value>
+  </data>
+  <data name="App.Page.MediaPlayPage.MTCStreamSelectionMenu.Text" xml:space="preserve">
+    <value>画质</value>
   </data>
   <data name="App.Page.MediaPlayPage.Sidebar.Comments.Header" xml:space="preserve">
     <value>评论</value>

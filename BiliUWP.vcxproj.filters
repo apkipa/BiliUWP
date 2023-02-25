@@ -383,6 +383,9 @@
     <Font Include="Assets\Fonts\vanfont.ttf">
       <Filter>Assets\Fonts</Filter>
     </Font>
+    <Font Include="Assets\Fonts\FluentSystemIcons-Regular-v1.1.191.ttf">
+      <Filter>Assets\Fonts</Filter>
+    </Font>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Protos\bilibili\community\service\dm\v1\dm.proto">

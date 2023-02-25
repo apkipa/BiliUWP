@@ -617,6 +617,7 @@
     <Image Include="Assets\Wide310x150Logo.scale-400.png" />
   </ItemGroup>
   <ItemGroup>
+    <Font Include="Assets\Fonts\FluentSystemIcons-Regular-v1.1.191.ttf" />
     <Font Include="Assets\Fonts\iconfont.ttf" />
     <Font Include="Assets\Fonts\vanfont.ttf" />
   </ItemGroup>

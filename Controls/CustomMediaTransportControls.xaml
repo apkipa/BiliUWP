@@ -5,6 +5,7 @@
     xmlns:local="using:BiliUWP"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     mc:Ignorable="d">
 
     <MediaTransportControls.Style>
@@ -831,6 +832,7 @@
                                                         <SymbolIcon x:Name="RepeatSymbol" Symbol="RepeatAll" />
                                                     </AppBarToggleButton.Icon>
                                                 </AppBarToggleButton>
+                                                <!--
                                                 <AppBarButton x:Name="ZoomButton" Style="{StaticResource AppBarButtonStyle}" MediaTransportControlsHelper.DropoutOrder="9">
                                                     <AppBarButton.Icon>
                                                         <FontIcon Glyph="&#xE799;" />
@@ -840,6 +842,26 @@
                                                     <AppBarButton.Icon>
                                                         <FontIcon Glyph="&#xEC15;" />
                                                     </AppBarButton.Icon>
+                                                </AppBarButton>
+                                                -->
+                                                <AppBarButton x:Name="CMTCSettingsButton" Style="{StaticResource AppBarButtonStyle}" MediaTransportControlsHelper.DropoutOrder="11">
+                                                    <AppBarButton.Icon>
+                                                        <SymbolIcon x:Name="SettingsSymbol" Symbol="Setting"/>
+                                                    </AppBarButton.Icon>
+                                                    <AppBarButton.Flyout>
+                                                        <MenuFlyout x:Name="SettingsFlyout" ShouldConstrainToRootBounds="True">
+                                                            <MenuFlyoutItem x:Uid="App/Control/CustomMediaTransportControls/ZoomMenuItem" x:Name="ZoomMenuItem">
+                                                                <MenuFlyoutItem.Icon>
+                                                                    <FontIcon Glyph="&#xE799;"/>
+                                                                </MenuFlyoutItem.Icon>
+                                                            </MenuFlyoutItem>
+                                                            <MenuFlyoutItem x:Uid="App/Control/CustomMediaTransportControls/CastMenuItem" x:Name="CastMenuItem">
+                                                                <MenuFlyoutItem.Icon>
+                                                                    <FontIcon Glyph="&#xEC15;"/>
+                                                                </MenuFlyoutItem.Icon>
+                                                            </MenuFlyoutItem>
+                                                        </MenuFlyout>
+                                                    </AppBarButton.Flyout>
                                                 </AppBarButton>
                                                 <AppBarButton x:Name="CompactOverlayButton" Style="{StaticResource AppBarButtonStyle}" MediaTransportControlsHelper.DropoutOrder="24" Visibility="Collapsed">
                                                     <AppBarButton.Icon>

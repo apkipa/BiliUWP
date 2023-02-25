@@ -15,6 +15,13 @@
         <Style TargetType="PivotHeaderItem" BasedOn="{StaticResource DefaultPivotHeaderItemStyle}">
             <Setter Property="FontSize" Value="20"/>
         </Style>
+        <!-- Source: FluentSystemIconsRegular.CodeText20Regular -->
+        <PathIconSource x:Key="DanmakuOnIconSource" Data="
+                        M2.5 5a.5.5 0 000 1H8a.5.5 0 000-1H2.5zm3 3a.5.5 0 000 1h5a.5.5 0 000-1h-5zM4 11.5c0-.28.22-.5.5-.5h10a.5.5 0 010 1h-10a.5.5 0 01-.5-.5zM2.5 14a.5.5 0 000 1H11a.5.5 0 000-1H2.5zm10-5.5c0-.28.22-.5.5-.5h3.5a.5.5 0 010 1H13a.5.5 0 01-.5-.5zm-2-3.5a.5.5 0 000 1h7a.5.5 0 000-1h-7z
+                        M 13,15 l 3,3 l 5,-5 l -.8,-.8 l -4.2,4.2 l -2.2,-2.2"/>
+        <PathIconSource x:Key="DanmakuOffIconSource" Data="
+                        M2.5 5a.5.5 0 000 1H8a.5.5 0 000-1H2.5zm3 3a.5.5 0 000 1h5a.5.5 0 000-1h-5zM4 11.5c0-.28.22-.5.5-.5h8a.5.5 0 010 1h-8a.5.5 0 01-.5-.5zM2.5 14a.5.5 0 000 1H11a.5.5 0 000-1H2.5zm10-5.5c0-.28.22-.5.5-.5h3.5a.5.5 0 010 1H13a.5.5 0 01-.5-.5zm-2-3.5a.5.5 0 000 1h7a.5.5 0 000-1h-7z
+                        M 17 15 m 0 -3.5 a 3.5 3.5 0 1 0 0 7 a 3.5 3.5 0 1 0 0 -7 m 0 0.8 a 2.7 2.7 0 1 1 0 5.4 a 2.7 2.7 0 1 1 0 -5.4 M 19 13 m -0.282842712 -0.282842712 l -4 4 l 0.565685425 0.565685425 l 4 -4"/>
     </Page.Resources>
 
     <Grid>
@@ -48,7 +55,27 @@
                 <local:CustomMediaPlayerElement.TransportControls>
                     <local:CustomMediaTransportControls x:Name="MediaTransportCtrl"
                                                         IsPlaybackRateButtonVisible="True" IsPlaybackRateEnabled="True"
-                                                        IsCompactOverlayButtonVisible="True" IsCompactOverlayEnabled="True"/>
+                                                        IsCompactOverlayButtonVisible="True" IsCompactOverlayEnabled="True">
+                        <local:CustomMediaTransportControls.AdditionalItems>
+                            <!-- TODO: Refine items -->
+                            <AppBarButton x:Uid="App/Page/MediaPlayPage/MTCDanmakuSwitchButton" x:Name="MTCDanmakuSwitchButton" local:CustomMediaTransportControlsHelper.InsertBefore="LeftSeparator">
+                                <AppBarButton.Icon>
+                                    <IconSourceElement IconSource="{StaticResource DanmakuOffIconSource}" Margin="0,-2,0,1.5"/>
+                                </AppBarButton.Icon>
+                            </AppBarButton>
+                            <MenuFlyoutSubItem x:Uid="App/Page/MediaPlayPage/MTCStreamSelectionMenu" x:Name="MTCStreamSelectionMenu" local:CustomMediaTransportControlsHelper.InsertBefore="ZoomMenuItem">
+                                <MenuFlyoutSubItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource FluentSystemIconsRegularFontFamily}" Glyph="&#xE6EA;" Margin="-1.5,-2,-0.5,-4"/>
+                                </MenuFlyoutSubItem.Icon>
+                                <MenuFlyoutItem Text="Dash"/>
+                                <MenuFlyoutItem Text="Flv"/>
+                                <MenuFlyoutSeparator/>
+                                <MenuFlyoutItem Text="Resolution 1"/>
+                                <MenuFlyoutItem Text="Resolution 2"/>
+                                <MenuFlyoutItem Text="Resolution 3"/>
+                            </MenuFlyoutSubItem>
+                        </local:CustomMediaTransportControls.AdditionalItems>
+                    </local:CustomMediaTransportControls>
                 </local:CustomMediaPlayerElement.TransportControls>
                 <local:CustomMediaPlayerElement.MiddleLayerContent>
                     <Grid>

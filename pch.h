@@ -51,6 +51,7 @@
 #include <winrt/Windows.System.h>
 #include <winrt/Windows.System.Profile.h>
 #include <winrt/Windows.Media.Core.h>
+#include <winrt/Windows.Media.Casting.h>
 #include <winrt/Windows.Media.Playback.h>
 #include <winrt/Windows.Media.Streaming.Adaptive.h>
 #include <winrt/Windows.Graphics.Display.h>
