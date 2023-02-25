@@ -14,11 +14,11 @@ using namespace Windows::UI::Xaml::Media;
 using namespace Windows::UI::Xaml::Controls;
 
 SolidColorBrush brush_from_log_level(util::debug::LogLevel level) {
-    static auto brush_gray = SolidColorBrush(Colors::Gray());
-    static auto brush_magenta = SolidColorBrush(Colors::Magenta());
-    static auto brush_cyan = SolidColorBrush(Colors::Cyan());
-    static auto brush_orange = SolidColorBrush(Colors::Orange());
-    static auto brush_red = SolidColorBrush(Colors::Red());
+    thread_local auto brush_gray = SolidColorBrush(Colors::Gray());
+    thread_local auto brush_magenta = SolidColorBrush(Colors::Magenta());
+    thread_local auto brush_cyan = SolidColorBrush(Colors::Cyan());
+    thread_local auto brush_orange = SolidColorBrush(Colors::Orange());
+    thread_local auto brush_red = SolidColorBrush(Colors::Red());
     switch (level) {
     case util::debug::LogLevel::Trace:      return brush_gray;
     case util::debug::LogLevel::Debug:      return brush_magenta;
@@ -67,12 +67,14 @@ namespace winrt::BiliUWP::implementation {
     DebugConsoleWindowPage::DebugConsoleWindowPage() {
         using namespace std::chrono_literals;
         m_timer_scroll_to_bottom.Interval(30ms);
-        m_timer_scroll_to_bottom.Tick([this](IInspectable const&, IInspectable const&) {
-            if (!m_should_scroll) {
-                m_timer_scroll_to_bottom.Stop();
+        m_timer_scroll_to_bottom.Tick([weak_this = get_weak()](IInspectable const&, IInspectable const&) {
+            auto that = weak_this.get();
+            if (!that) { return; }
+            if (!that->m_should_scroll) {
+                that->m_timer_scroll_to_bottom.Stop();
             }
-            m_should_scroll = false;
-            auto logs_list = LogsList();
+            that->m_should_scroll = false;
+            auto logs_list = that->LogsList();
             auto logs_list_items = logs_list.Items();
             logs_list.ScrollIntoView(logs_list_items.GetAt(logs_list_items.Size() - 1));
         });
@@ -88,8 +90,6 @@ namespace winrt::BiliUWP::implementation {
         util::winrt::set_clipboard_text(hstring{ std::move(full_text) }, true);
     }
     void DebugConsoleWindowPage::AppendLog(winrt::BiliUWP::DebugConsoleWindowPage_LogViewItem log_item) {
-        // TODO: Known issue: Closing & reopening debug console raises hresult_wrong_thread
-        //       (AppendLog() must be triggered; here LogsList().ScrollIntoView() throws)
         auto logs_list = LogsList();
         auto logs_list_items = logs_list.Items();
         // TODO: Use a better strategy for handling massive logs
