@@ -72,7 +72,9 @@ namespace winrt::BiliUWP::implementation {
     ) {
         if (!m_old_tc) { return; }
         if (AreTransportControlsEnabled()) {
-            m_old_tc->LinkMPE(this);
+            if (MediaPlayer()) {
+                m_old_tc->LinkMPE(this);
+            }
         }
         else {
             m_old_tc->UnlinkMPE();

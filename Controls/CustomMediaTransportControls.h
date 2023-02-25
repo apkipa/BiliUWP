@@ -51,7 +51,7 @@ namespace winrt::BiliUWP::implementation {
         static Windows::UI::Xaml::DependencyProperty m_OverrideSpaceForPlaybackControlProperty;
 
         weak_ref<CustomMediaPlayerElement> m_weak_mpe{ nullptr };
-        event_token m_ev_mp_volume_changed;
+        Windows::Media::Playback::MediaPlayer::VolumeChanged_revoker m_ev_ar_mp_volume_changed;
 
         Windows::Foundation::Collections::IObservableVector<Windows::UI::Xaml::UIElement> m_additional_items;
         std::vector<Windows::UI::Xaml::UIElement> m_additional_items_copy;  // Used for comparing changes
