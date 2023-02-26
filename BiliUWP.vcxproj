@@ -556,7 +556,9 @@
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(Filename)%(Extension) - Protobuf custom build tool</Message>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)Generated Files\%(RelativeDir)%(Filename).pb.h;$(ProjectDir)Generated Files\%(RelativeDir)%(Filename).pb.cc;%(Outputs)</Outputs>
     </CustomBuild>
-    <Text Include="AppDepsLicense.rawstr.txt" />
+    <Text Include="AppDepsLicense.rawstr.txt">
+      <DeploymentContent>false</DeploymentContent>
+    </Text>
     <Text Include="readme.txt">
       <DeploymentContent>false</DeploymentContent>
     </Text>
