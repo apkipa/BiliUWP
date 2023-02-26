@@ -525,6 +525,7 @@
     </Midl>
   </ItemGroup>
   <ItemGroup>
+    <None Include=".editorconfig" />
     <None Include="BiliUWP_TemporaryKey.pfx" />
     <None Include="packages.config" />
     <None Include="PropertySheet.props" />

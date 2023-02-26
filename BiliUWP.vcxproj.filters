@@ -155,6 +155,7 @@
     <None Include="PropertySheet.props" />
     <None Include="packages.config" />
     <None Include="BiliUWP_TemporaryKey.pfx" />
+    <None Include=".editorconfig" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="readme.txt" />
