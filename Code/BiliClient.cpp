@@ -44,13 +44,13 @@ namespace BiliUWP {
         struct BadFnParamType;
         template<typename Functor>
         static auto get_fn_param_helper(Functor func, int, int, int) ->
-            util::misc::second_type<decltype(func(std::declval<JsonObjectVisitor>())), JsonObjectVisitor>;
+            util::misc::second_type<std::invoke_result_t<Functor, JsonObjectVisitor>, JsonObjectVisitor>;
         template<typename Functor>
         static auto get_fn_param_helper(Functor func, int, int, ...) ->
-            util::misc::second_type<decltype(func(std::declval<JsonArrayVisitor>())), JsonArrayVisitor>;
+            util::misc::second_type<std::invoke_result_t<Functor, JsonArrayVisitor>, JsonArrayVisitor>;
         template<typename Functor>
         static auto get_fn_param_helper(Functor func, int, ...) ->
-            util::misc::second_type<decltype(func(std::declval<JsonValueVisitor>())), JsonValueVisitor>;
+            util::misc::second_type<std::invoke_result_t<Functor, JsonValueVisitor>, JsonValueVisitor>;
         template<typename Functor>
         static auto get_fn_param_helper(Functor func, ...) -> BadFnParamType;
         static constexpr std::string_view stringify(winrt::Windows::Data::Json::JsonValueType jvt) {
