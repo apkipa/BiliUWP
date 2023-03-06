@@ -426,7 +426,7 @@ namespace winrt::BiliUWP::implementation {
                         }
                         throw hresult_error(E_FAIL, L"Could not find tab index of given content");
                     };
-                    auto apply_items_src = [&](auto const& grid_view, auto const& items_src) {
+                    auto apply_items_src = [&](BiliUWP::AdaptiveGridView const& grid_view, BiliUWP::IncrementalLoadingCollection const& items_src) {
                         auto idx = idx_of_content_fn(grid_view);
                         grid_view.ItemsSource(items_src);
                         auto weak_this = that->get_weak();
