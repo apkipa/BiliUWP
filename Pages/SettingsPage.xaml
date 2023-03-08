@@ -158,6 +158,10 @@
                                  NavigateUri="https://github.com/protocolbuffers/protobuf">
                     Protocol Buffers © Google Inc. (New BSD License)
                 </HyperlinkButton>
+                <HyperlinkButton Style="{StaticResource TightHyperlinkButtonStyle}"
+                                 NavigateUri="https://github.com/microsoft/Win2D">
+                    Win2D © Microsoft Corporation. (MIT License)
+                </HyperlinkButton>
                 <TextBlock x:Name="SqliteVersionTextBlock" Style="{StaticResource ItemTextBlockStyle}"/>
                 <Button x:Name="ViewLicensesButton" Click="ViewLicensesButton_Click" Content="View licenses" Style="{StaticResource ItemButtonStyle}"/>
                 <TextBlock x:Uid="App/Page/SettingsPage/About_Details2" Style="{StaticResource ItemTextBlockStyle}"/>
