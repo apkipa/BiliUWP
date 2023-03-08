@@ -2,6 +2,7 @@
 #include "BiliClientManaged.h"
 #include "util.hpp"
 #include <variant>
+#include <span>
 
 // BiliClient: A native layer wrapping BiliClientManaged to provide idiomatic RPC experience
 namespace BiliUWP {
@@ -195,6 +196,7 @@ namespace BiliUWP {
         static inline struct json_parse_out_of_bound_t {} json_parse_out_of_bound;
         static inline struct json_parse_out_of_range_t {} json_parse_out_of_range;
         static inline struct json_parse_user_defined_t {} json_parse_user_defined;
+        static inline struct proto_parse_failure_t {} proto_parse_failure;
         enum class JsonParseFailKind {
             Unknown,
             NoProperty,
@@ -241,6 +243,16 @@ namespace BiliUWP {
         ) : m_err_msg("JSON parse error: ")
         {
             m_err_msg += std::format("`{}`: {}", props_tree.stringify(), msg);
+        }
+        BiliApiParseException(proto_parse_failure_t,
+            winrt::Windows::Storage::Streams::IBuffer const& proto_buf, std::string_view msg_name
+        ) : m_err_msg("Protobuf parse error: ")
+        {
+            // TODO: Optimize base64 performance with custom std::formatter
+            using winrt::Windows::Security::Cryptography::CryptographicBuffer;
+            auto b64_bufstr = CryptographicBuffer::EncodeToBase64String(proto_buf);
+            m_err_msg += std::format("Unable to parse `{}` (base64 data: `{}`)",
+                msg_name, winrt::to_string(b64_bufstr));
         }
         const char* what() const override { return m_err_msg.c_str(); }
     };
@@ -948,6 +960,80 @@ namespace BiliUWP {
         std::vector<FavFolderResList_Media> media_list;
         bool has_more;
     };
+    struct DanmakuNormalList_DanmakuElement {
+        uint64_t id;
+        uint32_t progress;  // When to be displayed in media; unit: ms
+        uint32_t mode;
+        uint32_t font_size;
+        uint32_t color;
+        winrt::hstring mid_hash;
+        winrt::hstring content;
+        uint64_t ctime;
+        uint64_t weight;
+        winrt::hstring action;
+        uint32_t pool;
+    };
+    struct DanmakuNormalListResult {
+        std::vector<DanmakuNormalList_DanmakuElement> elems;
+    };
+    struct DanmakuWebViewInfo_DmSegConfig {
+        uint64_t page_size;
+        uint64_t total;
+    };
+    struct DanmakuWebViewInfo_DanmakuFlagConfig {
+        int32_t rec_flag;
+        winrt::hstring rec_text;
+        int32_t rec_switch;
+    };
+    struct DanmakuWebViewInfo_CommandDanmaku {
+        uint64_t id;
+        uint64_t cid;
+        uint64_t mid;
+        winrt::hstring command;
+        winrt::hstring content;
+        uint32_t progress;      // Unit: ms
+        // TODO: Maybe replace extra with std::variant?
+        winrt::hstring extra;
+    };
+    enum DanmakuWebViewInfo_DmWebPlayerConfig_FontBorderType {
+        HardShadow = 0,
+        Stroke = 1,
+        SoftShadow = 2,
+    };
+    struct DanmakuWebViewInfo_DmWebPlayerConfig {
+        bool enable_danmaku;
+        bool enable_ai_block;
+        uint32_t ai_block_level;
+        bool block_top;
+        bool block_scroll;
+        bool block_bottom;
+        bool block_color;
+        bool block_special;
+        bool enable_anti_block;     // Bottom 15%
+        bool enable_danmaku_mask;
+        float danmaku_opacity;
+        uint32_t danmaku_area;
+        float danmaku_speed;
+        float font_size;
+        bool size_with_video;
+        bool speed_with_video;
+        winrt::hstring font_family;
+        bool use_bold;
+        DanmakuWebViewInfo_DmWebPlayerConfig_FontBorderType font_border;
+        winrt::hstring draw_type;
+    };
+    struct DanmakuWebViewInfoResult {
+        bool disallow_danmaku;
+        winrt::hstring text;
+        winrt::hstring text_side;
+        DanmakuWebViewInfo_DmSegConfig dm_seg;
+        DanmakuWebViewInfo_DanmakuFlagConfig flag;
+        std::vector<winrt::hstring> special_dms_urls;
+        bool check_box;
+        uint64_t danmaku_count;
+        std::vector<DanmakuWebViewInfo_CommandDanmaku> command_danmaku_list;
+        DanmakuWebViewInfo_DmWebPlayerConfig dm_config;
+    };
 
     // Parameter types
     struct VideoPlayUrlPreferenceParam {
@@ -1049,6 +1135,16 @@ namespace BiliUWP {
         );
         util::winrt::task<FavFolderResListResult> fav_folder_res_list(
             uint64_t folder_id, PageParam page, winrt::hstring search_keyword, FavResSortOrderParam order
+        );
+
+        // Danmaku information
+        util::winrt::task<DanmakuNormalListResult> danmaku_normal_list(
+            uint64_t cid,
+            uint64_t avid,
+            uint32_t segment_index  // Starts from 1
+        );
+        util::winrt::task<DanmakuWebViewInfoResult> danmaku_web_view_info(
+            uint64_t cid, uint64_t avid
         );
 
     private:

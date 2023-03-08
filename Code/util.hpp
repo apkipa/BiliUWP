@@ -475,6 +475,21 @@ namespace util {
             Container c{};
             Compare comp{};
         };
+
+        template<typename Container, typename T>
+        auto insert_sorted(Container& container, T&& item) {
+            return container.insert(
+                std::upper_bound(container.begin(), container.end(), item),
+                item
+            );
+        }
+        template<typename Container, typename T, typename Pred>
+        auto insert_sorted(Container& container, T&& item, Pred&& pred) {
+            return container.insert(
+                std::upper_bound(container.begin(), container.end(), item, pred),
+                item
+            );
+        }
     }
 
     namespace fs {
@@ -494,7 +509,7 @@ namespace util {
     }
 
     namespace win32 {
-        // TODO...
+        void set_thread_name(const wchar_t* name);
     }
 
     namespace winrt {
@@ -897,6 +912,11 @@ namespace util {
                 void cancellation_callback(::winrt::delegate<>&& cancel) noexcept {
                     m_cts.get_token().register_callback(cancel);
                 }
+                // NOTE: Hack for operator()
+                ::winrt::Windows::Foundation::AsyncStatus Status(void) {
+                    using ::winrt::Windows::Foundation::AsyncStatus;
+                    return m_cts.get_token().is_canceled() ? AsyncStatus::Canceled : AsyncStatus::Started;
+                }
             private:
                 concurrency::task_completion_event<ReturnWrapType> m_tce;
                 concurrency::cancellation_token_source m_cts;
@@ -1004,6 +1024,11 @@ namespace util {
                 }
                 void cancellation_callback(::winrt::delegate<>&& cancel) noexcept {
                     m_cts.get_token().register_callback(cancel);
+                }
+                // NOTE: Hack for operator()
+                ::winrt::Windows::Foundation::AsyncStatus Status(void) {
+                    using ::winrt::Windows::Foundation::AsyncStatus;
+                    return m_cts.get_token().is_canceled() ? AsyncStatus::Canceled : AsyncStatus::Started;
                 }
             private:
                 concurrency::task_completion_event<void> m_tce;
@@ -1653,6 +1678,13 @@ namespace util {
         private:
             std::shared_ptr<details::InMemoryStreamImpl> m_impl;
         };
+
+        template<typename T>
+        inline void check_cancellation(T&& token) {
+            if (token()) {
+                throw ::winrt::hresult_canceled(L"check_cancellation has detected an cancelled token");
+            }
+        }
     }
 
     namespace sync {

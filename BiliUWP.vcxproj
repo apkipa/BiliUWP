@@ -225,6 +225,10 @@
       <DependentUpon>Controls\SimpleStateIndicator.xaml</DependentUpon>
       <SubType>Code</SubType>
     </ClInclude>
+    <ClInclude Include="Controls\VideoDanmakuControl.h">
+      <DependentUpon>Controls\VideoDanmakuControl.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClInclude>
     <ClInclude Include="Pages\ContainerPage.h">
       <DependentUpon>Pages\ContainerPage.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -297,6 +301,9 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Controls\SimpleStateIndicator.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Controls\VideoDanmakuControl.xaml">
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Pages\ContainerPage.xaml">
@@ -379,6 +386,10 @@
       <DependentUpon>Controls\SimpleStateIndicator.xaml</DependentUpon>
       <SubType>Code</SubType>
     </ClCompile>
+    <ClCompile Include="Controls\VideoDanmakuControl.cpp">
+      <DependentUpon>Controls\VideoDanmakuControl.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClCompile>
     <ClCompile Include="Pages\ContainerPage.cpp">
       <DependentUpon>Pages\ContainerPage.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -429,6 +440,24 @@
       <DependentUpon>Pages\MainPage.xaml</DependentUpon>
     </ClCompile>
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
+    <ClCompile Include="Protos\src.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(GeneratedFilesDir)Protos\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(GeneratedFilesDir)Protos\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">$(GeneratedFilesDir)Protos\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">$(GeneratedFilesDir)Protos\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">$(GeneratedFilesDir)Protos\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">$(GeneratedFilesDir)Protos\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(GeneratedFilesDir)Protos\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(GeneratedFilesDir)Protos\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
     <ClCompile Include="Thirdparty\qrcodegen\qrcodegen.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
@@ -478,6 +507,10 @@
     </Midl>
     <Midl Include="Controls\SimpleStateIndicator.idl">
       <DependentUpon>Controls\SimpleStateIndicator.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
+    <Midl Include="Controls\VideoDanmakuControl.idl">
+      <DependentUpon>Controls\VideoDanmakuControl.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Midl>
     <Midl Include="Pages\ContainerPage.idl">

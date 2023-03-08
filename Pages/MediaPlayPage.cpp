@@ -348,9 +348,19 @@ namespace winrt::BiliUWP::implementation {
         mfi_copy_part_title.Text(::BiliUWP::App::res_str(L"App/Page/MediaPlayPage/Sidebar/CopyPartTitle"));
         mfi_copy_part_title.Click([part_title = vi.PartName()](IInspectable const&, RoutedEventArgs const&) {
             util::winrt::set_clipboard_text(part_title, true);
-            });
+        });
         mf.Items().Append(mfi_copy_part_title);
         mf.ShowAt(items_view, e.GetPosition(items_view));
+    }
+    void MediaPlayPage::MTCDanmakuSwitchButton_Click(IInspectable const&, RoutedEventArgs const&) {
+        m_danmaku_enabled = !m_danmaku_enabled;
+        if (m_danmaku_enabled) {
+            VisualStateManager::GoToState(*this, L"MTCDanmakuSwitchButtonEnabled", true);
+        }
+        else {
+            VisualStateManager::GoToState(*this, L"MTCDanmakuSwitchButtonDisabled", true);
+        }
+        UpdateVideoDanmakuControlState();
     }
     IAsyncAction MediaPlayPage::NavHandleVideoPlay(uint64_t avid, hstring bvid) {
         auto cancellation_token = co_await get_cancellation_token();
@@ -454,8 +464,8 @@ namespace winrt::BiliUWP::implementation {
         m_bili_res_is_ready = false;
         deferred([&weak_store] {
             if (!weak_store.lock()) { return; }
-        weak_store->m_bili_res_is_ready = true;
-            });
+            weak_store->m_bili_res_is_ready = true;
+        });
         m_media_info = std::monostate{};
 
         // Body
@@ -1387,6 +1397,7 @@ namespace winrt::BiliUWP::implementation {
 
         this->SubmitMediaPlaybackSourceToNativePlayer(nullptr);
 
+        auto video_avid = video_vinfo.avid;
         auto video_bvid = video_vinfo.bvid;
 
         struct VideoPartMetadata {
@@ -1395,6 +1406,7 @@ namespace winrt::BiliUWP::implementation {
         };
         auto fetch_vpart_meta_fn = [&]() -> util::winrt::task<VideoPartMetadata> {
             std::vector<TimedTextSource> tts_vec;
+            auto avid = video_avid;
             auto bvid = video_bvid;
             co_safe_capture(cid);
             auto weak_store = util::winrt::make_weak_storage(*this);
@@ -1593,6 +1605,10 @@ namespace winrt::BiliUWP::implementation {
         auto vpart_meta = std::move(co_await fetch_vpart_meta_task);
         media_src.ExternalTimedTextSources().ReplaceAll(vpart_meta.tts_vec);
 
+        util::winrt::check_cancellation(cancellation_token);
+
+        SetDanmakuSource(cid, video_avid);
+
         auto media_playback_item = MediaPlaybackItem(media_src);
         auto display_props = media_playback_item.GetDisplayProperties();
         display_props.Type(MediaPlaybackType::Video);
@@ -1613,7 +1629,8 @@ namespace winrt::BiliUWP::implementation {
             }
         }
         media_playback_item.ApplyDisplayProperties(display_props);
-        this->SubmitMediaPlaybackSourceToNativePlayer(media_playback_item, nullptr, ds_provider);
+        this->SubmitMediaPlaybackSourceToNativePlayer(media_playback_item, nullptr, ds_provider,
+            m_cfg_model.App_UseCustomVideoPresenter());
         util::debug::log_trace(std::format(L"Video pic url: {}", video_vinfo.cover_url));
         util::debug::log_trace(std::format(L"Video title: {}", video_vinfo.title));
     }
@@ -1832,8 +1849,10 @@ namespace winrt::BiliUWP::implementation {
     void MediaPlayPage::SubmitMediaPlaybackSourceToNativePlayer(
         IMediaPlaybackSource const& source,
         ImageSource const& poster_source,
-        std::shared_ptr<DetailedStatsProvider> ds_provider
+        std::shared_ptr<DetailedStatsProvider> ds_provider,
+        bool enable_custom_presenter
     ) {
+        // TODO: Use enable_custom_presenter
         auto media_player_elem = MediaPlayerElem();
 
         if (source == nullptr) {
@@ -1865,12 +1884,14 @@ namespace winrt::BiliUWP::implementation {
 
         auto media_player = MediaPlayer();
         // TODO: Handle App_UseCustomVideoPresenter
-        if (::BiliUWP::App::get()->cfg_model().App_UseCustomVideoPresenter()) {
+        m_custom_presenter_active = enable_custom_presenter;
+        if (enable_custom_presenter) {
             media_player.IsVideoFrameServerEnabled(true);
-            /*media_player.VideoFrameAvailable([](MediaPlayer const& sender, auto&&) {
+            media_player.VideoFrameAvailable([](MediaPlayer const& sender, auto&&) {
                 util::debug::log_debug(L"MediaPlayer: VideoFrameAvailable");
-                sender.CopyFrameToVideoSurface(nullptr);
-            });*/
+                //sender.CopyFrameToVideoSurface(nullptr);
+                Sleep(1000);
+            });
         }
         media_player.AudioCategory(MediaPlayerAudioCategory::Media);
         media_player.Source(source);
@@ -1892,9 +1913,18 @@ namespace winrt::BiliUWP::implementation {
         // (at the cost of wasting some data)
         auto et_mo = std::make_shared_for_overwrite<event_token>();
         *et_mo = media_player.MediaOpened(
-            [et_mo, strong_this = this->get_strong()](MediaPlayer const& sender, IInspectable const&) {
+            [et_mo, that = get_strong()](MediaPlayer const& sender, IInspectable const&) {
                 util::debug::log_trace(L"Media opened");
                 sender.MediaOpened(*et_mo);
+                // Autoplay
+                that->Dispatcher().RunAsync(Windows::UI::Core::CoreDispatcherPriority::Normal,
+                    [sender, that] {
+                        if (that->IsLoaded()) {
+                            sender.Play();
+                            that->UpdateVideoDanmakuControlState();
+                        }
+                    }
+                );
             }
         );
         media_player.MediaFailed([](MediaPlayer const& sender, MediaPlayerFailedEventArgs const& e) {
@@ -1975,6 +2005,123 @@ namespace winrt::BiliUWP::implementation {
                     player.Pause();
                 }
                 break;
+            }
+        }
+    }
+    void MediaPlayPage::SetDanmakuSource(uint64_t cid, uint64_t avid) {
+        m_async_danmaku.cancel_running();
+        if (m_video_danmaku_ctrl) {
+            m_video_danmaku_ctrl.Stop(false);
+            m_video_danmaku_ctrl.Danmaku().ClearAll();
+        }
+        m_danmaku_segs.clear();
+        m_danmaku_cid = cid;
+        m_danmaku_avid = avid;
+        UpdateVideoDanmakuControlState();
+    }
+    void MediaPlayPage::QueueLoadDanmakuFromTimestamp(uint32_t sec) {
+        bool need_queue_task{};
+        // NOTE: API danmaku segment size is 6min
+        uint32_t segment_idx = sec / (6 * 60);
+        auto is_seg_expired_fn = [this](size_t seg_idx) {
+            constexpr std::chrono::system_clock::time_point zero_tp{};
+            return m_danmaku_segs[seg_idx].last_update_tp == zero_tp;
+        };
+        if (m_danmaku_segs.empty() || is_seg_expired_fn(segment_idx)) {
+            need_queue_task = true;
+        }
+        if (need_queue_task) {
+            m_async_danmaku.run_if_idle([](MediaPlayPage* that, uint32_t seg_idx) -> IAsyncAction {
+                auto cancellation_token = co_await get_cancellation_token();
+                cancellation_token.enable_propagation();
+
+                auto is_seg_expired_fn = [that](size_t seg_idx) {
+                    constexpr std::chrono::system_clock::time_point zero_tp{};
+                    return that->m_danmaku_segs[seg_idx].last_update_tp == zero_tp;
+                };
+                auto weak_store = util::winrt::make_weak_storage(*that);
+                auto client = ::BiliUWP::App::get()->bili_client();
+                // TODO: Get total danmaku segments count first
+                if (that->m_danmaku_segs.empty()) {
+                    that->m_danmaku_segs.resize(1);
+                }
+                if (!is_seg_expired_fn(seg_idx)) { co_return; }
+                auto result = co_await weak_store.ual(client->danmaku_normal_list(
+                    that->m_danmaku_cid, that->m_danmaku_avid, seg_idx + 1));
+                auto& dm_elems = result.elems;
+                util::winrt::check_cancellation(cancellation_token);
+                // TODO: Adjust danmaku load & display logic
+                auto dm_collection = that->m_video_danmaku_ctrl.Danmaku();
+                dm_collection.ClearAll();
+                {
+                    std::vector<VideoDanmakuNormalItem> dm_normal_items;
+                    dm_normal_items.reserve(dm_elems.size());
+                    std::transform(dm_elems.begin(), dm_elems.end(),
+                        std::back_inserter(dm_normal_items),
+                        [](::BiliUWP::DanmakuNormalList_DanmakuElement const& dm) {
+                            VideoDanmakuNormalItem item;
+                            item.id = dm.id;
+                            item.appear_time = dm.progress;
+                            item.mode = VideoDanmakuDisplayMode::Scroll;
+                            item.font_size = static_cast<float>(dm.font_size);
+                            item.color = Colors::White();
+                            item.content = dm.content;
+                            return item;
+                        }
+                    );
+                    dm_collection.AddManyNormal(dm_normal_items);
+                }
+                that->m_danmaku_segs[seg_idx].last_update_tp = std::chrono::system_clock::now();
+            }, this, segment_idx);
+        }
+    }
+    void MediaPlayPage::UpdateVideoDanmakuControlState(void) {
+        bool ctrl_should_exist{}, should_link_danmaku{};
+        auto sess = util::winrt::try_get_media_playback_session(MediaPlayerElem().MediaPlayer());
+        if (sess && m_danmaku_enabled && (m_danmaku_cid != 0 && m_danmaku_avid != 0)) {
+            should_link_danmaku = true;
+        }
+        if (should_link_danmaku || m_custom_presenter_active) {
+            ctrl_should_exist = true;
+        }
+
+        if (ctrl_should_exist) {
+            if (!m_video_danmaku_ctrl) {
+                m_video_danmaku_ctrl = BiliUWP::VideoDanmakuControl();
+                MTCMiddleLayerGrid().Children().InsertAt(0, m_video_danmaku_ctrl);
+            }
+        }
+        if (should_link_danmaku) {
+            // Assuming m_video_danmaku_ctrl exists
+            if (m_danmaku_media_play_sess != sess) {
+                auto handler = [ctrl = m_video_danmaku_ctrl](MediaPlaybackSession const& session, IInspectable const&) {
+                    auto state = session.PlaybackState();
+                    if (state == MediaPlaybackState::Playing) {
+                        ctrl.Start();
+                        ctrl.UpdateCurrentTime(session.Position());
+                    }
+                    else {
+                        ctrl.Pause();
+                    }
+                };
+                sess.PlaybackStateChanged(handler);
+                handler(sess, nullptr);
+                sess.PositionChanged([ctrl = m_video_danmaku_ctrl](MediaPlaybackSession const& session, auto&&) {
+                    ctrl.UpdateCurrentTime(session.Position());
+                });
+                // TODO: Adjust danmaku load logic
+                QueueLoadDanmakuFromTimestamp(0);
+                m_danmaku_media_play_sess = sess;
+            }
+            m_video_danmaku_ctrl.IsDanmakuVisible(true);
+            m_video_danmaku_ctrl.Visibility(Visibility::Visible);
+        }
+        else {
+            if (m_video_danmaku_ctrl) {
+                m_video_danmaku_ctrl.IsDanmakuVisible(false);
+                if (!ctrl_should_exist) {
+                    m_video_danmaku_ctrl.Visibility(Visibility::Collapsed);
+                }
             }
         }
     }

@@ -43,9 +43,20 @@
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
         -->
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="MTCDanmakuSwitchButtonStates">
+                <VisualState x:Name="MTCDanmakuSwitchButtonDisabled"/>
+                <VisualState x:Name="MTCDanmakuSwitchButtonEnabled">
+                    <VisualState.Setters>
+                        <Setter Target="MTCDanmakuSwitchButtonOnIcon.Visibility" Value="Visible"/>
+                        <Setter Target="MTCDanmakuSwitchButtonOffIcon.Visibility" Value="Collapsed"/>
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+        
         <Grid x:Name="MediaPlayerPane" Grid.Column="0">
-            <local:CustomMediaPlayerElement x:Name="MediaPlayerElem"
-                                AutoPlay="True">
+            <local:CustomMediaPlayerElement x:Name="MediaPlayerElem">
                 <local:CustomMediaPlayerElement.ContextFlyout>
                     <MenuFlyout>
                         <ToggleMenuFlyoutItem x:Uid="App/Menu/MediaPlayer/ShowTransportControls" IsChecked="{x:Bind MediaPlayerElem.AreTransportControlsEnabled,Mode=TwoWay}"/>
@@ -58,10 +69,15 @@
                                                         IsCompactOverlayButtonVisible="True" IsCompactOverlayEnabled="True">
                         <local:CustomMediaTransportControls.AdditionalItems>
                             <!-- TODO: Refine items -->
-                            <AppBarButton x:Uid="App/Page/MediaPlayPage/MTCDanmakuSwitchButton" x:Name="MTCDanmakuSwitchButton" local:CustomMediaTransportControlsHelper.InsertBefore="LeftSeparator">
-                                <AppBarButton.Icon>
-                                    <IconSourceElement IconSource="{StaticResource DanmakuOffIconSource}" Margin="0,-2,0,1.5"/>
-                                </AppBarButton.Icon>
+                            <AppBarButton x:Uid="App/Page/MediaPlayPage/MTCDanmakuSwitchButton" x:Name="MTCDanmakuSwitchButtonOn"
+                                          local:CustomMediaTransportControlsHelper.InsertBefore="LeftSeparator"
+                                          Click="MTCDanmakuSwitchButton_Click">
+                                <AppBarButton.Content>
+                                    <Grid>
+                                        <IconSourceElement x:Name="MTCDanmakuSwitchButtonOnIcon" IconSource="{StaticResource DanmakuOnIconSource}" Margin="0,-2,0,1.5" Visibility="Collapsed"/>
+                                        <IconSourceElement x:Name="MTCDanmakuSwitchButtonOffIcon" IconSource="{StaticResource DanmakuOffIconSource}" Margin="0,-2,0,1.5"/>
+                                    </Grid>
+                                </AppBarButton.Content>
                             </AppBarButton>
                             <MenuFlyoutSubItem x:Uid="App/Page/MediaPlayPage/MTCStreamSelectionMenu" x:Name="MTCStreamSelectionMenu" local:CustomMediaTransportControlsHelper.InsertBefore="ZoomMenuItem">
                                 <MenuFlyoutSubItem.Icon>
@@ -78,7 +94,7 @@
                     </local:CustomMediaTransportControls>
                 </local:CustomMediaPlayerElement.TransportControls>
                 <local:CustomMediaPlayerElement.MiddleLayerContent>
-                    <Grid>
+                    <Grid x:Name="MTCMiddleLayerGrid">
                         <local:SimpleStateIndicator x:Name="MediaPlayerStateOverlay"/>
                         <Grid x:Name="MediaDetailedStatsOverlay" ColumnSpacing="10" RowSpacing="2" Background="#99000000" Margin="10,10,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" CornerRadius="4" Padding="8,6" Visibility="Collapsed">
                             <Grid.Resources>
@@ -100,8 +116,7 @@
         <local:CustomPivot x:Name="MediaSidebar" Grid.Column="1" Width="300">
             <PivotItem x:Uid="App/Page/MediaPlayPage/Sidebar/Details">
                 <Grid>
-                    <ScrollViewer IsScrollInertiaEnabled="True"
-                      VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer IsScrollInertiaEnabled="True" VerticalScrollBarVisibility="Auto">
                         <StackPanel Orientation="Vertical" Spacing="5" Padding="10,8,10,8">
                             <!--
                             <Image Source="{x:Bind MediaCoverImageUrl}" CanDrag="True"/>

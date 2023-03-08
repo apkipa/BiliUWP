@@ -462,7 +462,9 @@ namespace util {
     }
 
     namespace win32 {
-        // TODO...
+        void set_thread_name(const wchar_t* name) {
+            SetThreadDescription(GetCurrentThread(), name);
+        }
     }
 
     namespace winrt {

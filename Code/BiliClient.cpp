@@ -3,6 +3,8 @@
 #include "BiliClient.hpp"
 #include "json.h"
 
+#include "Protos/bilibili/community/service/dm/v1/dm.pb.h"
+
 namespace BiliUWP {
     bool try_check_api_code(ApiCode code) {
         return code == ApiCode::Success;
@@ -34,6 +36,15 @@ namespace BiliUWP {
                 throw BiliApiUpstreamException(code, winrt::to_string(jv.GetString()));
             }
         }
+    }
+
+    template<typename T>
+    auto parse_proto_obj(winrt::Windows::Storage::Streams::IBuffer const& buf, std::string_view obj_name) {
+        T proto_obj;
+        if (!proto_obj.ParseFromArray(buf.data(), buf.Length())) {
+            throw BiliApiParseException(BiliApiParseException::proto_parse_failure, buf, obj_name);
+        }
+        return proto_obj;
     }
 
     struct JsonObjectVisitor;
@@ -1934,5 +1945,44 @@ namespace BiliUWP {
         }, "data");
 
         co_return result;
+    }
+
+    // Danmaku information
+    util::winrt::task<DanmakuNormalListResult> BiliClient::danmaku_normal_list(
+        uint64_t cid, uint64_t avid, uint32_t segment_index
+    ) {
+        DanmakuNormalListResult result;
+
+        auto cancellation_token = co_await winrt::get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        auto buf = co_await m_bili_client.api_api_x_v2_dm_web_seg_so(1, cid, avid, segment_index);
+        util::debug::log_trace(L"Parsing protobuf...");
+        auto proto = parse_proto_obj<bilibili::community::service::dm::v1::DmSegMobileReply>(buf, "DmSegMobileReply");
+        result.elems.reserve(proto.elems().size());
+        std::transform(proto.elems().begin(), proto.elems().end(), std::back_inserter(result.elems),
+            [](bilibili::community::service::dm::v1::DanmakuElem const& proto) {
+                DanmakuNormalList_DanmakuElement result;
+                result.id = proto.id();
+                result.progress = proto.progress();
+                result.mode = proto.mode();
+                result.font_size = proto.fontsize();
+                result.color = proto.color();
+                result.mid_hash = winrt::to_hstring(proto.midhash());
+                result.content = winrt::to_hstring(proto.content());
+                result.ctime = proto.ctime();
+                result.weight = proto.weight();
+                result.action = winrt::to_hstring(proto.action());
+                result.pool = proto.pool();
+                return result;
+            }
+        );
+
+        co_return result;
+    }
+    util::winrt::task<DanmakuWebViewInfoResult> BiliClient::danmaku_web_view_info(
+        uint64_t cid, uint64_t avid
+    ) {
+        throw winrt::hresult_not_implemented();
     }
 }

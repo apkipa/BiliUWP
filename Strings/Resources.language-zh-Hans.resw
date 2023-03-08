@@ -268,7 +268,7 @@
     <value>切换弹幕开关</value>
   </data>
   <data name="App.Page.MediaPlayPage.MTCStreamSelectionMenu.Text" xml:space="preserve">
-    <value>画质</value>
+    <value>串流质量</value>
   </data>
   <data name="App.Page.MediaPlayPage.Sidebar.Comments.Header" xml:space="preserve">
     <value>评论</value>

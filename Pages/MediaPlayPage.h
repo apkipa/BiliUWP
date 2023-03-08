@@ -86,6 +86,10 @@ namespace winrt::BiliUWP::implementation {
             Windows::Foundation::IInspectable const& sender,
             Windows::UI::Xaml::Input::RightTappedRoutedEventArgs const& e
         );
+        void MTCDanmakuSwitchButton_Click(
+            Windows::Foundation::IInspectable const&,
+            Windows::UI::Xaml::RoutedEventArgs const&
+        );
 
         hstring MediaTitle() {
             if (auto p = std::get_if<::BiliUWP::VideoViewInfoResult>(&m_media_info)) {
@@ -211,11 +215,18 @@ namespace winrt::BiliUWP::implementation {
         void SubmitMediaPlaybackSourceToNativePlayer(
             Windows::Media::Playback::IMediaPlaybackSource const& source,
             Windows::UI::Xaml::Media::ImageSource const& poster_source = nullptr,
-            std::shared_ptr<DetailedStatsProvider> ds_provider = nullptr
+            std::shared_ptr<DetailedStatsProvider> ds_provider = nullptr,
+            bool enable_custom_presenter = false
         );
         void TriggerMediaDetailedStatsUpdate(void);
         void EstablishMediaPlayerVolumeTwoWayBinding(Windows::Media::Playback::MediaPlayer const& player);
         void SwitchMediaPlayPause();
+
+        // NOTE: Currently only video danmaku source is supported
+        void SetDanmakuSource(uint64_t cid, uint64_t avid);
+        // NOTE: You don't call this method directly; it's for internal use
+        void QueueLoadDanmakuFromTimestamp(uint32_t sec);
+        void UpdateVideoDanmakuControlState(void);
 
         BiliUWP::AppCfgModel m_cfg_model;
 
@@ -223,7 +234,6 @@ namespace winrt::BiliUWP::implementation {
         Windows::Web::Http::HttpClient m_http_client, m_http_client_m;
 
         util::winrt::async_storage m_cur_async;
-        util::winrt::async_storage m_async_danmaku;
 
         bool m_bili_res_is_ready;
 
@@ -239,8 +249,21 @@ namespace winrt::BiliUWP::implementation {
         std::shared_ptr<DetailedStatsProvider> m_detailed_stats_provider;
 
         // One-time flag to save a HTTP request and speed up 1p video playing
-        // TODO: Use m_use_1p_data
+        // TODO: Use m_use_1p_data -> (more general) m_is_stream_fresh
         bool m_use_1p_data;
+
+        bool m_danmaku_enabled{ false };
+        bool m_custom_presenter_active{ false };
+        BiliUWP::VideoDanmakuControl m_video_danmaku_ctrl{ nullptr };
+        util::winrt::async_storage m_async_danmaku;
+        struct DanmakuSegmentInfo {
+            std::chrono::system_clock::time_point last_update_tp;
+            std::vector<::BiliUWP::DanmakuNormalList_DanmakuElement> elems;
+        };
+        std::vector<DanmakuSegmentInfo> m_danmaku_segs;
+        uint64_t m_danmaku_cid{}, m_danmaku_avid{};
+        // TODO: Remove this
+        Windows::Media::Playback::MediaPlaybackSession m_danmaku_media_play_sess{ nullptr };
     };
 }
 

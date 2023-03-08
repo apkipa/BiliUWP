@@ -189,5 +189,20 @@ namespace BiliUWP {
             String keyword,         // Optional
             ApiParam_FavResSortOrder order
         );
+
+        // Danmaku information
+        //   https://api.bilibili.com/x/v2/dm/web/seg.so | cookies [Protobuf]
+        Windows.Foundation.IAsyncOperation<Windows.Storage.Streams.IBuffer> api_api_x_v2_dm_web_seg_so(
+            UInt32 type,
+            UInt64 cid,
+            UInt64 avid,
+            UInt32 segment_index    // Starts from 1
+        );
+        //   https://api.bilibili.com/x/v2/dm/web/seg.so | cookies [Protobuf]
+        Windows.Foundation.IAsyncOperation<Windows.Storage.Streams.IBuffer> api_api_x_v2_dm_web_view(
+            UInt32 type,
+            UInt64 cid,
+            UInt64 avid
+        );
     }
 }

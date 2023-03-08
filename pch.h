@@ -50,6 +50,7 @@
 #include <winrt/Windows.Security.Cryptography.h>
 #include <winrt/Windows.System.h>
 #include <winrt/Windows.System.Profile.h>
+#include <winrt/Windows.System.Threading.h>
 #include <winrt/Windows.Media.Core.h>
 #include <winrt/Windows.Media.Casting.h>
 #include <winrt/Windows.Media.Playback.h>

@@ -1,0 +1,77 @@
+namespace BiliUWP {
+    // TODO: Finish VideoDanmaku & clear all comments
+
+    enum VideoDanmakuDisplayMode {
+        Scroll = 1,
+        Bottom = 4,
+        Top = 5,
+        ReverseScroll = 6,
+    };
+
+    struct VideoDanmakuNormalItem {
+        UInt64 id;
+        UInt64 appear_time;         // Unit: ms
+        VideoDanmakuDisplayMode mode;
+        Single font_size;
+        Windows.UI.Color color;
+        String content;
+    };
+    struct VideoDanmakuAdvancedItem {
+        Int32 unused;
+    };
+    // TODO: Merge with VideoDanmakuCodeItem? Investigate further
+    struct VideoDanmakuBasItem {
+        Int32 unused;
+    };
+    struct VideoDanmakuItemWithVisibility {
+        UInt64 Id;
+        Boolean IsVisible;
+    };
+
+    delegate Boolean VideoDanmakuPopulateD3DSurfaceDelegate(Windows.Graphics.DirectX.Direct3D11.IDirect3DSurface surface);
+
+    // NOTE: VideoDanmakuControl may sort the items internally, and the order
+    //       of items will not be retained
+    runtimeclass VideoDanmakuCollection {
+        void AddManyNormal(VideoDanmakuNormalItem[] items);
+        //void AddManyAdvanced(VideoDanmakuAdvancedItem[] items);
+        //void AddManyBas(VideoDanmakuBasItem[] items);
+        UInt32 GetManyNormal(UInt32 startIndex, ref VideoDanmakuNormalItem[] items);
+        void RemoveMany(UInt64[] itemIds);
+        void UpdateManyVisibility(VideoDanmakuItemWithVisibility[] items);
+        void ClearAll();
+    };
+
+    // NOTE: To keep control running without rendering, simply set VideoDanmakuControl.Visibility = Collapsed
+    [default_interface]
+    runtimeclass VideoDanmakuControl : Windows.UI.Xaml.Controls.UserControl {
+        VideoDanmakuControl();
+
+        VideoDanmakuCollection Danmaku{ get; };
+        Boolean IsDanmakuVisible;
+        // TODO: VideoDanmakuControl danmaku masks
+        //void SetDanmakuMasks(MaskWithTimestamp???[] masks);
+        Boolean IsRunning{ get; };
+        // NOTE: Avoid calling these methods when control is associated with a MediaTimelineController
+        void Start();   // Starts or resumes danmaku playback
+        void Pause();
+        // NOTE: If continueDanmakuRunning is true, control will stop further danmaku appearing while
+        //       continuing onscreen danmaku until they disappear. Otherwise all danmaku will be
+        //       immediately cleared.
+        void Stop(Boolean continueDanmakuRunning);
+        // NOTE: You should call this method periodically to make sure danmaku is in sync with video
+        void UpdateCurrentTime(Windows.Foundation.TimeSpan time);
+        // NOTE: To break the association, call this method with null parameter
+        void SetAssociatedMediaTimelineController(Windows.Media.MediaTimelineController controller);
+        Windows.Media.MediaTimelineController GetAssociatedMediaTimelineController();
+        // NOTE: If you set the handler, control will call the handler to get a opaque background.
+        //       Otherwise control will use a transparent background.
+        // NOTE: The control is by default reactive: you must manually notify control to update background
+        // TODO: Investigate how to switch between proactive / reactive mode
+        void SetBackgroundPopulator(VideoDanmakuPopulateD3DSurfaceDelegate handler, Boolean isProactive);
+        // Requests a new background to be fetched
+        void TriggerBackgroundUpdate();
+
+        // TODO: Add support for danmaku item interaction callback
+    };
+}

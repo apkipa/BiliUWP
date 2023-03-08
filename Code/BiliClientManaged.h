@@ -6,6 +6,7 @@
 namespace winrt::BiliUWP::implementation {
     struct BiliClientManaged : BiliClientManagedT<BiliClientManaged> {
         using AsyncJsonObjectResult = Windows::Foundation::IAsyncOperation<Windows::Data::Json::JsonObject>;
+        using AsyncIBufferResult = Windows::Foundation::IAsyncOperation<Windows::Storage::Streams::IBuffer>;
 
         BiliClientManaged();
 
@@ -108,6 +109,20 @@ namespace winrt::BiliUWP::implementation {
             hstring keyword,
             BiliUWP::ApiParam_FavResSortOrder order
         );
+
+        // Danmaku information
+        AsyncIBufferResult api_api_x_v2_dm_web_seg_so(
+            uint32_t type,
+            uint64_t cid,
+            uint64_t avid,
+            uint32_t segment_index
+        );
+        AsyncIBufferResult api_api_x_v2_dm_web_view(
+            uint32_t type,
+            uint64_t cid,
+            uint64_t avid
+        );
+
     private:
         Windows::Web::Http::Filters::HttpBaseProtocolFilter m_http_filter;
         Windows::Web::Http::HttpClient m_http_client;

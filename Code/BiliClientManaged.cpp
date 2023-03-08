@@ -116,6 +116,7 @@ namespace winrt::BiliUWP::implementation {
     using namespace Windows::Data::Json;
 
     using AsyncJsonObjectResult = BiliClientManaged::AsyncJsonObjectResult;
+    using AsyncIBufferResult = BiliClientManaged::AsyncIBufferResult;
 
     BiliClientManaged::BiliClientManaged() :
         // TODO: Can m_http_client be initialized with m_http_filter here?
@@ -750,6 +751,60 @@ namespace winrt::BiliUWP::implementation {
         util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         http_client_safe_invoke_begin;
         co_return JsonObject::Parse(co_await m_http_client.GetStringAsync(uri));
+        http_client_safe_invoke_end;
+    }
+
+    // Danmaku information
+    AsyncIBufferResult BiliClientManaged::api_api_x_v2_dm_web_seg_so(
+        uint32_t type,
+        uint64_t cid,
+        uint64_t avid,
+        uint32_t segment_index
+    ) {
+        ApiParamMaker param_maker;
+
+        auto cancellation_token = co_await get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        param_maker.add_param(L"type", to_hstring(type));
+        param_maker.add_param(L"oid", to_hstring(cid));
+        if (avid != 0) {
+            param_maker.add_param(L"pid", to_hstring(avid));
+        }
+        param_maker.add_param(L"segment_index", to_hstring(segment_index));
+        auto uri = make_uri(
+            L"https://api.bilibili.com",
+            L"/x/v2/dm/web/seg.so",
+            param_maker.get_as_str()
+        );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
+        http_client_safe_invoke_begin;
+        co_return co_await m_http_client.GetBufferAsync(uri);
+        http_client_safe_invoke_end;
+    }
+    AsyncIBufferResult BiliClientManaged::api_api_x_v2_dm_web_view(
+        uint32_t type,
+        uint64_t cid,
+        uint64_t avid
+    ) {
+        ApiParamMaker param_maker;
+
+        auto cancellation_token = co_await get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        param_maker.add_param(L"type", to_hstring(type));
+        param_maker.add_param(L"oid", to_hstring(cid));
+        if (avid != 0) {
+            param_maker.add_param(L"pid", to_hstring(avid));
+        }
+        auto uri = make_uri(
+            L"https://api.bilibili.com",
+            L"/x/v2/dm/web/view",
+            param_maker.get_as_str()
+        );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
+        http_client_safe_invoke_begin;
+        co_return co_await m_http_client.GetBufferAsync(uri);
         http_client_safe_invoke_end;
     }
 }

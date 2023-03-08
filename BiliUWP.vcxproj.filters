@@ -73,6 +73,9 @@
     <ClCompile Include="Code\HttpCache.cpp">
       <Filter>Code</Filter>
     </ClCompile>
+    <ClCompile Include="Protos\src.cpp">
+      <Filter>Protos</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -214,6 +217,9 @@
       <Filter>Controls</Filter>
     </Page>
     <Page Include="Controls\CustomMediaTransportControls.xaml">
+      <Filter>Controls</Filter>
+    </Page>
+    <Page Include="Controls\VideoDanmakuControl.xaml">
       <Filter>Controls</Filter>
     </Page>
   </ItemGroup>
