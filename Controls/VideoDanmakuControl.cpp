@@ -13,6 +13,8 @@
 #include <Microsoft.Graphics.Canvas.native.h>
 #include <windows.ui.xaml.media.dxinterop.h>
 
+// NOTE: Some code are adapted from Win2D
+
 namespace winrt {
     using namespace Windows::Foundation;
     using namespace Windows::UI::Core;
@@ -90,23 +92,195 @@ namespace winrt::BiliUWP::implementation {
         ));
     }
 
+    com_ptr<ID2D1GeometryGroup> create_text_geometry(
+        com_ptr<ID2D1Factory3> const& d2d1_factory,
+        com_ptr<IDWriteTextLayout3> const& txt_layout
+    ) {
+        struct DWriteText2GeometryRenderer : implements<DWriteText2GeometryRenderer, IDWriteTextRenderer> {
+            struct RenderResult {
+                com_ptr<ID2D1GeometryGroup> geom_group;
+                // TODO: color glyph info
+                bool has_color_glyph;
+            };
+
+            DWriteText2GeometryRenderer(ID2D1Factory3* d2d1_factory) : m_d2d1_factory(d2d1_factory) {}
+            ~DWriteText2GeometryRenderer() {
+                ClearStoredGeometries();
+            }
+
+            void BeginRender() {
+                ClearStoredGeometries();
+            }
+            RenderResult EndRender() {
+                RenderResult result{};
+                HRESULT hr;
+                com_ptr<ID2D1GeometryGroup> geometry_group;
+                hr = m_d2d1_factory->CreateGeometryGroup(
+                    D2D1_FILL_MODE_ALTERNATE,
+                    m_geometries.data(),
+                    static_cast<UINT32>(m_geometries.size()),
+                    geometry_group.put()
+                );
+                ClearStoredGeometries();
+                check_hresult(hr);
+                result.geom_group = std::move(geometry_group);
+                return result;
+            }
+
+            // IDWritePixelSnapping
+            IFACEMETHODIMP IsPixelSnappingDisabled(
+                void*,
+                BOOL* isDisabled
+            ) noexcept {
+                *isDisabled = TRUE;
+                return S_OK;
+            }
+            IFACEMETHODIMP GetCurrentTransform(
+                void*,
+                DWRITE_MATRIX* transform
+            ) noexcept {
+                constexpr DWRITE_MATRIX mat_identity{
+                    1.f, 0.f,
+                    0.f, 1.f,
+                    0.f, 0.f,
+                };
+                *transform = mat_identity;
+                return S_OK;
+            }
+            IFACEMETHODIMP GetPixelsPerDip(
+                void*,
+                FLOAT* pixelsPerDip
+            ) noexcept {
+                *pixelsPerDip = 1;
+                return S_OK;
+            }
+
+            // IDWriteTextRenderer
+            IFACEMETHODIMP DrawGlyphRun(
+                void* clientDrawingContext,
+                FLOAT baselineOriginX,
+                FLOAT baselineOriginY,
+                DWRITE_MEASURING_MODE measuringMode,
+                DWRITE_GLYPH_RUN const* glyphRun,
+                DWRITE_GLYPH_RUN_DESCRIPTION const* glyphRunDescription,
+                IUnknown* clientDrawingEffect
+            ) noexcept {
+                return util::winrt::exception_boundary([&] {
+                    static auto text_analyzer = [] {
+                        auto& dwrite_factory = get_global_dwrite_factory();
+                        com_ptr<IDWriteTextAnalyzer> txt_analyzer;
+                        check_hresult(dwrite_factory->CreateTextAnalyzer(txt_analyzer.put()));
+                        return txt_analyzer.as<IDWriteTextAnalyzer1>();
+                    }();
+                    com_ptr<ID2D1PathGeometry> path_geometry;
+                    check_hresult(m_d2d1_factory->CreatePathGeometry(
+                        path_geometry.put()
+                    ));
+                    com_ptr<ID2D1GeometrySink> geometry_sink;
+                    check_hresult(path_geometry->Open(geometry_sink.put()));
+                    check_hresult(glyphRun->fontFace->GetGlyphRunOutline(
+                        glyphRun->fontEmSize,
+                        glyphRun->glyphIndices,
+                        glyphRun->glyphAdvances,
+                        glyphRun->glyphOffsets,
+                        glyphRun->glyphCount,
+                        glyphRun->isSideways,
+                        glyphRun->bidiLevel % 2,
+                        geometry_sink.get()
+                    ));
+                    check_hresult(geometry_sink->Close());
+                    DWRITE_MATRIX transform_matrix;
+                    check_hresult(text_analyzer->GetGlyphOrientationTransform(
+                        DWRITE_GLYPH_ORIENTATION_ANGLE_0_DEGREES,
+                        glyphRun->isSideways,
+                        &transform_matrix
+                    ));
+                    transform_matrix.dx = baselineOriginX;
+                    transform_matrix.dy = baselineOriginY;
+                    D2D1_MATRIX_3X2_F d2d1_mat{
+                        transform_matrix.m11, transform_matrix.m12,
+                        transform_matrix.m21, transform_matrix.m22,
+                        transform_matrix.dx, transform_matrix.dy,
+                    };
+                    com_ptr<ID2D1TransformedGeometry> transformed_geometry;
+                    check_hresult(m_d2d1_factory->CreateTransformedGeometry(
+                        path_geometry.get(),
+                        d2d1_mat,
+                        transformed_geometry.put()
+                    ));
+                    m_geometries.push_back(transformed_geometry.get());
+                    transformed_geometry.detach();
+                });
+            }
+            IFACEMETHODIMP DrawUnderline(
+                void* clientDrawingContext,
+                FLOAT baselineOriginX,
+                FLOAT baselineOriginY,
+                DWRITE_UNDERLINE const* underline,
+                IUnknown* clientDrawingEffect
+            ) noexcept {
+                return E_NOTIMPL;
+            }
+            IFACEMETHODIMP DrawStrikethrough(
+                void* clientDrawingContext,
+                FLOAT baselineOriginX,
+                FLOAT baselineOriginY,
+                DWRITE_STRIKETHROUGH const* strikethrough,
+                IUnknown* clientDrawingEffect
+            ) noexcept {
+                return E_NOTIMPL;
+            }
+            IFACEMETHODIMP DrawInlineObject(
+                void*,
+                FLOAT originX,
+                FLOAT originY,
+                IDWriteInlineObject* inlineObject,
+                BOOL isSideways,
+                BOOL isRightToLeft,
+                IUnknown* brush
+            ) noexcept {
+                return E_NOTIMPL;
+            }
+
+        private:
+            ID2D1Factory3* const m_d2d1_factory;
+            std::vector<ID2D1Geometry*> m_geometries;
+            bool m_has_color_glyph;
+
+            void ClearStoredGeometries(void) {
+                for (auto i : m_geometries) {
+                    i->Release();
+                }
+                m_geometries.clear();
+            }
+        };
+        auto renderer = make_self<DWriteText2GeometryRenderer>(d2d1_factory.get());
+        renderer->BeginRender();
+        check_hresult(txt_layout->Draw(nullptr, renderer.get(), 0, 0));
+        return renderer->EndRender().geom_group;
+    }
+
     struct VideoDanmakuControl_SharedData : std::enable_shared_from_this<VideoDanmakuControl_SharedData> {
         VideoDanmakuControl_SharedData() : danmaku(make_self<VideoDanmakuCollection>()) {}
 
         // NOTE: No lock
-        auto get_text_format(hstring const& font_family, float font_size) {
+        auto get_text_format(
+            hstring const& font_family,
+            float font_size,
+            DWRITE_FONT_WEIGHT font_weight = DWRITE_FONT_WEIGHT_REGULAR
+        ) {
             auto& dwrite_factory = get_global_dwrite_factory();
-            auto& txt_fmt = txt_fmt_map[{ font_family, font_size }];
+            auto& txt_fmt = txt_fmt_map[{ font_family, font_size, font_weight }];
             if (!txt_fmt) {
                 com_ptr<IDWriteTextFormat> base_txt_fmt;
                 check_hresult(dwrite_factory->CreateTextFormat(
                     font_family.c_str(),
                     nullptr,
-                    DWRITE_FONT_WEIGHT_REGULAR,
+                    font_weight,
                     DWRITE_FONT_STYLE_NORMAL,
                     DWRITE_FONT_STRETCH_NORMAL,
                     font_size,
-                    L"",
+                    L"zh-CN",
                     base_txt_fmt.put()
                 ));
                 base_txt_fmt.as(txt_fmt);
@@ -134,13 +308,14 @@ namespace winrt::BiliUWP::implementation {
         IAsyncAction thread_task{ nullptr };
         std::atomic_bool thread_running{ false };
         com_ptr<IDXGISwapChain2> swapchain{ nullptr };
+        com_ptr<ID2D1Factory3> d2d1_factory{ nullptr };
         com_ptr<ID2D1Device2> d2d1_dev{ nullptr };
         com_ptr<ID2D1DeviceContext3> d2d1_dev_ctx{ nullptr };
         winrt::Windows::UI::Xaml::Controls::SwapChainPanel swapchain_panel{ nullptr };
         // NOTE: Data below are protected with mutex
         std::mutex mutex;
         // (FontFamily, FontSize) => TextFormat
-        std::map<std::tuple<hstring, float>, com_ptr<IDWriteTextFormat1>> txt_fmt_map;
+        std::map<std::tuple<hstring, float, DWRITE_FONT_WEIGHT>, com_ptr<IDWriteTextFormat1>> txt_fmt_map;
         bool use_transparent_swapchain{ true };
         bool should_recreate_swapchain{ true };
         bool should_resize_swapchain{ false };
@@ -157,8 +332,9 @@ namespace winrt::BiliUWP::implementation {
         VideoDanmakuNormalItemContainer(BiliUWP::VideoDanmakuNormalItem const& in_data) :
             data(in_data) {}
         BiliUWP::VideoDanmakuNormalItem data;
-        com_ptr<IDWriteTextFormat1> m_txt_format;
-        com_ptr<IDWriteTextLayout3> m_txt_layout;
+        com_ptr<IDWriteTextLayout3> txt_layout;
+        com_ptr<ID2D1GeometryGroup> geom;
+        float width, height;
     };
 
     VideoDanmakuCollection::VideoDanmakuCollection() {}
@@ -210,6 +386,7 @@ namespace winrt::BiliUWP::implementation {
         m_shared_data->last_tp = {};
         m_shared_data->swapchain_panel = RootSwapChainPanel();
         // TODO: Remember to lock Win2D CanvasDevice before performing Direct2D operations
+        // TODO: Maybe completely remove reference to Win2D by managing internal shared device
         // TODO: Register event handler
         // TODO: Call ID2D1Device::ClearResources when suspending
         m_shared_data->swapchain_panel_width = 1;
@@ -286,6 +463,7 @@ namespace winrt::BiliUWP::implementation {
             util::win32::set_thread_name(L"VideoDanmakuControl Render Thread");
             shared_data->thread_running.wait(false);
             try {
+                auto& dwrite_factory = get_global_dwrite_factory();
                 while (true) {
                     if (work_item.Status() == AsyncStatus::Canceled) { break; }
 
@@ -320,6 +498,7 @@ namespace winrt::BiliUWP::implementation {
                                 if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET) {
                                     // Failed to resize; reset resources and restart
                                     shared_data->swapchain = nullptr;
+                                    shared_data->d2d1_factory = nullptr;
                                     shared_data->d2d1_dev = nullptr;
                                     shared_data->d2d1_dev_ctx = nullptr;
                                     continue;
@@ -377,6 +556,11 @@ namespace winrt::BiliUWP::implementation {
                             shared_data->d2d1_dev_ctx->SetDpi(dpi_x, dpi_y);
                             shared_data->d2d1_dev_ctx->SetTarget(d2d1_bmp.get());
                         }
+                        if (!shared_data->d2d1_factory) {
+                            com_ptr<ID2D1Factory> factory;
+                            shared_data->d2d1_dev->GetFactory(factory.put());
+                            factory.as(shared_data->d2d1_factory);
+                        }
 
                         // TODO: Draw
                         shared_data->should_redraw.store(false);
@@ -395,15 +579,43 @@ namespace winrt::BiliUWP::implementation {
 
                             //d2d1_dev_ctx->Clear(D2D1::ColorF(0.5f, 0.0f, 0.0f, 0.5f));
                             d2d1_dev_ctx->Clear();
-                            com_ptr<ID2D1SolidColorBrush> solid_brush;
+                            com_ptr<ID2D1SolidColorBrush> white_solid_brush;
                             check_hresult(d2d1_dev_ctx->CreateSolidColorBrush(
-                                D2D1::ColorF(D2D1::ColorF::White), solid_brush.put()));
+                                D2D1::ColorF(D2D1::ColorF::White), white_solid_brush.put()));
+                            com_ptr<ID2D1SolidColorBrush> black_solid_brush;
+                            check_hresult(d2d1_dev_ctx->CreateSolidColorBrush(
+                                D2D1::ColorF(D2D1::ColorF::Black), black_solid_brush.put()));
                             float danmaku_scroll_speed = 200;
                             std::vector<uint32_t> slot_occupied_until(10);
                             for (size_t i = 0; i < shared_data->danmaku->m_normal_items.size(); i++) {
+                                // TODO: Correctly process colored glyphs
                                 auto& item = shared_data->danmaku->m_normal_items[i];
                                 if (item.data.appear_time > cur_p) { break; }
-                                if (!item.m_txt_layout) {
+                                if (!item.txt_layout) {
+                                    auto txt_fmt = shared_data->get_text_format(
+                                        L"Microsoft YaHei", item.data.font_size, DWRITE_FONT_WEIGHT_BOLD);
+                                    com_ptr<IDWriteTextLayout> base_txt_layout;
+                                    check_hresult(dwrite_factory->CreateTextLayout(
+                                        item.data.content.c_str(),
+                                        item.data.content.size(),
+                                        txt_fmt.get(),
+                                        std::numeric_limits<float>::max(),
+                                        0,
+                                        base_txt_layout.put()
+                                    ));
+                                    base_txt_layout.as(item.txt_layout);
+                                    DWRITE_TEXT_METRICS1 txt_metrics;
+                                    check_hresult(item.txt_layout->GetMetrics(&txt_metrics));
+                                    item.width = txt_metrics.width;
+                                    item.height = txt_metrics.height;
+                                }
+                                if (!item.geom) {
+                                    item.geom = create_text_geometry(
+                                        shared_data->d2d1_factory,
+                                        item.txt_layout
+                                    );
+                                }
+                                /*if (!item.m_txt_layout) {
                                     if (!item.m_txt_format) {
                                         item.m_txt_format = shared_data->get_text_format(
                                             L"Microsoft YaHei", item.data.font_size);
@@ -419,14 +631,13 @@ namespace winrt::BiliUWP::implementation {
                                         base_txt_layout.put()
                                     );
                                     base_txt_layout.as(item.m_txt_layout);
-                                }
+                                }*/
                                 // TODO: Optimize performance (by caching bitmap?)
-                                // TODO: Let danmaku scroll
                                 D2D1_POINT_2F item_pt;
-                                DWRITE_TEXT_METRICS1 txt_metrics;
-                                check_hresult(item.m_txt_layout->GetMetrics(&txt_metrics));
-                                const float item_width = txt_metrics.width;
-                                const float item_height = txt_metrics.height;
+                                /*DWRITE_TEXT_METRICS1 txt_metrics;
+                                check_hresult(item.m_txt_layout->GetMetrics(&txt_metrics));*/
+                                const float item_width = item.width;
+                                const float item_height = item.height;
                                 item_pt.x = vp_width - (cur_p - item.data.appear_time) * danmaku_scroll_speed / 1000;
                                 auto item_end_time = item.data.appear_time +
                                     static_cast<uint32_t>(std::ceilf(item_width * 1000 / danmaku_scroll_speed));
@@ -449,15 +660,27 @@ namespace winrt::BiliUWP::implementation {
                                 if (item_pt.x + item_width < 0) {
                                     continue;
                                 }
-                                d2d1_dev_ctx->DrawTextLayout(
+                                /*d2d1_dev_ctx->DrawTextLayout(
                                     item_pt,
-                                    item.m_txt_layout.get(),
-                                    solid_brush.get(),
+                                    item.txt_layout.get(),
+                                    white_solid_brush.get(),
                                     D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT
+                                );*/
+                                d2d1_dev_ctx->SetTransform(
+                                    D2D1::Matrix3x2F::Translation({ item_pt.x, item_pt.y }));
+                                d2d1_dev_ctx->DrawGeometry(
+                                    item.geom.get(),
+                                    black_solid_brush.get(),
+                                    2.0f
+                                );
+                                d2d1_dev_ctx->FillGeometry(
+                                    item.geom.get(),
+                                    white_solid_brush.get()
                                 );
                             }
                             const bool debug_print_counter = true;
                             if constexpr (debug_print_counter) {
+                                d2d1_dev_ctx->SetTransform(D2D1::Matrix3x2F::Identity());
                                 static auto text_fmt = shared_data->get_text_format(L"Microsoft YaHei", 25);
                                 static int counter = 0;
                                 counter++;
@@ -467,7 +690,7 @@ namespace winrt::BiliUWP::implementation {
                                     buf.size(),
                                     text_fmt.get(),
                                     D2D1::RectF(0.0f, 30.0f, 500.0f, 300.0f),
-                                    solid_brush.get(),
+                                    white_solid_brush.get(),
                                     D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT
                                 );
                             }
@@ -480,6 +703,7 @@ namespace winrt::BiliUWP::implementation {
                     if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET) {
                         // Device has lost
                         shared_data->swapchain = nullptr;
+                        shared_data->d2d1_factory = nullptr;
                         shared_data->d2d1_dev = nullptr;
                         shared_data->d2d1_dev_ctx = nullptr;
                     }

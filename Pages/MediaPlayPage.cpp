@@ -2020,6 +2020,7 @@ namespace winrt::BiliUWP::implementation {
         UpdateVideoDanmakuControlState();
     }
     void MediaPlayPage::QueueLoadDanmakuFromTimestamp(uint32_t sec) {
+        if (m_danmaku_cid == 0 || m_danmaku_avid == 0) { return; }
         bool need_queue_task{};
         // NOTE: API danmaku segment size is 6min
         uint32_t segment_idx = sec / (6 * 60);
@@ -2107,7 +2108,8 @@ namespace winrt::BiliUWP::implementation {
                 sess.PlaybackStateChanged(handler);
                 handler(sess, nullptr);
                 sess.PositionChanged([ctrl = m_video_danmaku_ctrl](MediaPlaybackSession const& session, auto&&) {
-                    ctrl.UpdateCurrentTime(session.Position());
+                    auto sess_pos = session.Position();
+                    ctrl.UpdateCurrentTime(sess_pos);
                 });
                 // TODO: Adjust danmaku load logic
                 QueueLoadDanmakuFromTimestamp(0);

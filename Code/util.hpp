@@ -1685,6 +1685,15 @@ namespace util {
                 throw ::winrt::hresult_canceled(L"check_cancellation has detected an cancelled token");
             }
         }
+
+        template<typename Functor>
+        HRESULT exception_boundary(Functor&& functor) noexcept {
+            try { functor(); }
+            catch (::winrt::hresult_error const& e) { return e.code(); }
+            catch (std::bad_alloc const&) { return E_OUTOFMEMORY; }
+            catch (...) { return E_UNEXPECTED; }
+            return S_OK;
+        }
     }
 
     namespace sync {
