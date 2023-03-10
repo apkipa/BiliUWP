@@ -2063,9 +2063,21 @@ namespace winrt::BiliUWP::implementation {
                             VideoDanmakuNormalItem item;
                             item.id = dm.id;
                             item.appear_time = dm.progress;
-                            item.mode = VideoDanmakuDisplayMode::Scroll;
+                            switch (dm.mode) {
+                            default:
+                                [[fallthrough]];
+                            case 1:
+                                item.mode = VideoDanmakuDisplayMode::Scroll;
+                                break;
+                            case 4:
+                                item.mode = VideoDanmakuDisplayMode::Bottom;
+                                break;
+                            case 5:
+                                item.mode = VideoDanmakuDisplayMode::Top;
+                                break;
+                            }
                             item.font_size = static_cast<float>(dm.font_size);
-                            item.color = Colors::White();
+                            item.color = std::bit_cast<Color>(dm.color);
                             item.content = dm.content;
                             return item;
                         }

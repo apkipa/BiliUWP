@@ -34,6 +34,8 @@ namespace winrt::BiliUWP::implementation {
         void IsDanmakuVisible(bool value);
         bool IsDanmakuVisible();
         bool IsRunning();
+        void EnableDebugOutput(bool value);
+        bool EnableDebugOutput();
         void Start();
         void Pause();
         void Stop(bool continueDanmakuRunning);

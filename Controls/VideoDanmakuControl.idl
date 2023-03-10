@@ -52,6 +52,7 @@ namespace BiliUWP {
         // TODO: VideoDanmakuControl danmaku masks
         //void SetDanmakuMasks(MaskWithTimestamp???[] masks);
         Boolean IsRunning{ get; };
+        Boolean EnableDebugOutput;
         // NOTE: Avoid calling these methods when control is associated with a MediaTimelineController
         void Start();   // Starts or resumes danmaku playback
         void Pause();
