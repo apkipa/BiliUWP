@@ -31,6 +31,7 @@ using namespace Windows::UI::Composition;
 using namespace Windows::UI::Composition::Interactions;
 using ::BiliUWP::App::res_str;
 
+// TODO: Use correct semantics
 IAsyncOperation<Color> get_dominant_color_from_image_stream(
     Windows::Storage::Streams::IRandomAccessStream const& stream
 ) {
@@ -53,21 +54,6 @@ IAsyncOperation<Color> get_dominant_color_from_image_stream(
     );
     auto bytes = pixels.DetachPixelData();
     co_return ColorHelper::FromArgb(255, bytes[0], bytes[1], bytes[2]);
-}
-
-// Compliant with https://www.w3.org/TR/WCAG20
-Windows::UI::Color get_contrast_white_black(Windows::UI::Color background) {
-    // NOTE: Alpha values are ignored
-    using Windows::UI::Colors;
-    auto transform_fn = [](uint8_t c) {
-        double fc = c / 255.0;
-        return fc <= 0.03928 ? fc / 12.92 : std::pow((fc + 0.055) / 1.055, 2.4);
-    };
-    double R = transform_fn(background.R);
-    double G = transform_fn(background.G);
-    double B = transform_fn(background.B);
-    double L = 0.2126 * R + 0.7152 * G + 0.0722 * B;
-    return (L + 0.05) / (0.0 + 0.05) > (1.0 + 0.05) / (L + 0.05) ? Colors::Black() : Colors::White();
 }
 
 #if 0
@@ -501,7 +487,7 @@ namespace winrt::BiliUWP::implementation {
                         co_await weak_store.ual(http_client.GetBufferAsync(Uri(result.top_photo_url))));*/
                     auto space_img_stream = co_await weak_store.ual(
                         ::BiliUWP::get_image_ex_http_cache().fetch_async(Uri(result.top_photo_url)));
-                    auto text_fore_clr = get_contrast_white_black(
+                    auto text_fore_clr = util::winrt::get_contrast_white_black(
                         co_await weak_store.ual(get_dominant_color_from_image_stream(space_img_stream)));
                     auto apply_theme_fn = [&](ElementTheme theme) {
                         using util::winrt::get_first_descendant;

@@ -1694,6 +1694,29 @@ namespace util {
             catch (...) { return E_UNEXPECTED; }
             return S_OK;
         }
+
+        // Output format: ARGB
+        inline constexpr uint32_t to_u32(::winrt::Windows::UI::Color clr) {
+            auto a = static_cast<uint32_t>(clr.A) << 24;
+            auto r = static_cast<uint32_t>(clr.R) << 16;
+            auto g = static_cast<uint32_t>(clr.G) << 8;
+            auto b = static_cast<uint32_t>(clr.B) << 0;
+            return a + r + g + b;
+        }
+        // Input format: ARGB
+        inline constexpr ::winrt::Windows::UI::Color to_color(uint32_t v) {
+            auto a = static_cast<uint8_t>(v >> 24);
+            auto r = static_cast<uint8_t>(v >> 16);
+            auto g = static_cast<uint8_t>(v >> 8);
+            auto b = static_cast<uint8_t>(v >> 0);
+            return { a, r, g, b };
+        }
+
+        // Compliant with https://www.w3.org/TR/WCAG20
+        ::winrt::Windows::UI::Color get_contrast_white_black(::winrt::Windows::UI::Color background);
+        inline uint32_t get_contrast_white_black(uint32_t background) {
+            return to_u32(get_contrast_white_black(to_color(background)));
+        }
     }
 
     namespace sync {

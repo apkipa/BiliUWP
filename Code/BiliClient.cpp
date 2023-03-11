@@ -1961,19 +1961,19 @@ namespace BiliUWP {
         auto proto = parse_proto_obj<bilibili::community::service::dm::v1::DmSegMobileReply>(buf, "DmSegMobileReply");
         result.elems.reserve(proto.elems().size());
         std::transform(proto.elems().begin(), proto.elems().end(), std::back_inserter(result.elems),
-            [](bilibili::community::service::dm::v1::DanmakuElem const& proto) {
+            [](bilibili::community::service::dm::v1::DanmakuElem const& v) {
                 DanmakuNormalList_DanmakuElement result;
-                result.id = proto.id();
-                result.progress = proto.progress();
-                result.mode = proto.mode();
-                result.font_size = proto.fontsize();
-                result.color = proto.color();
-                result.mid_hash = winrt::to_hstring(proto.midhash());
-                result.content = winrt::to_hstring(proto.content());
-                result.ctime = proto.ctime();
-                result.weight = proto.weight();
-                result.action = winrt::to_hstring(proto.action());
-                result.pool = proto.pool();
+                result.id = v.id();
+                result.progress = v.progress();
+                result.mode = v.mode();
+                result.font_size = v.fontsize();
+                result.color = v.color();
+                result.mid_hash = winrt::to_hstring(v.midhash());
+                result.content = winrt::to_hstring(v.content());
+                result.ctime = v.ctime();
+                result.weight = v.weight();
+                result.action = winrt::to_hstring(v.action());
+                result.pool = v.pool();
                 return result;
             }
         );
@@ -1983,6 +1983,77 @@ namespace BiliUWP {
     util::winrt::task<DanmakuWebViewInfoResult> BiliClient::danmaku_web_view_info(
         uint64_t cid, uint64_t avid
     ) {
-        throw winrt::hresult_not_implemented();
+        DanmakuWebViewInfoResult result;
+
+        auto cancellation_token = co_await winrt::get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        auto buf = co_await m_bili_client.api_api_x_v2_dm_web_view(1, cid, avid);
+        util::debug::log_trace(L"Parsing protobuf...");
+        auto proto = parse_proto_obj<bilibili::community::service::dm::v1::DmWebViewReply>(buf, "DmWebViewReply");
+        result.disallow_danmaku = proto.state() != 0;
+        result.text = winrt::to_hstring(proto.text());
+        result.dm_seg = [](bilibili::community::service::dm::v1::DmSegConfig const& v) {
+            DanmakuWebViewInfo_DmSegConfig result;
+            result.page_size = v.page_size();
+            result.total = v.total();
+            return result;
+        }(proto.dm_sge());
+        result.flag = [](bilibili::community::service::dm::v1::DanmakuFlagConfig const& v) {
+            DanmakuWebViewInfo_DanmakuFlagConfig result;
+            result.rec_flag = v.rec_flag();
+            result.rec_text = winrt::to_hstring(v.rec_text());
+            result.rec_switch = v.rec_switch();
+            return result;
+        }(proto.flag());
+        result.special_dms_urls.reserve(proto.special_dms().size());
+        std::transform(proto.special_dms().begin(), proto.special_dms().end(),
+            std::back_inserter(result.special_dms_urls),
+            [](std::string const& v) { return winrt::to_hstring(v); }
+        );
+        result.check_box = proto.check_box();
+        result.danmaku_count = proto.count();
+        result.command_danmaku_list.reserve(proto.commanddms().size());
+        std::transform(proto.commanddms().begin(), proto.commanddms().end(),
+            std::back_inserter(result.command_danmaku_list),
+            [](bilibili::community::service::dm::v1::CommandDm const& v) {
+                DanmakuWebViewInfo_CommandDanmaku result;
+                result.id = v.id();
+                result.cid = v.oid();
+                result.mid = v.mid();
+                result.command = winrt::to_hstring(v.command());
+                result.content = winrt::to_hstring(v.content());
+                result.progress = v.progress();
+                result.extra = winrt::to_hstring(v.extra());
+                return result;
+            }
+        );
+        result.dm_config = [](bilibili::community::service::dm::v1::DanmuWebPlayerConfig const& v) {
+            DanmakuWebViewInfo_DmWebPlayerConfig result;
+            result.enable_danmaku = v.dm_switch();
+            result.enable_ai_block = v.ai_switch();
+            result.ai_block_level = v.ai_level();
+            result.block_top = v.blocktop();
+            result.block_scroll = v.blockscroll();
+            result.block_bottom = v.blockbottom();
+            result.block_color = v.blockcolor();
+            result.block_special = v.blockspecial();
+            result.enable_anti_block = v.preventshade();
+            result.enable_danmaku_mask = v.dmask();
+            result.danmaku_opacity = v.opacity();
+            result.danmaku_area = v.dmarea();
+            result.danmaku_speed = v.speedplus();
+            result.font_size = v.fontsize();
+            result.size_with_video = v.screensync();
+            result.speed_with_video = v.speedsync();
+            result.font_family = winrt::to_hstring(v.fontfamily());
+            result.use_bold = v.bold();
+            result.font_border =
+                static_cast<DanmakuWebViewInfo_DmWebPlayerConfig_FontBorderType>(v.fontborder());
+            result.draw_type = winrt::to_hstring(v.draw_type());
+            return result;
+        }(proto.player_config());
+
+        co_return result;
     }
 }

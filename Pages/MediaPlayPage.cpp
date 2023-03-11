@@ -2036,26 +2036,40 @@ namespace winrt::BiliUWP::implementation {
                 auto cancellation_token = co_await get_cancellation_token();
                 cancellation_token.enable_propagation();
 
+                co_await resume_background();
+
+                util::debug::log_trace(L"MediaPlayPage: Danmaku load task started");
+
                 auto is_seg_expired_fn = [that](size_t seg_idx) {
                     constexpr std::chrono::system_clock::time_point zero_tp{};
                     return that->m_danmaku_segs[seg_idx].last_update_tp == zero_tp;
                 };
                 auto weak_store = util::winrt::make_weak_storage(*that);
                 auto client = ::BiliUWP::App::get()->bili_client();
-                // TODO: Get total danmaku segments count first
+                // Get total danmaku segments count
                 if (that->m_danmaku_segs.empty()) {
-                    that->m_danmaku_segs.resize(1);
+                    auto result = co_await weak_store.ual(client->danmaku_web_view_info(
+                        that->m_danmaku_cid, that->m_danmaku_avid));
+                    if (result.dm_seg.page_size != 6 * 60 * 1000) {
+                        util::debug::log_error(std::format(
+                            L"Got unexpected danmaku segment size (expected {}, got {})",
+                            6 * 60 * 1000, result.dm_seg.page_size
+                        ));
+                    }
+                    that->m_danmaku_segs.resize(result.dm_seg.total);
                 }
                 if (!is_seg_expired_fn(seg_idx)) { co_return; }
-                auto result = co_await weak_store.ual(client->danmaku_normal_list(
-                    that->m_danmaku_cid, that->m_danmaku_avid, seg_idx + 1));
-                auto& dm_elems = result.elems;
-                util::winrt::check_cancellation(cancellation_token);
-                // TODO: Adjust danmaku load & display logic
+                // Load all danmaku
                 auto dm_collection = that->m_video_danmaku_ctrl.Danmaku();
                 dm_collection.ClearAll();
-                {
-                    std::vector<VideoDanmakuNormalItem> dm_normal_items;
+                std::vector<VideoDanmakuNormalItem> dm_normal_items;
+                for (uint32_t seg_idx = 0; seg_idx < that->m_danmaku_segs.size(); seg_idx++) {
+                    dm_normal_items.clear();
+                    that->m_danmaku_segs[seg_idx].last_update_tp = std::chrono::system_clock::now();
+                    auto result = co_await weak_store.ual(client->danmaku_normal_list(
+                        that->m_danmaku_cid, that->m_danmaku_avid, seg_idx + 1));
+                    auto& dm_elems = result.elems;
+                    util::winrt::check_cancellation(cancellation_token);
                     dm_normal_items.reserve(dm_elems.size());
                     std::transform(dm_elems.begin(), dm_elems.end(),
                         std::back_inserter(dm_normal_items),
@@ -2077,14 +2091,15 @@ namespace winrt::BiliUWP::implementation {
                                 break;
                             }
                             item.font_size = static_cast<float>(dm.font_size);
-                            item.color = std::bit_cast<Color>(dm.color);
+                            item.color = util::winrt::to_color(dm.color);
                             item.content = dm.content;
                             return item;
                         }
                     );
                     dm_collection.AddManyNormal(dm_normal_items);
                 }
-                that->m_danmaku_segs[seg_idx].last_update_tp = std::chrono::system_clock::now();
+
+                util::debug::log_trace(L"MediaPlayPage: Danmaku load task finished");
             }, this, segment_idx);
         }
     }

@@ -967,5 +967,19 @@ namespace util {
             };
             return ::winrt::make<WrappedRandomAccessStream>(m_impl);
         }
+
+        ::winrt::Windows::UI::Color get_contrast_white_black(::winrt::Windows::UI::Color background) {
+            // NOTE: Alpha values are ignored
+            using ::winrt::Windows::UI::Colors;
+            auto transform_fn = [](uint8_t c) {
+                double fc = c / 255.0;
+                return fc <= 0.03928 ? fc / 12.92 : std::pow((fc + 0.055) / 1.055, 2.4);
+            };
+            double R = transform_fn(background.R);
+            double G = transform_fn(background.G);
+            double B = transform_fn(background.B);
+            double L = 0.2126 * R + 0.7152 * G + 0.0722 * B;
+            return (L + 0.05) / (0.0 + 0.05) > (1.0 + 0.05) / (L + 0.05) ? Colors::Black() : Colors::White();
+        }
     }
 }

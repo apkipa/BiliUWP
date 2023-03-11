@@ -169,7 +169,7 @@ message CommandDm {
     // 对象视频cid
     uint64 oid = 2;
     // 发送者mid
-    string mid = 3;
+    uint64 mid = 3;
     // 互动弹幕指令
     string command = 4;
     // 互动弹幕正文

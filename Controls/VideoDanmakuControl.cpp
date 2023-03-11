@@ -575,7 +575,7 @@ namespace winrt::BiliUWP::implementation {
                             return is_scroll_danmaku_out_fn(item.appear_t, item.width);
                         }
                         else {
-                            return cur_p - item.appear_t > 5000;
+                            return cur_p - item.appear_t > this->danmaku_still_duration;
                         }
                     });
                     // Scan danmaku within time range [last_update_t, cur_p)
@@ -636,17 +636,19 @@ namespace winrt::BiliUWP::implementation {
                             check_hresult(this->d2d1_factory->CreateStrokeStyle(
                                 stroke_style_props, nullptr, 0, stroke_style.put()));
                             com_ptr<ID2D1SolidColorBrush> solid_brush;
-                            // TODO: Calculate contrast color for outline
                             bmp_target->SetTransform(D2D1::Matrix3x2F::Translation(padding_size, padding_size));
                             check_hresult(bmp_target->CreateSolidColorBrush(
-                                D2D1::ColorF(D2D1::ColorF::Black), solid_brush.put()));
+                                D2D1::ColorF(util::winrt::to_u32(
+                                    util::winrt::get_contrast_white_black(it->data.color))),
+                                solid_brush.put())
+                            );
                             bmp_target->DrawGeometry(
                                 txt_geom.get(),
                                 solid_brush.get(),
                                 2.0f,
                                 stroke_style.get()
                             );
-                            solid_brush->SetColor(D2D1::ColorF(std::bit_cast<UINT32>(it->data.color)));
+                            solid_brush->SetColor(D2D1::ColorF(util::winrt::to_u32(it->data.color)));
                             bmp_target->FillGeometry(txt_geom.get(), solid_brush.get());
                             // NOTE: Error checking is deliberately ignored
                             bmp_target->EndDraw();
@@ -693,7 +695,7 @@ namespace winrt::BiliUWP::implementation {
                                 slot_ptr = &this->bottom_slots.back();
                             }
                             slot_ptr->height = it->height;
-                            slot_ptr->occupied_until = it->data.appear_time + 5000;
+                            slot_ptr->occupied_until = it->data.appear_time + this->danmaku_still_duration;
                             // Actually render only when danmaku is visible
                             if (!(cur_p > slot_ptr->occupied_until)) {
                                 dm_item.slot_type = SlotType::SlotBottom;
@@ -714,7 +716,7 @@ namespace winrt::BiliUWP::implementation {
                                 slot_ptr = &this->top_slots.back();
                             }
                             slot_ptr->height = it->height;
-                            slot_ptr->occupied_until = it->data.appear_time + 5000;
+                            slot_ptr->occupied_until = it->data.appear_time + this->danmaku_still_duration;
                             if (!(cur_p > slot_ptr->occupied_until)) {
                                 dm_item.slot_type = SlotType::SlotTop;
                                 dm_item.slot_i = static_cast<uint32_t>(slot_ptr - top_slots.data());
@@ -734,7 +736,7 @@ namespace winrt::BiliUWP::implementation {
                 // NOTE: Caller must manually call BeginDraw / EndDraw
                 void draw_active_danmaku(uint64_t cur_p) {
                     // TODO: Maybe we should manually manage a large atlas bitmap?
-                    this->d2d1_dev_ctx->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
+                    //this->d2d1_dev_ctx->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
                     for (auto const& item : this->active_dm_items) {
                         D2D1_RECT_F dest_rt;
                         bool round_left{}, round_top{};
@@ -777,8 +779,10 @@ namespace winrt::BiliUWP::implementation {
                         dest_rt.right = dest_rt.left + item.cache_bmp_pixel_size.width;
                         dest_rt.bottom = dest_rt.top + item.cache_bmp_pixel_size.height;
                         this->d2d1_dev_ctx->DrawBitmap(item.cache_bmp.get(), &dest_rt);
+                        /*this->d2d1_dev_ctx->DrawBitmap(item.cache_bmp.get(), &dest_rt,
+                            1.0f, D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR);*/
                     }
-                    this->d2d1_dev_ctx->SetAntialiasMode(D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+                    //this->d2d1_dev_ctx->SetAntialiasMode(D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
                 }
 
                 com_ptr<IDWriteFactory3> const& const dwrite_factory{ get_global_dwrite_factory() };
@@ -789,6 +793,7 @@ namespace winrt::BiliUWP::implementation {
                 float vp_width{}, vp_height{};
                 float panel_scale_x{}, panel_scale_y{};
                 float danmaku_scroll_speed{ 200 };          // Unit: dip/s
+                //float danmaku_scroll_speed{ 192 };          // Unit: dip/s
                 uint32_t danmaku_still_duration{ 5000 };    // Unit: ms
                 float scroll_slot_default_height{ [] {
                     // TODO: Use a better way to control scrolling slot height
