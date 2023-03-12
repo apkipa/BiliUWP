@@ -90,6 +90,7 @@
                     <ToggleSwitch x:Uid="App/Page/SettingsPage/App_ShowDetailedStats" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_ShowDetailedStats,Mode=TwoWay}"/>
                     <!-- TODO: Move this item back to Playing section when custom video presenter stabilizes -->
                     <ToggleSwitch x:Uid="App/Page/SettingsPage/App_UseCustomVideoPresenter" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_UseCustomVideoPresenter,Mode=TwoWay}"/>
+                    <ToggleSwitch Header="Debug VideoDanmakuControl" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_DebugVideoDanmakuControl,Mode=TwoWay}"/>
                     <TextBlock x:Uid="App/Page/SettingsPage/Config" Style="{StaticResource GroupHeaderTextBlockStyle}"/>
                     <StackPanel Orientation="Horizontal">
                         <Button x:Uid="App/Page/SettingsPage/ExportConfigToClipboard" x:Name="ExportConfigToClipboardButton" Click="ExportConfigToClipboardButton_Click" Style="{StaticResource ItemButtonStyle}"/>

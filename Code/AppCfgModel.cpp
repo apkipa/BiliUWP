@@ -16,6 +16,7 @@
     functor(App_SimplifyVisualsLevel, 0);                                           \
     functor(App_IsDeveloper, false);                                                \
     functor(App_ShowDetailedStats, false);                                          \
+    functor(App_DebugVideoDanmakuControl, false);                                   \
     functor(App_RedactLogs, true);                                                  \
     functor(App_StoreLogs, false);                                                  \
     functor(App_LogLevel, static_cast<uint32_t>(util::debug::LogLevel::Error));     \

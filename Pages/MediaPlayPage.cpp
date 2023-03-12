@@ -2116,6 +2116,8 @@ namespace winrt::BiliUWP::implementation {
         if (ctrl_should_exist) {
             if (!m_video_danmaku_ctrl) {
                 m_video_danmaku_ctrl = BiliUWP::VideoDanmakuControl();
+                m_video_danmaku_ctrl.EnableDebugOutput(
+                    ::BiliUWP::App::get()->cfg_model().App_DebugVideoDanmakuControl());
                 MTCMiddleLayerGrid().Children().InsertAt(0, m_video_danmaku_ctrl);
             }
         }

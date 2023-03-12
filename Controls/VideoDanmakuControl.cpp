@@ -16,6 +16,8 @@
 
 // NOTE: Some code are adapted from Win2D
 
+// TODO: Maybe investigate ICompositorInterop::CreateCompositionSurfaceForSwapChain?
+
 namespace winrt {
     using namespace Windows::Foundation;
     using namespace Windows::UI::Core;
@@ -291,9 +293,15 @@ namespace winrt::BiliUWP::implementation {
     struct VideoDanmakuControl_SharedData : std::enable_shared_from_this<VideoDanmakuControl_SharedData> {
         VideoDanmakuControl_SharedData() : danmaku(make_self<VideoDanmakuCollection>()) {}
 
-        void request_redraw(void) {
-            should_redraw.store(true);
-            should_redraw.notify_one();
+        void request_redraw_nolock(bool force_redraw = false) {
+            if (force_redraw || !viewport_occluded) {
+                should_redraw.store(true);
+                should_redraw.notify_one();
+            }
+        }
+        void request_redraw(bool force_redraw = false) {
+            std::scoped_lock guard(mutex);
+            return request_redraw_nolock(force_redraw);
         }
 
         com_ptr<VideoDanmakuCollection> danmaku{ nullptr };
@@ -391,23 +399,21 @@ namespace winrt::BiliUWP::implementation {
             m_shared_data->swapchain_panel_width = width;
             m_shared_data->swapchain_panel_height = height;
             m_shared_data->should_resize_swapchain = true;
-            m_shared_data->request_redraw();
+            m_shared_data->request_redraw_nolock();
         });
         m_shared_data->swapchain_panel.CompositionScaleChanged([this](SwapChainPanel const& sender, auto&&) {
             std::scoped_lock guard(m_shared_data->mutex);
             m_shared_data->swapchain_panel_scale_x = sender.CompositionScaleX();
             m_shared_data->swapchain_panel_scale_y = sender.CompositionScaleY();
             m_shared_data->should_resize_swapchain = true;
-            m_shared_data->request_redraw();
+            m_shared_data->request_redraw_nolock();
         });
         auto loaded_changed_handler = [this](IInspectable const& sender, RoutedEventArgs const&) {
             m_is_loaded = sender.as<FrameworkElement>().IsLoaded();
             std::scoped_lock guard(m_shared_data->mutex);
             if (m_is_loaded) {
                 m_shared_data->viewport_occluded = !(m_is_visible && m_is_core_window_visible);
-                if (!m_shared_data->viewport_occluded) {
-                    m_shared_data->request_redraw();
-                }
+                m_shared_data->request_redraw_nolock();
             }
             else {
                 m_shared_data->viewport_occluded = true;
@@ -422,9 +428,7 @@ namespace winrt::BiliUWP::implementation {
                 std::scoped_lock guard(m_shared_data->mutex);
                 if (is_visible) {
                     m_shared_data->viewport_occluded = !(m_is_loaded && m_is_core_window_visible);
-                    if (!m_shared_data->viewport_occluded) {
-                        m_shared_data->request_redraw();
-                    }
+                    m_shared_data->request_redraw_nolock();
                 }
                 else {
                     m_shared_data->viewport_occluded = true;
@@ -437,9 +441,7 @@ namespace winrt::BiliUWP::implementation {
                 std::scoped_lock guard(m_shared_data->mutex);
                 if (m_is_core_window_visible) {
                     m_shared_data->viewport_occluded = !(m_is_visible && m_is_loaded);
-                    if (!m_shared_data->viewport_occluded) {
-                        m_shared_data->request_redraw();
-                    }
+                    m_shared_data->request_redraw_nolock();
                 }
                 else {
                     m_shared_data->viewport_occluded = true;
@@ -515,7 +517,7 @@ namespace winrt::BiliUWP::implementation {
                     this->d2d1_dev_ctx->SetTarget(nullptr);
                     HRESULT hr;
                     hr = this->swapchain->ResizeBuffers(
-                        2,
+                        0,
                         size_dips_to_pixels(width, dpi_x),
                         size_dips_to_pixels(height, dpi_y),
                         DXGI_FORMAT_UNKNOWN,
@@ -1086,7 +1088,7 @@ namespace winrt::BiliUWP::implementation {
     VideoDanmakuControl::~VideoDanmakuControl() {
         if (m_shared_data->thread_task) {
             m_shared_data->thread_task.Cancel();
-            m_shared_data->request_redraw();
+            m_shared_data->request_redraw(true);
         }
         if (m_et_core_window_visibility_changed) {
             m_core_window.VisibilityChanged(m_et_core_window_visibility_changed);
@@ -1116,7 +1118,7 @@ namespace winrt::BiliUWP::implementation {
         if (m_shared_data->is_playing) { return; }
         m_shared_data->is_playing = true;
         m_shared_data->last_tp = std::chrono::steady_clock::now();
-        m_shared_data->request_redraw();
+        m_shared_data->request_redraw_nolock();
     }
     void VideoDanmakuControl::Pause() {
         std::scoped_lock guard(m_shared_data->mutex);
@@ -1142,7 +1144,7 @@ namespace winrt::BiliUWP::implementation {
         }
         else {
             m_shared_data->play_progress = std::chrono::round<std::chrono::milliseconds>(time).count();
-            m_shared_data->request_redraw();
+            m_shared_data->request_redraw_nolock();
         }
     }
     void VideoDanmakuControl::SetAssociatedMediaTimelineController(Windows::Media::MediaTimelineController const& controller) {
