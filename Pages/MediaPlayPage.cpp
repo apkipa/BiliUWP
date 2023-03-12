@@ -248,6 +248,8 @@ namespace winrt::BiliUWP::implementation {
                     player.Pause();
                 }
             }
+            // Clean up registered event handlers
+            player.Close();
         };
         // Ensure we are on the UI thread (MediaPlayerElem may hold a reference
         // in a non-UI thread during media opening)
@@ -261,6 +263,10 @@ namespace winrt::BiliUWP::implementation {
         if (ptr->m_detailed_stats_update_timer) {
             ptr->m_detailed_stats_update_timer.Stop();
             ptr->m_detailed_stats_provider->TimerStopped();
+        }
+        // Clean up VideoDanmakuControl
+        if (ptr->m_video_danmaku_ctrl) {
+            ptr->m_video_danmaku_ctrl.SetBackgroundPopulator(nullptr, true);
         }
     }
     void MediaPlayPage::OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const& e) {
@@ -1465,6 +1471,8 @@ namespace winrt::BiliUWP::implementation {
 
         util::winrt::task<MediaPlayPage::MediaSrcDetailedStatsPair> video_task;
 
+        bool is_60fps_video{ false };
+
         if (video_pinfo.dash) {
             auto& video_dash = *video_pinfo.dash;
             auto* pvideo_stream = &video_dash.video.at(0);
@@ -1476,6 +1484,11 @@ namespace winrt::BiliUWP::implementation {
                 break;
             }
             auto& video_stream = *pvideo_stream;
+            // A heuristic method for determining how VideoDanmakuPresenter should populate
+            // the background (proactive or reactive), which may help reduce dropped frames
+            if (util::num::try_parse_f64(video_stream.frame_rate).value_or(0) > 58) {
+                is_60fps_video = true;
+            }
             util::debug::log_trace(std::format(L"Selecting video stream {}", video_stream.id));
             const bool video_only_res = video_dash.audio.empty();
             constexpr double BACKOFF_INITIAL_SECS = 10;
@@ -1630,7 +1643,7 @@ namespace winrt::BiliUWP::implementation {
         }
         media_playback_item.ApplyDisplayProperties(display_props);
         this->SubmitMediaPlaybackSourceToNativePlayer(media_playback_item, nullptr, ds_provider,
-            m_cfg_model.App_UseCustomVideoPresenter());
+            m_cfg_model.App_UseCustomVideoPresenter(), is_60fps_video);
         util::debug::log_trace(std::format(L"Video pic url: {}", video_vinfo.cover_url));
         util::debug::log_trace(std::format(L"Video title: {}", video_vinfo.title));
     }
@@ -1850,9 +1863,9 @@ namespace winrt::BiliUWP::implementation {
         IMediaPlaybackSource const& source,
         ImageSource const& poster_source,
         std::shared_ptr<DetailedStatsProvider> ds_provider,
-        bool enable_custom_presenter
+        bool enable_custom_presenter,
+        bool use_reactive_present_mode
     ) {
-        // TODO: Use enable_custom_presenter
         auto media_player_elem = MediaPlayerElem();
 
         if (source == nullptr) {
@@ -1866,6 +1879,7 @@ namespace winrt::BiliUWP::implementation {
                     player.Pause();
                 }
             }
+            player.Close();
             media_player_elem.PosterSource(nullptr);
             // Release detailed stats provider
             if (m_detailed_stats_update_timer) {
@@ -1883,15 +1897,31 @@ namespace winrt::BiliUWP::implementation {
         }
 
         auto media_player = MediaPlayer();
-        // TODO: Handle App_UseCustomVideoPresenter
+        if (::BiliUWP::App::get()->cfg_model().App_EnableRealtimePlayback()) {
+            media_player.RealTimePlayback(true);
+        }
         m_custom_presenter_active = enable_custom_presenter;
         if (enable_custom_presenter) {
+            // Force the creation of VideoDanmakuControl
+            using Windows::Graphics::DirectX::Direct3D11::IDirect3DSurface;
+            UpdateVideoDanmakuControlState();
+            m_video_danmaku_ctrl.SetBackgroundPopulator(
+                [mp = media_player](IDirect3DSurface const& surface) {
+                    mp.CopyFrameToVideoSurface(surface);
+                    return true;
+                }
+            , !use_reactive_present_mode);
             media_player.IsVideoFrameServerEnabled(true);
-            media_player.VideoFrameAvailable([](MediaPlayer const& sender, auto&&) {
-                util::debug::log_debug(L"MediaPlayer: VideoFrameAvailable");
-                //sender.CopyFrameToVideoSurface(nullptr);
-                Sleep(1000);
-            });
+            media_player.VideoFrameAvailable(
+                [ctrl = m_video_danmaku_ctrl](MediaPlayer const&, auto&&) {
+                    ctrl.TriggerBackgroundUpdate();
+                }
+            );
+        }
+        else {
+            if (m_video_danmaku_ctrl) {
+                m_video_danmaku_ctrl.SetBackgroundPopulator(nullptr, true);
+            }
         }
         media_player.AudioCategory(MediaPlayerAudioCategory::Media);
         media_player.Source(source);

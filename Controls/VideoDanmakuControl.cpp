@@ -13,6 +13,7 @@
 #include <winrt/Microsoft.Graphics.Canvas.h>
 #include <Microsoft.Graphics.Canvas.native.h>
 #include <windows.ui.xaml.media.dxinterop.h>
+#include <windows.graphics.directx.direct3d11.interop.h>
 
 // NOTE: Some code are adapted from Win2D
 
@@ -293,13 +294,15 @@ namespace winrt::BiliUWP::implementation {
     struct VideoDanmakuControl_SharedData : std::enable_shared_from_this<VideoDanmakuControl_SharedData> {
         VideoDanmakuControl_SharedData() : danmaku(make_self<VideoDanmakuCollection>()) {}
 
-        void request_redraw_nolock(bool force_redraw = false) {
+        bool request_redraw_nolock(bool force_redraw = false) {
             if (force_redraw || !viewport_occluded) {
                 should_redraw.store(true);
                 should_redraw.notify_one();
+                return true;
             }
+            return false;
         }
-        void request_redraw(bool force_redraw = false) {
+        bool request_redraw(bool force_redraw = false) {
             std::scoped_lock guard(mutex);
             return request_redraw_nolock(force_redraw);
         }
@@ -323,6 +326,8 @@ namespace winrt::BiliUWP::implementation {
         uint64_t play_progress{};   // Unit: ms
         std::chrono::steady_clock::time_point last_tp;
         BiliUWP::VideoDanmakuPopulateD3DSurfaceDelegate background_populator{ nullptr };
+        bool use_proactive_render_mode{ true };
+        bool background_populator_ready{ false };
     };
 
     struct VideoDanmakuNormalItemContainer {
@@ -483,6 +488,8 @@ namespace winrt::BiliUWP::implementation {
                     this->d2d1_factory = nullptr;
                     this->d2d1_dev = nullptr;
                     this->d2d1_dev_ctx = nullptr;
+                    this->swapchain_d3d_surface = nullptr;
+                    this->swapchain_dxgi_surface = nullptr;
                     this->vp_width = this->vp_height = 0;
                     this->panel_scale_x = this->panel_scale_y = 0;
                     this->last_update_t = 0;
@@ -515,6 +522,8 @@ namespace winrt::BiliUWP::implementation {
                     const auto dpi_x = 96 * this->panel_scale_x;
                     const auto dpi_y = 96 * this->panel_scale_y;
                     this->d2d1_dev_ctx->SetTarget(nullptr);
+                    this->swapchain_d3d_surface = nullptr;
+                    this->swapchain_dxgi_surface = nullptr;
                     HRESULT hr;
                     hr = this->swapchain->ResizeBuffers(
                         0,
@@ -792,6 +801,8 @@ namespace winrt::BiliUWP::implementation {
                 com_ptr<ID2D1Factory3> d2d1_factory{ nullptr };
                 com_ptr<ID2D1Device2> d2d1_dev{ nullptr };
                 com_ptr<ID2D1DeviceContext3> d2d1_dev_ctx{ nullptr };
+                Windows::Graphics::DirectX::Direct3D11::IDirect3DSurface swapchain_d3d_surface{ nullptr };
+                com_ptr<IDXGISurface> swapchain_dxgi_surface;
                 float vp_width{}, vp_height{};
                 float panel_scale_x{}, panel_scale_y{};
                 float danmaku_scroll_speed{ 200 };          // Unit: dip/s
@@ -915,6 +926,12 @@ namespace winrt::BiliUWP::implementation {
                     check_hresult(this->d2d1_dev_ctx->CreateBitmapFromDxgiSurface(
                         dxgi_surface.get(), bmp_props, d2d1_bmp.put()));
                     this->d2d1_dev_ctx->SetTarget(d2d1_bmp.get());
+                    // NOTE: Surface references are also updated
+                    check_hresult(CreateDirect3D11SurfaceFromDXGISurface(
+                        dxgi_surface.get(),
+                        reinterpret_cast<::IInspectable**>(put_abi(this->swapchain_d3d_surface))
+                    ));
+                    this->swapchain_dxgi_surface = std::move(dxgi_surface);
                 }
                 com_ptr<IDWriteTextLayout3> create_text_layout(
                     std::wstring_view str,
@@ -983,7 +1000,8 @@ namespace winrt::BiliUWP::implementation {
                                 // Recreate swapchain
                                 draw_ctx.reset();
                                 draw_ctx.init_device_from_win2d_shared(
-                                    vp_width, vp_height, vp_scalex, vp_scaley, true
+                                    vp_width, vp_height, vp_scalex, vp_scaley,
+                                    shared_data->use_transparent_swapchain
                                 );
                                 draw_ctx.update_swap_chain_panel(shared_data->swapchain_panel);
                                 shared_data->should_recreate_swapchain = false;
@@ -1006,7 +1024,13 @@ namespace winrt::BiliUWP::implementation {
                                 return shared_data->play_progress + dur_ms;
                             }();
 
-                            d2d1_dev_ctx->Clear();
+                            if (!shared_data->background_populator || !shared_data->background_populator_ready) {
+                                d2d1_dev_ctx->Clear();
+                            }
+                            else {
+                                shared_data->background_populator(draw_ctx.swapchain_d3d_surface);
+                                shared_data->should_redraw.notify_one();
+                            }
 
                             if (shared_data->show_danmaku.load()) {
                                 draw_ctx.update_active_danmaku(shared_data->danmaku.get(), cur_p);
@@ -1035,9 +1059,19 @@ namespace winrt::BiliUWP::implementation {
                                 com_ptr<ID2D1SolidColorBrush> white_brush;
                                 check_hresult(d2d1_dev_ctx->CreateSolidColorBrush(
                                     D2D1::ColorF(D2D1::ColorF::White), white_brush.put()));
-                                static int counter = 0;
-                                counter++;
-                                auto buf = std::format(L"n: {}\nt: {}ms", counter, cur_p);
+                                static unsigned cur_counter = 0;
+                                static unsigned last_counter = 0;
+                                static unsigned last_fps = 0;
+                                static std::chrono::steady_clock::time_point last_tp{};
+                                auto cur_tp = std::chrono::steady_clock::now();
+                                if (cur_tp - last_tp >= std::chrono::milliseconds(999)) {
+                                    last_tp = cur_tp;
+                                    last_fps = cur_counter - last_counter;
+                                    last_counter = cur_counter;
+                                }
+                                cur_counter++;
+                                auto buf = std::format(L"n: {} (fps = {})\nt: {}ms\nisProactive: {}",
+                                    cur_counter, last_fps, cur_p, shared_data->use_proactive_render_mode);
                                 d2d1_dev_ctx->DrawText(
                                     buf.c_str(),
                                     buf.size(),
@@ -1062,11 +1096,20 @@ namespace winrt::BiliUWP::implementation {
                     // TODO: Change this
                     {
                         std::scoped_lock guard(shared_data->mutex);
-                        if (shared_data->is_playing && !shared_data->viewport_occluded) {
+                        // NOTE: When populator update inverval is the same as the swapchain,
+                        //       enter reactive mode to prevent video frame from being dropped
+                        bool proactive_redraw = shared_data->use_proactive_render_mode &&
+                            (shared_data->is_playing &&
+                            !shared_data->viewport_occluded &&
+                            shared_data->show_danmaku.load());
+                        if (proactive_redraw) {
                             shared_data->should_redraw.store(true);
                         }
                         else {
-                            if (!shared_data->should_redraw.load()) {
+                            /*bool should_trim = !shared_data->use_proactive_render_mode &&
+                                !shared_data->should_redraw.load();*/
+                            bool should_trim = !shared_data->should_redraw.load();
+                            if (should_trim) {
                                 // Trim device resources
                                 draw_ctx.d2d1_dev->ClearResources();
                             }
@@ -1158,12 +1201,24 @@ namespace winrt::BiliUWP::implementation {
         bool current_transparent = !handler;
         std::scoped_lock guard(m_shared_data->mutex);
         m_shared_data->background_populator = handler;
+        m_shared_data->use_proactive_render_mode = handler ? isProactive : true;
         if (previous_transparent != current_transparent) {
             m_shared_data->use_transparent_swapchain = current_transparent;
             m_shared_data->should_recreate_swapchain = true;
         }
+        m_shared_data->background_populator_ready = false;
     }
     void VideoDanmakuControl::TriggerBackgroundUpdate() {
-        throw hresult_not_implemented();
+        bool requested;
+        {
+            std::scoped_lock guard(m_shared_data->mutex);
+            m_shared_data->background_populator_ready = true;
+            requested = m_shared_data->request_redraw_nolock();
+        }
+        if (!requested) {
+            Sleep(250);
+            m_shared_data->request_redraw(true);
+        }
+        m_shared_data->should_redraw.wait(true);
     }
 }

@@ -216,7 +216,8 @@ namespace winrt::BiliUWP::implementation {
             Windows::Media::Playback::IMediaPlaybackSource const& source,
             Windows::UI::Xaml::Media::ImageSource const& poster_source = nullptr,
             std::shared_ptr<DetailedStatsProvider> ds_provider = nullptr,
-            bool enable_custom_presenter = false
+            bool enable_custom_presenter = false,
+            bool use_reactive_present_mode = false      // For custom presenter
         );
         void TriggerMediaDetailedStatsUpdate(void);
         void EstablishMediaPlayerVolumeTwoWayBinding(Windows::Media::Playback::MediaPlayer const& player);

@@ -68,7 +68,8 @@ namespace BiliUWP {
         // NOTE: If you set the handler, control will call the handler to get a opaque background.
         //       Otherwise control will use a transparent background.
         // NOTE: The control is by default reactive: you must manually notify control to update background
-        // TODO: Investigate how to switch between proactive / reactive mode
+        // NOTE: If mode is proactive, control will actively call handler where necessary;
+        //       otherwise, new frame is rendered only when an update is requested
         void SetBackgroundPopulator(VideoDanmakuPopulateD3DSurfaceDelegate handler, Boolean isProactive);
         // Requests a new background to be fetched
         void TriggerBackgroundUpdate();

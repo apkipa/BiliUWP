@@ -28,6 +28,7 @@ namespace BiliUWP {
         Boolean App_IsDeveloper;
         Boolean App_ShowDetailedStats;
         Boolean App_DebugVideoDanmakuControl;
+        Boolean App_EnableRealtimePlayback;
         Boolean App_RedactLogs;
         Boolean App_StoreLogs;
         UInt32 App_LogLevel;
