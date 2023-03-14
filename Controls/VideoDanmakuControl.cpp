@@ -19,6 +19,40 @@
 
 // TODO: Maybe investigate ICompositorInterop::CreateCompositionSurfaceForSwapChain?
 
+// NOTE: A hack for std::atomic_bool in MSVC STL; use with caution
+#ifndef _MSC_VER
+#error atomic_wait_for: You are compiling against an unsupported compiler. Please use MSVC instead.
+#endif
+template<typename Rep, typename Period>
+void atomic_wait_for(
+    std::atomic_bool& value,
+    const bool expected,
+    const std::chrono::duration<Rep, Period>& rel_time,
+    const std::memory_order order = std::memory_order_seq_cst
+) noexcept {
+    // NOTE: Adapted from _Atomic_wait_direct in STL
+    using dur_type = std::chrono::duration<unsigned long long, std::milli>;
+    auto expected_bytes = std::_Atomic_reinterpret_as<char>(expected);
+    const auto storage_ptr = std::addressof(value._Storage);
+    auto wait_ms = std::chrono::duration_cast<dur_type>(rel_time).count();
+    const auto wait_ddl = __std_atomic_wait_get_deadline(wait_ms);
+    for (;;) {
+        const auto observed_bytes = std::_Atomic_reinterpret_as<char>(value.load(order));
+        if (expected_bytes != observed_bytes) {
+#if _CMPXCHG_MASK_OUT_PADDING_BITS      // clang
+#   error _CMPXCHG_MASK_OUT_PADDING_BITS is unsupported
+#endif
+            return;
+        }
+        // Check timeout
+        auto cur_wait_ms = __std_atomic_wait_get_remaining_timeout(wait_ddl);
+        if (cur_wait_ms == 0) {
+            break;
+        }
+        __std_atomic_wait_direct(storage_ptr, &expected_bytes, sizeof(char), cur_wait_ms);
+    }
+}
+
 namespace winrt {
     using namespace Windows::Foundation;
     using namespace Windows::UI::Core;
@@ -292,7 +326,8 @@ namespace winrt::BiliUWP::implementation {
     }
 
     struct VideoDanmakuControl_SharedData : std::enable_shared_from_this<VideoDanmakuControl_SharedData> {
-        VideoDanmakuControl_SharedData() : danmaku(make_self<VideoDanmakuCollection>()) {}
+        VideoDanmakuControl_SharedData(VideoDanmakuControl* ctrl) :
+            danmaku(make_self<VideoDanmakuCollection>(ctrl)) {}
 
         bool request_redraw_nolock(bool force_redraw = false) {
             if (force_redraw || !viewport_occluded) {
@@ -323,6 +358,7 @@ namespace winrt::BiliUWP::implementation {
         float swapchain_panel_scale_x, swapchain_panel_scale_y;
         bool is_playing{ false };
         bool viewport_occluded{ true };
+        bool is_fullscreen{ false };
         uint64_t play_progress{};   // Unit: ms
         std::chrono::steady_clock::time_point last_tp;
         BiliUWP::VideoDanmakuPopulateD3DSurfaceDelegate background_populator{ nullptr };
@@ -347,13 +383,20 @@ namespace winrt::BiliUWP::implementation {
         }
     };
 
-    VideoDanmakuCollection::VideoDanmakuCollection() {}
+    VideoDanmakuCollection::VideoDanmakuCollection(VideoDanmakuControl* ctrl) : m_weak_ctrl(ctrl->get_weak()) {}
     void VideoDanmakuCollection::AddManyNormal(array_view<winrt::BiliUWP::VideoDanmakuNormalItem const> items) {
-        std::scoped_lock guard(m_mutex);
-        for (auto& item : items) {
-            util::container::insert_sorted(m_normal_items, item,
-                VideoDanmakuNormalItemContainer_AppearTimePred{});
-        }
+        run_with_lock([&] {
+            DanmakuChangeState new_state{ DanmakuChangeState::Unchanged };
+            auto back_idx = m_normal_items.size();
+            for (auto& item : items) {
+                auto new_it = util::container::insert_sorted(m_normal_items, item,
+                    VideoDanmakuNormalItemContainer_AppearTimePred{});
+                bool is_appended = new_it - m_normal_items.begin() >= back_idx;
+                new_state = std::max(new_state,
+                    is_appended ? DanmakuChangeState::AppendedOnly : DanmakuChangeState::Mixed);
+            }
+            return new_state;
+        });
     }
     uint32_t VideoDanmakuCollection::GetManyNormal(uint32_t startIndex, array_view<winrt::BiliUWP::VideoDanmakuNormalItem> items) {
         std::scoped_lock guard(m_mutex);
@@ -366,24 +409,54 @@ namespace winrt::BiliUWP::implementation {
         return copy_count;
     }
     void VideoDanmakuCollection::RemoveMany(array_view<uint64_t const> itemIds) {
-        std::scoped_lock guard(m_mutex);
-        for (auto& item_id : itemIds) {
-            std::erase_if(m_normal_items,
-                [&](VideoDanmakuNormalItemContainer const& v) { return v.data.id == item_id; }
-            );
-        }
+        run_with_lock([&] {
+            bool changed{ false };
+            for (auto& item_id : itemIds) {
+                std::erase_if(m_normal_items,
+                    [&](VideoDanmakuNormalItemContainer const& v) { return v.data.id == item_id; }
+                );
+                changed = true;
+            }
+            return changed ? DanmakuChangeState::Mixed : DanmakuChangeState::Unchanged;
+        });
     }
     void VideoDanmakuCollection::UpdateManyVisibility(array_view<winrt::BiliUWP::VideoDanmakuItemWithVisibility const> items) {
         std::scoped_lock guard(m_mutex);
         throw hresult_not_implemented();
     }
     void VideoDanmakuCollection::ClearAll() {
-        std::scoped_lock guard(m_mutex);
-        m_normal_items.clear();
+        run_with_lock([&] {
+            if (!m_normal_items.empty()) {
+                m_normal_items.clear();
+                return DanmakuChangeState::Mixed;
+            }
+            return DanmakuChangeState::Unchanged;
+        });
+    }
+    template<typename Functor>
+    void VideoDanmakuCollection::run_with_lock(Functor&& functor) {
+        bool need_notify{};
+        {
+            std::scoped_lock guard(m_mutex);
+            DanmakuChangeState new_state{ functor() };
+            if (new_state > m_danmaku_change_state) {
+                if (m_danmaku_change_state == DanmakuChangeState::Unchanged) {
+                    need_notify = true;
+                }
+                m_danmaku_change_state = new_state;
+            }
+        }
+        if (need_notify) {
+            if (auto ctrl = m_weak_ctrl.get()) {
+                ctrl->m_shared_data->request_redraw();
+            }
+        }
     }
 
+    // SAFETY: m_shared_data destructs before base upon exception, so it is OK to
+    //         hand out a self reference to m_shared_data
     VideoDanmakuControl::VideoDanmakuControl() :
-        m_shared_data(std::make_shared<VideoDanmakuControl_SharedData>()),
+        m_shared_data(std::make_shared<VideoDanmakuControl_SharedData>(this)),
         m_core_window(CoreWindow::GetForCurrentThread()) {}
     void VideoDanmakuControl::InitializeComponent() {
         VideoDanmakuControlT::InitializeComponent();
@@ -453,6 +526,14 @@ namespace winrt::BiliUWP::implementation {
                 }
             }
         );
+        m_et_core_window_size_changed = m_core_window.SizeChanged(
+            [this](auto&&, auto&&) {
+                using namespace Windows::UI::ViewManagement;
+                std::scoped_lock guard(m_shared_data->mutex);
+                auto app_view = ApplicationView::GetForCurrentView();
+                m_shared_data->is_fullscreen = app_view.IsFullScreenMode();
+            }
+        );
         m_is_loaded = !m_shared_data->swapchain_panel.IsLoaded();
         m_is_visible = Visibility() == Visibility::Visible;
         m_is_core_window_visible = m_core_window.Visible();
@@ -490,9 +571,11 @@ namespace winrt::BiliUWP::implementation {
                     this->d2d1_dev_ctx = nullptr;
                     this->swapchain_d3d_surface = nullptr;
                     this->swapchain_dxgi_surface = nullptr;
+                    this->solid_brush = nullptr;
                     this->vp_width = this->vp_height = 0;
                     this->panel_scale_x = this->panel_scale_y = 0;
                     this->last_update_t = 0;
+                    this->last_end_dm_normal_idx = 0;
                     this->active_dm_items.clear();
                     this->scroll_slots.clear();
                     this->bottom_slots.clear();
@@ -560,43 +643,44 @@ namespace winrt::BiliUWP::implementation {
                     );
                 }
 
-                void update_active_danmaku(
+                // NOTE: Returns when will the next offscreen danmaku become visible
+                uint64_t update_active_danmaku(
                     VideoDanmakuCollection* danmaku_col,
                     uint64_t cur_p
                 ) {
-                    if (cur_p == last_update_t) { return; }
+                    if (cur_p == last_update_t) {
+                        // Do nothing
+                    }
                     if (cur_p < last_update_t) {
                         // Start from zero
                         this->last_update_t = 0;
+                        this->last_end_dm_normal_idx = 0;
                         this->active_dm_items.clear();
                         this->scroll_slots.clear();
                         this->bottom_slots.clear();
                         this->top_slots.clear();
                         this->processed_dm_items_cnt = 0;
                     }
-                    // Purge danmaku that are no longer visible
+                    // Purge danmaku items that are no longer visible
                     auto is_scroll_danmaku_out_fn = [&](uint64_t appear_t, float item_width) {
                         auto past_dis = (cur_p - appear_t) * this->danmaku_scroll_speed / 1000;
                         return this->vp_width - past_dis + item_width < 0;
                     };
-                    std::erase_if(this->active_dm_items, [&](DanmakuItem const& item) {
-                        if (item.slot_type == SlotType::SlotScroll) {
-                            /*auto past_dis = (cur_p - item.appear_t) * danmaku_scroll_speed / 1000;
-                            return vp_width - past_dis + item.width < 0;*/
-                            return is_scroll_danmaku_out_fn(item.appear_t, item.width);
-                        }
-                        else {
-                            return cur_p - item.appear_t > this->danmaku_still_duration;
-                        }
-                    });
+                    if (cur_p > last_update_t) {
+                        std::erase_if(this->active_dm_items, [&](DanmakuItem const& item) {
+                            if (item.slot_type == SlotType::SlotScroll) {
+                                return is_scroll_danmaku_out_fn(item.appear_t, item.width);
+                            }
+                            else {
+                                return cur_p - item.appear_t > this->danmaku_still_duration;
+                            }
+                        });
+                    }
                     // Scan danmaku within time range [last_update_t, cur_p)
-                    auto it = std::lower_bound(
-                        danmaku_col->m_normal_items.begin(), danmaku_col->m_normal_items.end(),
-                        last_update_t, VideoDanmakuNormalItemContainer_AppearTimePred{});
-                    auto ie = std::lower_bound(
-                        danmaku_col->m_normal_items.begin(), danmaku_col->m_normal_items.end(),
-                        cur_p, VideoDanmakuNormalItemContainer_AppearTimePred{});
+                    auto it = danmaku_col->m_normal_items.begin() + last_end_dm_normal_idx;
+                    auto ie = danmaku_col->m_normal_items.end();
                     for (; it != ie; it++) {
+                        if (it->data.appear_time >= cur_p) { break; }
                         // Cache danmaku layout
                         if (!it->cache_valid) {
                             auto txt_layout = create_text_layout(
@@ -646,20 +730,16 @@ namespace winrt::BiliUWP::implementation {
                             com_ptr<ID2D1StrokeStyle> stroke_style;
                             check_hresult(this->d2d1_factory->CreateStrokeStyle(
                                 stroke_style_props, nullptr, 0, stroke_style.put()));
-                            com_ptr<ID2D1SolidColorBrush> solid_brush;
                             bmp_target->SetTransform(D2D1::Matrix3x2F::Translation(padding_size, padding_size));
-                            check_hresult(bmp_target->CreateSolidColorBrush(
-                                D2D1::ColorF(util::winrt::to_u32(
-                                    util::winrt::get_contrast_white_black(it->data.color))),
-                                solid_brush.put())
-                            );
+                            this->solid_brush->SetColor(D2D1::ColorF(util::winrt::to_u32(
+                                util::winrt::get_contrast_white_black(it->data.color))));
                             bmp_target->DrawGeometry(
                                 txt_geom.get(),
-                                solid_brush.get(),
+                                this->solid_brush.get(),
                                 2.0f,
                                 stroke_style.get()
                             );
-                            solid_brush->SetColor(D2D1::ColorF(util::winrt::to_u32(it->data.color)));
+                            this->solid_brush->SetColor(D2D1::ColorF(util::winrt::to_u32(it->data.color)));
                             bmp_target->FillGeometry(txt_geom.get(), solid_brush.get());
                             // NOTE: Error checking is deliberately ignored
                             bmp_target->EndDraw();
@@ -741,7 +821,15 @@ namespace winrt::BiliUWP::implementation {
                             */
                         }
                     }
+                    ie = it;
                     this->last_update_t = cur_p;
+                    this->last_end_dm_normal_idx = ie - danmaku_col->m_normal_items.begin();
+                    if (ie == danmaku_col->m_normal_items.end()) {
+                        return -1;
+                    }
+                    else {
+                        return ie->data.appear_time;
+                    }
                 }
 
                 // NOTE: Caller must manually call BeginDraw / EndDraw
@@ -803,6 +891,7 @@ namespace winrt::BiliUWP::implementation {
                 com_ptr<ID2D1DeviceContext3> d2d1_dev_ctx{ nullptr };
                 Windows::Graphics::DirectX::Direct3D11::IDirect3DSurface swapchain_d3d_surface{ nullptr };
                 com_ptr<IDXGISurface> swapchain_dxgi_surface;
+                com_ptr<ID2D1SolidColorBrush> solid_brush{ nullptr };
                 float vp_width{}, vp_height{};
                 float panel_scale_x{}, panel_scale_y{};
                 float danmaku_scroll_speed{ 200 };          // Unit: dip/s
@@ -841,6 +930,7 @@ namespace winrt::BiliUWP::implementation {
                 }() };
                 // NOTE: Used to determine what to do with active items
                 uint64_t last_update_t{ 0 };
+                uint64_t last_end_dm_normal_idx{ 0 };
                 std::vector<DanmakuItem> active_dm_items;
                 std::vector<SlotInfo> scroll_slots;
                 std::vector<SlotInfo> bottom_slots, top_slots;
@@ -887,7 +977,8 @@ namespace winrt::BiliUWP::implementation {
                     DXGI_MATRIX_3X2_F inverse_scale = {
                         ._11 = 1.0f / panel_scale_x, ._22 = 1.0f / panel_scale_y,
                     };
-                    this->swapchain->SetMatrixTransform(&inverse_scale);
+                    check_hresult(this->swapchain->SetMatrixTransform(&inverse_scale));
+                    //check_hresult(this->swapchain->SetMaximumFrameLatency(1));
                     // Device context
                     com_ptr<ID2D1DeviceContext1> base_d2d1_dev_ctx;
                     check_hresult(this->d2d1_dev->CreateDeviceContext(
@@ -902,6 +993,9 @@ namespace winrt::BiliUWP::implementation {
                     com_ptr<ID2D1Factory> base_factory;
                     this->d2d1_dev->GetFactory(base_factory.put());
                     base_factory.as(this->d2d1_factory);
+                    // Brush
+                    check_hresult(this->d2d1_dev_ctx->CreateSolidColorBrush(
+                        D2D1::ColorF(D2D1::ColorF::Black), this->solid_brush.put()));
                     // Set remaining data
                     this->vp_width = width;
                     this->vp_height = height;
@@ -973,6 +1067,16 @@ namespace winrt::BiliUWP::implementation {
                 while (true) {
                     if (work_item.Status() == AsyncStatus::Canceled) { break; }
 
+                    auto next_offscreen_danmaku_appear_t{ std::numeric_limits<uint64_t>::max() };
+
+                    auto get_cur_p_nolock_fn = [&] {
+                        using u64_ms_dur_t = std::chrono::duration<uint64_t, std::milli>;
+                        if (!shared_data->is_playing) { return shared_data->play_progress; }
+                        auto dur = std::chrono::steady_clock::now() - shared_data->last_tp;
+                        auto dur_ms = std::chrono::round<u64_ms_dur_t>(dur).count();
+                        return shared_data->play_progress + dur_ms;
+                    };
+
                     {
                         std::scoped_lock guard(shared_data->mutex);
 
@@ -1011,18 +1115,13 @@ namespace winrt::BiliUWP::implementation {
 
                         // Draw
                         shared_data->should_redraw.store(false);
+                        shared_data->should_redraw.notify_all();
                         auto& d2d1_dev_ctx = draw_ctx.d2d1_dev_ctx;
                         d2d1_dev_ctx->BeginDraw();
                         {
                             std::scoped_lock guard_danmaku(shared_data->danmaku->m_mutex);
 
-                            auto cur_p = [&] {
-                                using u64_ms_dur = std::chrono::duration<uint64_t, std::milli>;
-                                if (!shared_data->is_playing) { return shared_data->play_progress; }
-                                auto dur = std::chrono::steady_clock::now() - shared_data->last_tp;
-                                auto dur_ms = std::chrono::round<u64_ms_dur>(dur).count();
-                                return shared_data->play_progress + dur_ms;
-                            }();
+                            auto cur_p = get_cur_p_nolock_fn();
 
                             if (!shared_data->background_populator || !shared_data->background_populator_ready) {
                                 d2d1_dev_ctx->Clear();
@@ -1033,12 +1132,21 @@ namespace winrt::BiliUWP::implementation {
                             }
 
                             if (shared_data->show_danmaku.load()) {
-                                draw_ctx.update_active_danmaku(shared_data->danmaku.get(), cur_p);
+                                using DanmakuChangeState = VideoDanmakuCollection::DanmakuChangeState;
+                                auto danmaku_col = shared_data->danmaku.get();
+                                if (danmaku_col->m_danmaku_change_state != DanmakuChangeState::Unchanged) {
+                                    if (danmaku_col->m_danmaku_change_state != DanmakuChangeState::AppendedOnly) {
+                                        draw_ctx.update_active_danmaku(danmaku_col, 0);
+                                    }
+                                    danmaku_col->m_danmaku_change_state = DanmakuChangeState::Unchanged;
+                                }
+                                next_offscreen_danmaku_appear_t =
+                                    draw_ctx.update_active_danmaku(danmaku_col, cur_p);
                                 draw_ctx.draw_active_danmaku(cur_p);
                             }
 
                             if (shared_data->enable_debug_output.load()) {
-                                d2d1_dev_ctx->SetTransform(D2D1::Matrix3x2F::Scale(vp_scalex, vp_scaley));
+                                d2d1_dev_ctx->SetUnitMode(D2D1_UNIT_MODE_DIPS);
                                 static auto text_fmt = [] {
                                     auto& dwrite_factory = get_global_dwrite_factory();
                                     com_ptr<IDWriteTextFormat1> txt_fmt;
@@ -1056,9 +1164,7 @@ namespace winrt::BiliUWP::implementation {
                                     base_txt_fmt.as(txt_fmt);
                                     return txt_fmt;
                                 }();
-                                com_ptr<ID2D1SolidColorBrush> white_brush;
-                                check_hresult(d2d1_dev_ctx->CreateSolidColorBrush(
-                                    D2D1::ColorF(D2D1::ColorF::White), white_brush.put()));
+                                draw_ctx.solid_brush->SetColor(D2D1::ColorF(D2D1::ColorF::White));
                                 static unsigned cur_counter = 0;
                                 static unsigned last_counter = 0;
                                 static unsigned last_fps = 0;
@@ -1077,9 +1183,9 @@ namespace winrt::BiliUWP::implementation {
                                     buf.size(),
                                     text_fmt.get(),
                                     D2D1::RectF(0.0f, 30.0f, 500.0f, 300.0f),
-                                    white_brush.get()
+                                    draw_ctx.solid_brush.get()
                                 );
-                                d2d1_dev_ctx->SetTransform(D2D1::Matrix3x2F::Identity());
+                                d2d1_dev_ctx->SetUnitMode(D2D1_UNIT_MODE_PIXELS);
                             }
                         }
                         hr = d2d1_dev_ctx->EndDraw();
@@ -1091,32 +1197,70 @@ namespace winrt::BiliUWP::implementation {
                         // Device has lost
                         draw_ctx.reset();
                     }
-                    else { check_hresult(hr); }
+                    else {
+                        check_hresult(hr);
+                    }
 
-                    // TODO: Change this
+                    // Check conditions for the next frame & possibly wait
+                    bool should_wait_for_danmaku{ false };
+                    uint64_t wait_for_danmaku_dur_ms;
                     {
                         std::scoped_lock guard(shared_data->mutex);
-                        // NOTE: When populator update inverval is the same as the swapchain,
-                        //       enter reactive mode to prevent video frame from being dropped
-                        bool proactive_redraw = shared_data->use_proactive_render_mode &&
-                            (shared_data->is_playing &&
-                            !shared_data->viewport_occluded &&
-                            shared_data->show_danmaku.load());
-                        if (proactive_redraw) {
-                            shared_data->should_redraw.store(true);
+
+                        auto trim_dev_res_fn = [&] {
+                            // Trim device resources
+                            draw_ctx.d2d1_dev->ClearResources();
+                        };
+                        // UNLIKELY TODO: Thoroughly trim resources by removing active danmaku cache
+                        const bool is_playing_and_visible = shared_data->is_playing &&
+                            !shared_data->viewport_occluded;
+                        bool show_danmaku = shared_data->show_danmaku.load();
+                        if (shared_data->background_populator) {
+                            // NOTE: When populator update inverval is the same as the swapchain,
+                            //       enter reactive mode to prevent video frame from being dropped
+                            if (shared_data->use_proactive_render_mode &&
+                                is_playing_and_visible && show_danmaku)
+                            {
+                                shared_data->should_redraw.store(true);
+                            }
+                            else {
+                                trim_dev_res_fn();
+                            }
                         }
                         else {
-                            /*bool should_trim = !shared_data->use_proactive_render_mode &&
-                                !shared_data->should_redraw.load();*/
-                            bool should_trim = !shared_data->should_redraw.load();
-                            if (should_trim) {
-                                // Trim device resources
-                                draw_ctx.d2d1_dev->ClearResources();
+                            bool has_onscreen_danmaku = !draw_ctx.active_dm_items.empty();
+                            if (show_danmaku && is_playing_and_visible) {
+                                // NOTE: Workaround fullscreen frame throttling (reason is unknown)
+                                if (has_onscreen_danmaku || shared_data->is_fullscreen) {
+                                    shared_data->should_redraw.store(true);
+                                }
+                                else {
+                                    // Danmaku is visible, but currently no items are onscreen. Check
+                                    // if we should issue a timed wait for danmaku.
+                                    if (next_offscreen_danmaku_appear_t != -1) {
+                                        auto cur_p = get_cur_p_nolock_fn();
+                                        should_wait_for_danmaku = true;
+                                        wait_for_danmaku_dur_ms = next_offscreen_danmaku_appear_t - cur_p;
+                                    }
+                                }
+                            }
+                            else {
+                                trim_dev_res_fn();
                             }
                         }
                     }
 
-                    shared_data->should_redraw.wait(false);
+                    if (should_wait_for_danmaku) {
+                        if (wait_for_danmaku_dur_ms > 100) {
+                            atomic_wait_for(shared_data->should_redraw, false,
+                                std::chrono::milliseconds(wait_for_danmaku_dur_ms - 100));
+                        }
+                        // Otherwise, don't wait for such short time, just keep
+                        // the render loop running
+                    }
+                    else {
+                        shared_data->should_redraw.wait(false);
+                    }
                 }
             }
             catch (...) {
@@ -1138,6 +1282,9 @@ namespace winrt::BiliUWP::implementation {
         }
         if (m_et_core_window_visibility_changed) {
             m_core_window.VisibilityChanged(m_et_core_window_visibility_changed);
+        }
+        if (m_et_core_window_size_changed) {
+            m_core_window.SizeChanged(m_et_core_window_size_changed);
         }
     }
     BiliUWP::VideoDanmakuCollection VideoDanmakuControl::Danmaku() {
@@ -1185,8 +1332,21 @@ namespace winrt::BiliUWP::implementation {
     void VideoDanmakuControl::UpdateCurrentTime(Windows::Foundation::TimeSpan const& time) {
         std::scoped_lock guard(m_shared_data->mutex);
         if (m_shared_data->is_playing) {
+            using dur_t = std::chrono::duration<uint64_t, std::milli>;
+            bool should_redraw{ false };
+            auto now_tp = std::chrono::steady_clock::now();
+            auto old_play_p = m_shared_data->play_progress;
             m_shared_data->play_progress = std::chrono::round<std::chrono::milliseconds>(time).count();
-            m_shared_data->last_tp = std::chrono::steady_clock::now();
+            old_play_p += std::chrono::round<dur_t>(now_tp - m_shared_data->last_tp).count();
+            auto play_p_diff = static_cast<int64_t>(m_shared_data->play_progress) -
+                static_cast<int64_t>(old_play_p);
+            should_redraw = std::abs(play_p_diff) > 1;
+            m_shared_data->last_tp = now_tp;
+            // We don't need to take care of circumstances where background populator
+            // is present, since render thread will not save power and wait for danmaku
+            if (!m_shared_data->background_populator && should_redraw) {
+                m_shared_data->request_redraw_nolock();
+            }
         }
         else {
             m_shared_data->play_progress = std::chrono::round<std::chrono::milliseconds>(time).count();

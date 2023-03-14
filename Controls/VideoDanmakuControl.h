@@ -9,7 +9,7 @@ namespace winrt::BiliUWP::implementation {
     struct VideoDanmakuNormalItemContainer;
 
     struct VideoDanmakuCollection : VideoDanmakuCollectionT<VideoDanmakuCollection> {
-        VideoDanmakuCollection();
+        VideoDanmakuCollection(VideoDanmakuControl* ctrl);
 
         void AddManyNormal(array_view<BiliUWP::VideoDanmakuNormalItem const> items);
         uint32_t GetManyNormal(uint32_t startIndex, array_view<BiliUWP::VideoDanmakuNormalItem> items);
@@ -20,8 +20,21 @@ namespace winrt::BiliUWP::implementation {
     private:
         friend struct VideoDanmakuControl;
 
+        enum class DanmakuChangeState {
+            Unchanged = 0,
+            AppendedOnly,
+            Mixed,
+        };
+
+        // Functor returns what changes have happened to the danmaku collection
+        template<typename Functor>
+        void run_with_lock(Functor&& functor);
+
+        weak_ref<VideoDanmakuControl> m_weak_ctrl;
+
         std::mutex m_mutex;
         std::vector<VideoDanmakuNormalItemContainer> m_normal_items;
+        DanmakuChangeState m_danmaku_change_state{ DanmakuChangeState::Unchanged };
     };
 
     struct VideoDanmakuControl : VideoDanmakuControlT<VideoDanmakuControl> {
@@ -46,9 +59,12 @@ namespace winrt::BiliUWP::implementation {
         void TriggerBackgroundUpdate();
 
     private:
+        friend struct VideoDanmakuCollection;
+
         std::shared_ptr<VideoDanmakuControl_SharedData> m_shared_data;
         Windows::UI::Core::CoreWindow m_core_window{ nullptr };
         event_token m_et_core_window_visibility_changed{};
+        event_token m_et_core_window_size_changed{};
         bool m_is_visible{};
         bool m_is_loaded{};
         bool m_is_core_window_visible{};
