@@ -247,9 +247,9 @@ namespace winrt::BiliUWP::implementation {
                 if (session && session.CanPause()) {
                     player.Pause();
                 }
+                // Clean up registered event handlers
+                player.Close();
             }
-            // Clean up registered event handlers
-            player.Close();
         };
         // Ensure we are on the UI thread (MediaPlayerElem may hold a reference
         // in a non-UI thread during media opening)
@@ -1878,8 +1878,8 @@ namespace winrt::BiliUWP::implementation {
                 if (session && session.CanPause()) {
                     player.Pause();
                 }
+                player.Close();
             }
-            player.Close();
             media_player_elem.PosterSource(nullptr);
             // Release detailed stats provider
             if (m_detailed_stats_update_timer) {

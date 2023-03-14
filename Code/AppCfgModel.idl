@@ -15,6 +15,7 @@ namespace BiliUWP {
         // Appearance
         Boolean App_UseTabView;
         Boolean App_ShowTabThumbnails;
+        Boolean App_UseWinUI3Style;
         // Playing
         Boolean App_AlwaysSyncPlayingCfg;
         UInt32 App_GlobalVolume;            // Range: [0, 10000]

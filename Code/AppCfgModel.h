@@ -22,6 +22,8 @@ namespace winrt::BiliUWP::implementation {
         void App_UseTabView(bool value);
         bool App_ShowTabThumbnails();
         void App_ShowTabThumbnails(bool value);
+        bool App_UseWinUI3Style();
+        void App_UseWinUI3Style(bool value);
         bool App_AlwaysSyncPlayingCfg();
         void App_AlwaysSyncPlayingCfg(bool value);
         uint32_t App_GlobalVolume();

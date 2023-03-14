@@ -1124,6 +1124,9 @@ namespace winrt::BiliUWP::implementation {
                 util::winrt::log_current_exception();
             }
             shared_data->thread_running.store(false);
+            shared_data->thread_running.notify_all();
+            shared_data->should_redraw.store(false);
+            shared_data->should_redraw.notify_all();
             util::debug::log_trace(L"VideoDanmakuControl Render Thread stopped");
         }, WorkItemPriority::Normal, WorkItemOptions::TimeSliced);
         m_shared_data->thread_running.store(true);

@@ -693,9 +693,8 @@ namespace BiliUWP {
                     shadow_recv_grid.Visibility(Visibility::Collapsed);
                 }
                 // Hack AddButton
-                tv_ab = get_child_elem(elem, L"AddButton").as<Button>();
-                // TODO: In WinUI Version2 controls, we cannot get tv_ab. Try making the code more robust.
-                if (true && tv_ab) {
+                tv_ab = elem.as<FrameworkElement>().FindName(L"AddButton").as<Button>();
+                if (true) {
                     // Make add button unfocusable
                     tv_ab.IsTabStop(false);
                 }
@@ -717,17 +716,21 @@ namespace BiliUWP {
                         }
                     };
                     bool use_compact = should_use_compact_fn();
+                    bool is_winui3 = ::BiliUWP::App::get()->cfg_model().App_UseWinUI3Style();
                     auto change_state_fn = [=](bool compact_frame) {
                         if (compact_frame) {
                             // Some negative space are useful for system, so a little space is reserved
-                            tv_tvlw.Margin(ThicknessHelper::FromLengths(0, 2, 0, 0));
-                            if (tv_ab) {
+                            if (is_winui3) {
+                                tv_tvlw.Margin(ThicknessHelper::FromLengths(0, 1, 0, 0));
+                            }
+                            else {
+                                tv_tvlw.Margin(ThicknessHelper::FromLengths(0, 2, 0, 0));
                                 tv_ab.Margin(ThicknessHelper::FromLengths(0, 1, 0, 0));
                             }
                         }
                         else {
                             tv_tvlw.Margin(ThicknessHelper::FromLengths(0, 8, 0, 0));
-                            if (tv_ab) {
+                            if (!is_winui3) {
                                 tv_ab.Margin(ThicknessHelper::FromLengths(0, 7, 0, 0));
                             }
                         }
@@ -1061,6 +1064,39 @@ void winrt::BiliUWP::implementation::App::OnLaunched(LaunchActivatedEventArgs co
         // Pre-init first
         if (!m_app_inst) {
             ::BiliUWP::App::g_app_inst = m_app_inst = new ::BiliUWP::AppInst();
+        }
+        {   // Update XamlControlsResources
+            using namespace Microsoft::UI::Xaml::Controls;
+            auto update_xcr_fn = [](ControlsResourcesVersion xcr_ver) {
+                XamlControlsResources xcr{ nullptr };
+                for (auto&& i : Application::Current().Resources().MergedDictionaries()) {
+                    xcr = i.try_as<XamlControlsResources>();
+                    if (xcr) { break; }
+                }
+                if (!xcr) {
+                    util::debug::log_error(L"XamlControlsResources not found");
+                    return;
+                }
+                xcr.ControlsResourcesVersion(xcr_ver);
+            };
+            auto update_xcf_from_cfg_fn = [=] {
+                ControlsResourcesVersion crv;
+                if (m_app_inst->cfg_model().App_UseWinUI3Style()) {
+                    crv = ControlsResourcesVersion::Version2;
+                }
+                else {
+                    crv = ControlsResourcesVersion::Version1;
+                }
+                update_xcr_fn(crv);
+            };
+            /*m_app_inst->cfg_model().PropertyChanged(
+                [=](auto&&, PropertyChangedEventArgs const& e) {
+                    if (e.PropertyName() == L"App_UseWinUI3Style") {
+                        update_xcf_from_cfg_fn();
+                    }
+                }
+            );*/
+            update_xcf_from_cfg_fn();
         }
         if (!cur_window.Content()) {
             m_app_inst->init_current_window();
