@@ -1172,7 +1172,6 @@ namespace BiliUWP {
                 jov.populate(result.vip_label.text, "text");
                 jov.populate(result.vip_label.label_theme, "label_theme");
             }, "vip_label");
-            // TODO: Use assign_num_0_1_to_bool for vip_avatar_subscript
             jov.populate(result.vip_avatar_subscript, "vip_avatar_subscript");
             jov.populate(result.vip_nickname_color, "vip_nickname_color");
             jov.scope([&](JsonObjectVisitor jov) {
@@ -1312,8 +1311,7 @@ namespace BiliUWP {
                     jov.populate(result.vip.label.bg_color, "bg_color");
                     jov.populate(result.vip.label.border_color, "border_color");
                 }, "label");
-                jov.scope(
-                    adapter::assign_num_0_1_to_bool{ result.vip.show_avatar_subscript }, "avatar_subscript");
+                jov.populate(result.vip.avatar_subscript, "avatar_subscript");
                 jov.populate(result.vip.nickname_color, "nickname_color");
                 jov.populate(result.vip.role, "role");
                 jov.populate(result.vip.avatar_subscript_url, "avatar_subscript_url");

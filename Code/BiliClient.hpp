@@ -345,7 +345,7 @@ namespace BiliUWP {
             winrt::hstring text;
             winrt::hstring label_theme;
         } vip_label;
-        bool vip_avatar_subscript;
+        uint32_t vip_avatar_subscript;
         winrt::hstring vip_nickname_color;
         struct {
             double bcoin_balance;
@@ -494,7 +494,7 @@ namespace BiliUWP {
                 winrt::hstring bg_color;
                 winrt::hstring border_color;
             } label;
-            bool show_avatar_subscript;
+            uint32_t avatar_subscript;      // 0 => None; 1 => Big; 2 => Small (April Fool)
             winrt::hstring nickname_color;
             uint32_t role;
             winrt::hstring avatar_subscript_url;
