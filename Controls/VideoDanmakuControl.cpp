@@ -613,7 +613,7 @@ namespace winrt::BiliUWP::implementation {
                         size_dips_to_pixels(width, dpi_x),
                         size_dips_to_pixels(height, dpi_y),
                         DXGI_FORMAT_UNKNOWN,
-                        0
+                        DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT
                     );
                     if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET) {
                         // Failed to resize
@@ -892,6 +892,7 @@ namespace winrt::BiliUWP::implementation {
                 Windows::Graphics::DirectX::Direct3D11::IDirect3DSurface swapchain_d3d_surface{ nullptr };
                 com_ptr<IDXGISurface> swapchain_dxgi_surface;
                 com_ptr<ID2D1SolidColorBrush> solid_brush{ nullptr };
+                HANDLE swapchain_latency_waitable;
                 float vp_width{}, vp_height{};
                 float panel_scale_x{}, panel_scale_y{};
                 float danmaku_scroll_speed{ 200 };          // Unit: dip/s
@@ -962,7 +963,7 @@ namespace winrt::BiliUWP::implementation {
                     swap_chain_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
                     swap_chain_desc.BufferCount = 2;
                     swap_chain_desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-                    swap_chain_desc.Flags = 0;
+                    swap_chain_desc.Flags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
                     if (use_transparent_swapchain) {
                         swap_chain_desc.AlphaMode = DXGI_ALPHA_MODE_PREMULTIPLIED;
                     }
@@ -978,7 +979,8 @@ namespace winrt::BiliUWP::implementation {
                         ._11 = 1.0f / panel_scale_x, ._22 = 1.0f / panel_scale_y,
                     };
                     check_hresult(this->swapchain->SetMatrixTransform(&inverse_scale));
-                    //check_hresult(this->swapchain->SetMaximumFrameLatency(1));
+                    check_hresult(this->swapchain->SetMaximumFrameLatency(1));
+                    this->swapchain_latency_waitable = this->swapchain->GetFrameLatencyWaitableObject();
                     // Device context
                     com_ptr<ID2D1DeviceContext1> base_d2d1_dev_ctx;
                     check_hresult(this->d2d1_dev->CreateDeviceContext(
@@ -1199,6 +1201,8 @@ namespace winrt::BiliUWP::implementation {
                     }
                     else {
                         check_hresult(hr);
+                        // Wait for presentation to complete
+                        WaitForSingleObject(draw_ctx.swapchain_latency_waitable, 1000);
                     }
 
                     // Check conditions for the next frame & possibly wait
