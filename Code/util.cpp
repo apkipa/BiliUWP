@@ -284,6 +284,24 @@ namespace util {
         // }; // End class Md5
     }
 
+    namespace mem {
+        // NOTE: Use a separate heap to improve multi-thread performance
+        static HANDLE g_another_heap = HeapCreate(0, 0, 0);
+
+        void* fast_alloc(size_t size) noexcept {
+            if (size == 0) { return nullptr; }
+            return HeapAlloc(g_another_heap, 0, size);
+        }
+        void fast_free(void* ptr) noexcept {
+            if (ptr) { HeapFree(g_another_heap, 0, ptr); }
+        }
+        void* fast_realloc(void* ptr, size_t size) noexcept {
+            if (ptr == nullptr) { return fast_alloc(size); }
+            if (size == 0) { fast_free(ptr); return nullptr; }
+            return HeapReAlloc(g_another_heap, 0, ptr, size);
+        }
+    }
+
     namespace container {
         // TODO...
     }
@@ -799,20 +817,23 @@ namespace util {
             );
         }
 
+        // NOTE: We avoid using the CRT heap for reduced contention (with UI thread) and
+        //       improved allocation performance, especially when large chunks of memory
+        //       are allocated
         struct details::InMemoryStreamImpl final {
             InMemoryStreamImpl() : m_buf_ptr(nullptr), m_buf_size(0) {}
             ~InMemoryStreamImpl() {
-                std::free(m_buf_ptr);
+                util::mem::fast_free(m_buf_ptr);
             }
             void size(size_t value) {
                 std::scoped_lock guard(m_mutex);
                 // Deterministically free storage instead of relying on impl-def behaviors
                 if (value == 0) {
-                    std::free(m_buf_ptr);
+                    util::mem::fast_free(m_buf_ptr);
                     m_buf_ptr = nullptr;
                 }
                 else {
-                    auto new_ptr = std::realloc(m_buf_ptr, value);
+                    auto new_ptr = util::mem::fast_realloc(m_buf_ptr, value);
                     if (!new_ptr) { ::winrt::throw_hresult(E_OUTOFMEMORY); }
                     m_buf_ptr = reinterpret_cast<unsigned char*>(new_ptr);
                 }

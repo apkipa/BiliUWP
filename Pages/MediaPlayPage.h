@@ -188,6 +188,7 @@ namespace winrt::BiliUWP::implementation {
             ::BiliUWP::VideoPlayUrl_Dash_Stream const& vstream,
             ::BiliUWP::VideoPlayUrl_Dash_Stream const* pastream
         );
+        // WARN: Caller must guarantee that passed parameters are valid during the whole invocation
         util::winrt::task<MediaSrcDetailedStatsPair> PlayVideoWithCidInner_DashNativeNative(
             ::BiliUWP::VideoPlayUrl_Dash const& dash_info,
             ::BiliUWP::VideoPlayUrl_Dash_Stream const& vstream,
@@ -212,9 +213,9 @@ namespace winrt::BiliUWP::implementation {
         util::winrt::task<> PlayAudio();
 
         // NOTE: Setting source to null will only stop current media
-        void SubmitMediaPlaybackSourceToNativePlayer(
-            Windows::Media::Playback::IMediaPlaybackSource const& source,
-            Windows::UI::Xaml::Media::ImageSource const& poster_source = nullptr,
+        util::winrt::task<> SubmitMediaPlaybackSourceToNativePlayer(
+            Windows::Media::Playback::IMediaPlaybackSource source,
+            Windows::UI::Xaml::Media::ImageSource poster_source = nullptr,
             std::shared_ptr<DetailedStatsProvider> ds_provider = nullptr,
             bool enable_custom_presenter = false,
             bool use_reactive_present_mode = false      // For custom presenter

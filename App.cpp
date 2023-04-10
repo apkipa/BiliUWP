@@ -1064,6 +1064,7 @@ void winrt::BiliUWP::implementation::App::OnLaunched(LaunchActivatedEventArgs co
         // Pre-init first
         if (!m_app_inst) {
             ::BiliUWP::App::g_app_inst = m_app_inst = new ::BiliUWP::AppInst();
+            util::win32::set_thread_name(L"Main UI Thread");
         }
         {   // Update XamlControlsResources
             using namespace Microsoft::UI::Xaml::Controls;

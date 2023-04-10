@@ -29,6 +29,21 @@ namespace util {
             T m_func;
         };
 
+        // Similar to std::experimental::scope_exit
+        template<typename T>
+        struct ScopeExit final {
+            explicit ScopeExit(T&& func) : m_func(std::forward<T>(func)) {}
+            ~ScopeExit() { if (m_active) { std::invoke(m_func); } }
+            void release(void) { m_active = false; }
+        private:
+            bool m_active{ true };
+            T m_func;
+        };
+        template<typename T>
+        inline auto scope_exit(T&& func) {
+            return ScopeExit{ std::forward<T>(func) };
+        }
+
         template<typename>
         inline constexpr bool always_false_v = false;
 
@@ -385,6 +400,11 @@ namespace util {
                     ptr, std::forward<Args>(args)...);
             }
         };
+
+        // Like std::malloc, but a bit faster
+        void* fast_alloc(size_t size) noexcept;
+        void fast_free(void* ptr) noexcept;
+        void* fast_realloc(void* ptr, size_t size) noexcept;
     }
 
     namespace container {
@@ -860,8 +880,15 @@ namespace util {
 
             task() :
                 m_task(), m_cts(concurrency::cancellation_token_source::_FromImpl(nullptr)),
-                m_cancellable(nullptr) {}
+                m_cancellable(nullptr), m_outer_cancellable(nullptr) {}
             task(std::nullptr_t) : task() {}
+            task(task const& other) : task(other.m_task, other.m_cts, other.m_cancellable) {}
+            task(task&& other) : task() {
+                using std::swap;
+                swap(m_task, other.m_task);
+                swap(m_cts, other.m_cts);
+                swap(m_cancellable, other.m_cancellable);
+            }
 
             operator bool() { return m_task != decltype(m_task){}; }
             auto& operator=(task other) {
@@ -939,12 +966,13 @@ namespace util {
                 return *m_task.get();
             }
             void enable_cancellation(::winrt::cancellable_promise* promise) {
+                m_outer_cancellable = promise;
                 promise->set_canceller([](void* context) {
                     auto that = static_cast<task*>(context);
                     that->cancel();
                 }, this);
             }
-            void cancel(void) {
+            void cancel(void) const {
                 // TODO: Mutex protection
                 if (!m_cts.get_token().is_canceled()) {
                     m_cancellable->cancel();
@@ -952,31 +980,46 @@ namespace util {
                 }
             }
             ~task() {
-                // Swallow exceptions, if any
                 if (!*this) { return; }
+                // Swallow exceptions, if any
                 m_task.then([](concurrency::task<ReturnWrapType> const& task) {
                     try { task.wait(); }
                     catch (...) { util::winrt::log_current_exception(); }
                 });
+                // NOTE: Prevent cancellation from happening while task destructs
+                if (m_outer_cancellable) {
+                    static_cast<::winrt::enable_await_cancellation&>(*this)
+                        .set_cancellable_promise(nullptr);
+                    m_outer_cancellable->revoke_canceller();
+                }
             }
         private:
             task(
                 concurrency::task<ReturnWrapType> task,
                 concurrency::cancellation_token_source cts,
                 std::shared_ptr<::winrt::cancellable_promise> cancellable
-            ) : m_task(std::move(task)), m_cts(std::move(cts)), m_cancellable(std::move(cancellable)) {}
+            ) : m_task(std::move(task)), m_cts(std::move(cts)), m_cancellable(std::move(cancellable)),
+                m_outer_cancellable(nullptr) {}
 
             concurrency::task<ReturnWrapType> m_task;
             concurrency::cancellation_token_source m_cts;
             std::shared_ptr<::winrt::cancellable_promise> m_cancellable;
+            ::winrt::cancellable_promise* m_outer_cancellable;
         };
         // task<void> specialization
         template<>
         struct task<void> : ::winrt::enable_await_cancellation {
             task() :
                 m_task(), m_cts(concurrency::cancellation_token_source::_FromImpl(nullptr)),
-                m_cancellable(nullptr) {}
+                m_cancellable(nullptr), m_outer_cancellable(nullptr) {}
             task(std::nullptr_t) : task() {}
+            task(task const& other) : task(other.m_task, other.m_cts, other.m_cancellable) {}
+            task(task&& other) : task() {
+                using std::swap;
+                swap(m_task, other.m_task);
+                swap(m_cts, other.m_cts);
+                swap(m_cancellable, other.m_cancellable);
+            }
 
             operator bool() { return m_task != decltype(m_task){}; }
             auto& operator=(task other) {
@@ -1050,12 +1093,13 @@ namespace util {
                 m_task.get();
             }
             void enable_cancellation(::winrt::cancellable_promise* promise) {
+                m_outer_cancellable = promise;
                 promise->set_canceller([](void* context) {
                     auto that = static_cast<task*>(context);
                     that->cancel();
                 }, this);
             }
-            void cancel(void) {
+            void cancel(void) const {
                 // TODO: Mutex protection
                 if (!m_cts.get_token().is_canceled()) {
                     m_cancellable->cancel();
@@ -1063,23 +1107,31 @@ namespace util {
                 }
             }
             ~task() {
-                // Swallow exceptions, if any
                 if (!*this) { return; }
+                // Swallow exceptions, if any
                 m_task.then([](concurrency::task<void> const& task) {
                     try { task.wait(); }
                     catch (...) { util::winrt::log_current_exception(); }
                 });
+                // NOTE: Prevent cancellation from happening while task destructs
+                if (m_outer_cancellable) {
+                    static_cast<::winrt::enable_await_cancellation&>(*this)
+                        .set_cancellable_promise(nullptr);
+                    m_outer_cancellable->revoke_canceller();
+                }
             }
         private:
             task(
                 concurrency::task<void> task,
                 concurrency::cancellation_token_source cts,
                 std::shared_ptr<::winrt::cancellable_promise> cancellable
-            ) : m_task(std::move(task)), m_cts(std::move(cts)), m_cancellable(std::move(cancellable)) {}
+            ) : m_task(std::move(task)), m_cts(std::move(cts)), m_cancellable(std::move(cancellable)),
+                m_outer_cancellable(nullptr) {}
 
             concurrency::task<void> m_task;
             concurrency::cancellation_token_source m_cts;
             std::shared_ptr<::winrt::cancellable_promise> m_cancellable;
+            ::winrt::cancellable_promise* m_outer_cancellable;
         };
         // Like winrt::resume_after, but calling contexts are preserved
         inline ::winrt::Windows::Foundation::IAsyncAction resume_after(
