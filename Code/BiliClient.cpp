@@ -660,7 +660,7 @@ namespace BiliUWP {
         jov.populate(result.face_url, "face");
         jov.scope([&](JsonObjectVisitor jov) {
             jov.populate(result.vip.type, "type");
-            jov.scope(adapter::assign_num_0_1_to_bool{ result.vip.is_vip }, "status");
+            jov.populate(result.vip.status, "status");
         }, "vip");
         jov.scope([&](JsonObjectVisitor jov) {
             jov.populate(result.official.role, "role");
@@ -1165,8 +1165,7 @@ namespace BiliUWP {
             }, "pendant");
             jov.populate(result.uname, "uname");
             jov.populate(result.vip_due_date, "vipDueDate");
-            // TODO: Use assign_num_0_1_to_bool for vipStatus
-            jov.populate(result.is_vip, "vipStatus");
+            jov.populate(result.vip_status, "vipStatus");
             jov.populate(result.vip_type, "vipType");
             jov.scope([&](JsonObjectVisitor jov) {
                 jov.populate(result.vip_label.text, "text");
@@ -1299,7 +1298,7 @@ namespace BiliUWP {
             }, "official");
             jov.scope([&](JsonObjectVisitor jov) {
                 jov.populate(result.vip.type, "type");
-                jov.scope(adapter::assign_num_0_1_to_bool{ result.vip.is_vip }, "status");
+                jov.populate(result.vip.status, "status");
                 jov.populate(result.vip.due_date, "due_date");
                 jov.populate(result.vip.vip_pay_type, "vip_pay_type");
                 jov.scope([&](JsonObjectVisitor jov) {
@@ -1782,7 +1781,7 @@ namespace BiliUWP {
             }, "statistic");
             jov.scope([&](JsonObjectVisitor jov) {
                 jov.populate(result.vip_info.vip_type, "type");
-                jov.scope(adapter::assign_num_0_1_to_bool{ result.vip_info.is_vip }, "status");
+                jov.populate(result.vip_info.status, "status");
                 jov.populate(result.vip_info.vip_due_date, "due_date");
             }, "vipInfo");
             jov.populate(result.favs_with_collected, "collectIds");

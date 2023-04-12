@@ -339,7 +339,7 @@ namespace BiliUWP {
         } pendant;
         winrt::hstring uname;
         uint64_t vip_due_date;
-        bool is_vip;
+        uint32_t vip_status;
         int32_t vip_type;
         struct {
             winrt::hstring text;
@@ -482,7 +482,7 @@ namespace BiliUWP {
         } official;
         struct {
             uint32_t type;
-            bool is_vip;
+            uint32_t status;    // 1 => Normal; 2 => Frozen due to IP changes; 3 => Locked down due to high risks
             uint64_t due_date;
             uint32_t vip_pay_type;
             struct {
@@ -655,7 +655,7 @@ namespace BiliUWP {
         winrt::hstring face_url;
         struct {
             uint32_t type;
-            bool is_vip;
+            uint32_t status;
         } vip;
         struct {
             uint32_t role;
@@ -843,7 +843,7 @@ namespace BiliUWP {
         } statistic;
         struct {
             int32_t vip_type;
-            bool is_vip;
+            uint32_t status;
             uint64_t vip_due_date;
         } vip_info;
         std::vector<uint64_t> favs_with_collected;
