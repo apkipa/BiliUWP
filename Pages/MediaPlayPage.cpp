@@ -1441,6 +1441,7 @@ namespace winrt::BiliUWP::implementation {
                 // TODO: Use ExternalTimedMetadataTracks to populate subtitles instead
                 // Add BOM header so that TimedTextSource can load subtitles correctly
                 std::wstring srt_str{ 0xfeff };
+                util::debug::log_trace(std::format(L"Downloading subtitle from `{}`...", st.subtitle_url));
                 auto jo = Windows::Data::Json::JsonObject::Parse(
                     co_await weak_store.ual(weak_store->m_http_client.GetStringAsync(Uri(st.subtitle_url)))
                 );
