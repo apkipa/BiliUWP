@@ -1938,10 +1938,13 @@ namespace winrt::BiliUWP::implementation {
 
         // Build media player
         auto media_player = co_await [](auto that, IMediaPlaybackSource const& source) -> util::winrt::task<MediaPlayer> {
+            // NOTE: Creating a MediaPlayer takes ~50ms
+            // NOTE: We should create MediaPlayer in the UI thread, so that it
+            //       is aware of the transition to background and can save power
+            auto media_player = MediaPlayer();
+
             co_await resume_background();
 
-            // NOTE: Creating a MediaPlayer takes ~50ms
-            auto media_player = MediaPlayer();
             if (::BiliUWP::App::get()->cfg_model().App_EnableRealtimePlayback()) {
                 media_player.RealTimePlayback(true);
             }
