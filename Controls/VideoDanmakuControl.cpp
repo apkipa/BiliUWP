@@ -961,7 +961,7 @@ namespace winrt::BiliUWP::implementation {
                     swap_chain_desc.SampleDesc.Count = 1;
                     swap_chain_desc.SampleDesc.Quality = 0;
                     swap_chain_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-                    swap_chain_desc.BufferCount = 2;
+                    swap_chain_desc.BufferCount = 3;
                     swap_chain_desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
                     swap_chain_desc.Flags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
                     if (use_transparent_swapchain) {
@@ -979,7 +979,7 @@ namespace winrt::BiliUWP::implementation {
                         ._11 = 1.0f / panel_scale_x, ._22 = 1.0f / panel_scale_y,
                     };
                     check_hresult(this->swapchain->SetMatrixTransform(&inverse_scale));
-                    check_hresult(this->swapchain->SetMaximumFrameLatency(1));
+                    check_hresult(this->swapchain->SetMaximumFrameLatency(2));
                     this->swapchain_latency_waitable = this->swapchain->GetFrameLatencyWaitableObject();
                     // Device context
                     com_ptr<ID2D1DeviceContext1> base_d2d1_dev_ctx;
