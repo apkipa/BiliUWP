@@ -109,6 +109,8 @@ namespace {
     };
 }
 
+// TODO: Move web APIs to those with /wbi route
+
 namespace winrt::BiliUWP::implementation {
     using namespace Windows::Foundation;
     using namespace Windows::Web::Http;
@@ -384,6 +386,26 @@ namespace winrt::BiliUWP::implementation {
         co_return JsonObject::Parse(std::move(str));
         http_client_safe_invoke_end;
     }
+    AsyncJsonObjectResult BiliClientManaged::api_api_x_space_wbi_acc_info(uint64_t mid) {
+        ApiParamMaker param_maker;
+
+        auto cancellation_token = co_await get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        // TODO: Figure out how to generate w_rid & wts
+        param_maker.add_param(L"mid", to_hstring(mid));
+        auto uri = make_uri(
+            L"https://api.bilibili.com",
+            L"/x/space/wbi/acc/info",
+            param_maker.get_as_str()
+        );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
+        http_client_safe_invoke_begin;
+        auto str = co_await m_http_client.GetStringAsync(uri);
+        util::debug::log_trace(std::format(L"Parsing JSON: {}", str));
+        co_return JsonObject::Parse(std::move(str));
+        http_client_safe_invoke_end;
+    }
     AsyncJsonObjectResult BiliClientManaged::api_api_x_space_upstat(uint64_t mid) {
         ApiParamMaker param_maker;
 
@@ -434,6 +456,46 @@ namespace winrt::BiliUWP::implementation {
         auto uri = make_uri(
             L"https://api.bilibili.com",
             L"/x/space/arc/search",
+            param_maker.get_as_str()
+        );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
+        http_client_safe_invoke_begin;
+        auto str = co_await m_http_client.GetStringAsync(uri);
+        util::debug::log_trace(std::format(L"Parsing JSON: {}", str));
+        co_return JsonObject::Parse(std::move(str));
+        http_client_safe_invoke_end;
+    }
+    AsyncJsonObjectResult BiliClientManaged::api_api_x_space_wbi_arc_search(
+        uint64_t mid,
+        BiliUWP::ApiParam_Page page,
+        hstring keyword,
+        uint64_t tid,
+        BiliUWP::ApiParam_SpaceArcSearchOrder order
+    ) {
+        ApiParamMaker param_maker;
+
+        auto cancellation_token = co_await get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        param_maker.add_param(L"mid", to_hstring(mid));
+        param_maker.add_param(L"tid", to_hstring(tid));
+        if (keyword != L"") {
+            param_maker.add_param(L"keyword", keyword);
+        }
+        hstring order_str;
+        switch (order) {
+        case BiliUWP::ApiParam_SpaceArcSearchOrder::ByPublishTime:      order_str = L"mtime";       break;
+        case BiliUWP::ApiParam_SpaceArcSearchOrder::ByClickCount:       order_str = L"view";        break;
+        case BiliUWP::ApiParam_SpaceArcSearchOrder::ByFavouriteCount:   order_str = L"pubtime";     break;
+        default:
+            throw hresult_invalid_argument();
+        }
+        param_maker.add_param(L"order", order_str);
+        param_maker.add_param(L"pn", to_hstring(page.n));
+        param_maker.add_param(L"ps", to_hstring(page.size));
+        auto uri = make_uri(
+            L"https://api.bilibili.com",
+            L"/x/space/wbi/arc/search",
             param_maker.get_as_str()
         );
         util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));

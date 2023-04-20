@@ -43,8 +43,16 @@ namespace winrt::BiliUWP::implementation {
         AsyncJsonObjectResult api_api_x_web_interface_nav_stat(void);
         AsyncJsonObjectResult api_api_x_web_interface_card(uint64_t mid, bool get_photo);
         AsyncJsonObjectResult api_api_x_space_acc_info(uint64_t mid);
+        AsyncJsonObjectResult api_api_x_space_wbi_acc_info(uint64_t mid);
         AsyncJsonObjectResult api_api_x_space_upstat(uint64_t mid);
         AsyncJsonObjectResult api_api_x_space_arc_search(
+            uint64_t mid,
+            BiliUWP::ApiParam_Page page,
+            hstring keyword,
+            uint64_t tid,
+            BiliUWP::ApiParam_SpaceArcSearchOrder order
+        );
+        AsyncJsonObjectResult api_api_x_space_wbi_arc_search(
             uint64_t mid,
             BiliUWP::ApiParam_Page page,
             hstring keyword,

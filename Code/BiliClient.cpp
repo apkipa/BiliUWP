@@ -1303,7 +1303,7 @@ namespace BiliUWP {
         auto cancellation_token = co_await winrt::get_cancellation_token();
         cancellation_token.enable_propagation();
 
-        auto jo = co_await m_bili_client.api_api_x_space_acc_info(mid);
+        auto jo = co_await m_bili_client.api_api_x_space_wbi_acc_info(mid);
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
@@ -1450,7 +1450,7 @@ namespace BiliUWP {
         default:
             throw winrt::hresult_invalid_argument();
         }
-        auto jo = co_await m_bili_client.api_api_x_space_arc_search(
+        auto jo = co_await m_bili_client.api_api_x_space_wbi_arc_search(
             mid, winrt::BiliUWP::ApiParam_Page{ page.n, page.size }, search_keyword, 0, param_order
         );
         check_json_code(jo);
