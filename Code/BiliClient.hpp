@@ -104,7 +104,18 @@ namespace BiliUWP {
     };
 
     // NOTE: Error messages are encoded in UTF-8
-    class BiliApiException : public std::exception {};
+    class BiliApiException : public std::exception {
+    public:
+        const std::source_location m_sloc;
+        BiliApiException(std::source_location const& sloc = std::source_location::current()) :
+            m_sloc(sloc)
+        {
+            util::debug::log_warn(winrt::to_hstring(
+                std::format("Originated BiliApiException in {}:{}:{}",
+                    m_sloc.file_name(), m_sloc.function_name(), m_sloc.line())
+            ));
+        }
+    };
     class BiliApiUpstreamException : public BiliApiException {
         std::string m_err_msg;
         ApiCode m_api_code;
@@ -169,15 +180,20 @@ namespace BiliUWP {
 #undef gen_branch
             }
         }
+
     public:
-        BiliApiUpstreamException(ApiCode api_code) :
+        BiliApiUpstreamException(ApiCode api_code,
+            std::source_location const& sloc = std::source_location::current()
+        ) : BiliApiException(sloc),
             m_api_code(api_code), m_server_msg(), m_err_msg("Server error")
         {
             m_err_msg += std::format("[{}: {}]",
                 std::to_underlying(api_code), code_to_msg(api_code)
             );
         }
-        BiliApiUpstreamException(ApiCode api_code, std::string_view server_msg) :
+        BiliApiUpstreamException(ApiCode api_code, std::string_view server_msg,
+            std::source_location const& sloc = std::source_location::current()
+        ) : BiliApiException(sloc),
             m_api_code(api_code), m_server_msg(server_msg), m_err_msg("Server error")
         {
             m_err_msg += std::format("[{}: {}]: {}",
@@ -190,6 +206,7 @@ namespace BiliUWP {
     };
     class BiliApiParseException : public BiliApiException {
         std::string m_err_msg;
+
     public:
         static inline struct json_parse_no_prop_t {} json_parse_no_prop;
         static inline struct json_parse_wrong_type_t {} json_parse_wrong_type;
@@ -202,16 +219,20 @@ namespace BiliUWP {
             NoProperty,
             WrongType
         };
-        BiliApiParseException(std::string msg) : m_err_msg(std::move(msg)) {}
-        BiliApiParseException(json_parse_no_prop_t, JsonPropsWalkTree const& props_tree) :
-            m_err_msg("JSON parse error: ")
+        BiliApiParseException(std::string msg,
+            std::source_location const& sloc = std::source_location::current()
+        ) : BiliApiException(sloc), m_err_msg(std::move(msg)) {}
+        BiliApiParseException(json_parse_no_prop_t, JsonPropsWalkTree const& props_tree,
+            std::source_location const& sloc = std::source_location::current()
+        ) : BiliApiException(sloc), m_err_msg("JSON parse error: ")
         {
             m_err_msg += std::format("Property `{}` not found", props_tree.stringify());
         }
         BiliApiParseException(json_parse_wrong_type_t,
             JsonPropsWalkTree const& props_tree,
-            std::string_view desired_type, std::string_view actual_type
-        ) : m_err_msg("JSON parse error: ")
+            std::string_view desired_type, std::string_view actual_type,
+            std::source_location const& sloc = std::source_location::current()
+        ) : BiliApiException(sloc), m_err_msg("JSON parse error: ")
         {
             m_err_msg += std::format(
                 "Expected property `{}` of type `{}`, found type `{}`",
@@ -220,8 +241,9 @@ namespace BiliUWP {
             );
         }
         BiliApiParseException(json_parse_out_of_bound_t,
-            JsonPropsWalkTree const& props_tree, std::size_t actual_size
-        ) : m_err_msg("JSON parse error: ")
+            JsonPropsWalkTree const& props_tree, std::size_t actual_size,
+            std::source_location const& sloc = std::source_location::current()
+        ) : BiliApiException(sloc), m_err_msg("JSON parse error: ")
         {
             m_err_msg += std::format(
                 "Out of bound while accessing `{}` of size {}",
@@ -230,8 +252,9 @@ namespace BiliUWP {
             );
         }
         BiliApiParseException(json_parse_out_of_range_t,
-            JsonPropsWalkTree const& props_tree
-        ) : m_err_msg("JSON parse error: ")
+            JsonPropsWalkTree const& props_tree,
+            std::source_location const& sloc = std::source_location::current()
+        ) : BiliApiException(sloc), m_err_msg("JSON parse error: ")
         {
             m_err_msg += std::format(
                 "Value of `{}` does not fit into requested native type",
@@ -239,14 +262,16 @@ namespace BiliUWP {
             );
         }
         BiliApiParseException(json_parse_user_defined_t,
-            JsonPropsWalkTree const& props_tree, std::string_view msg
-        ) : m_err_msg("JSON parse error: ")
+            JsonPropsWalkTree const& props_tree, std::string_view msg,
+            std::source_location const& sloc = std::source_location::current()
+        ) : BiliApiException(sloc), m_err_msg("JSON parse error: ")
         {
             m_err_msg += std::format("`{}`: {}", props_tree.stringify(), msg);
         }
         BiliApiParseException(proto_parse_failure_t,
-            winrt::Windows::Storage::Streams::IBuffer const& proto_buf, std::string_view msg_name
-        ) : m_err_msg("Protobuf parse error: ")
+            winrt::Windows::Storage::Streams::IBuffer const& proto_buf, std::string_view msg_name,
+            std::source_location const& sloc = std::source_location::current()
+        ) : BiliApiException(sloc), m_err_msg("Protobuf parse error: ")
         {
             // TODO: Optimize base64 performance with custom std::formatter
             using winrt::Windows::Security::Cryptography::CryptographicBuffer;

@@ -15,26 +15,41 @@ namespace BiliUWP {
     bool try_check_api_code(double code) {
         return try_check_api_code(static_cast<ApiCode>(code));
     }
-    void check_api_code(ApiCode code) {
+    void check_api_code(ApiCode code,
+        std::source_location const& sloc = std::source_location::current()
+    ) {
         if (!try_check_api_code(code)) {
-            throw BiliApiUpstreamException(code);
+            throw BiliApiUpstreamException(code, sloc);
         }
     }
-    void check_api_code(int32_t code) {
-        check_api_code(static_cast<ApiCode>(code));
+    void check_api_code(int32_t code,
+        std::source_location const& sloc = std::source_location::current()
+    ) {
+        check_api_code(static_cast<ApiCode>(code), sloc);
     }
-    void check_api_code(double code) {
-        check_api_code(static_cast<ApiCode>(code));
+    void check_api_code(double code,
+        std::source_location const& sloc = std::source_location::current()
+    ) {
+        check_api_code(static_cast<ApiCode>(code), sloc);
     }
-    void check_json_code(json::JsonObject const& jo) {
-        check_api_code(jo.at(L"code").get_value<int32_t>());
+    void check_json_code(json::JsonObject const& jo,
+        std::source_location const& sloc = std::source_location::current()
+    ) {
+        check_api_code(jo.at(L"code").get_value<int32_t>(), sloc);
     }
-    void check_json_code(winrt::Windows::Data::Json::JsonObject const& jo) {
+    void check_json_code(
+        winrt::Windows::Data::Json::JsonObject const& jo,
+        std::source_location const& sloc = std::source_location::current()
+    ) {
         auto code = static_cast<ApiCode>(jo.GetNamedNumber(L"code"));
         if (!try_check_api_code(code)) {
             if (auto jv = jo.TryLookup(L"message")) {
-                throw BiliApiUpstreamException(code, winrt::to_string(jv.GetString()));
+                throw BiliApiUpstreamException(code, winrt::to_string(jv.GetString()), sloc);
             }
+            if (auto jv = jo.TryLookup(L"msg")) {
+                throw BiliApiUpstreamException(code, winrt::to_string(jv.GetString()), sloc);
+            }
+            throw BiliApiUpstreamException(code, sloc);
         }
     }
 
@@ -81,10 +96,12 @@ namespace BiliUWP {
     struct JsonValueVisitor {
         JsonValueVisitor(
             winrt::Windows::Data::Json::IJsonValue jv,
-            JsonPropsWalkTree& props_walk
-        ) : m_jv(std::move(jv)), m_props_walk(props_walk) {}
+            JsonPropsWalkTree& props_walk,
+            std::source_location const& sloc = std::source_location::current()
+        ) : m_jv(std::move(jv)), m_props_walk(props_walk), m_sloc(sloc) {}
 
         JsonPropsWalkTree& get_props_walk_tree(void) { return m_props_walk; }
+        std::source_location const& get_src_loc(void) { return m_sloc; }
 
         bool is_null(void) {
             return m_jv.ValueType() == winrt::Windows::Data::Json::JsonValueType::Null;
@@ -201,7 +218,8 @@ namespace BiliUWP {
                 throw BiliApiParseException(BiliApiParseException::json_parse_wrong_type,
                     m_props_walk,
                     JsonVisitorHelper::stringify(expected_type),
-                    JsonVisitorHelper::stringify(jvt)
+                    JsonVisitorHelper::stringify(jvt),
+                    m_sloc
                 );
             }
         }
@@ -237,29 +255,38 @@ namespace BiliUWP {
                 throw BiliApiParseException(BiliApiParseException::json_parse_wrong_type,
                     m_props_walk,
                     "integer",
-                    JsonVisitorHelper::stringify(winrt::Windows::Data::Json::JsonValueType::Number)
+                    JsonVisitorHelper::stringify(winrt::Windows::Data::Json::JsonValueType::Number),
+                    m_sloc
                 );
             }
             errno = 0;
             long long integer{ std::llround(number) };
             if (auto cur_errno = errno; cur_errno == EDOM || cur_errno == ERANGE) {
                 throw BiliApiParseException(BiliApiParseException::json_parse_out_of_range,
-                    m_props_walk
+                    m_props_walk,
+                    m_sloc
                 );
             }
             if constexpr (std::numeric_limits<T>::is_signed) {
                 if (integer < std::numeric_limits<T>::min() || integer > std::numeric_limits<T>::max()) {
-                    throw BiliApiParseException(BiliApiParseException::json_parse_out_of_range, m_props_walk);
+                    throw BiliApiParseException(BiliApiParseException::json_parse_out_of_range,
+                        m_props_walk,
+                        m_sloc
+                    );
                 }
             }
             else {
                 if (integer < 0 || static_cast<unsigned long long>(integer) > std::numeric_limits<T>::max()) {
-                    throw BiliApiParseException(BiliApiParseException::json_parse_out_of_range, m_props_walk);
+                    throw BiliApiParseException(BiliApiParseException::json_parse_out_of_range,
+                        m_props_walk,
+                        m_sloc
+                    );
                 }
             }
             return static_cast<T>(integer);
         }
 
+        std::source_location m_sloc;
         winrt::Windows::Data::Json::IJsonValue m_jv;
         JsonPropsWalkTree& m_props_walk;
     };
@@ -267,10 +294,12 @@ namespace BiliUWP {
     struct JsonObjectVisitor {
         JsonObjectVisitor(
             winrt::Windows::Data::Json::JsonObject jo,
-            JsonPropsWalkTree& props_walk
-        ) : m_jo(std::move(jo)), m_props_walk(props_walk) {}
+            JsonPropsWalkTree& props_walk,
+            std::source_location const& sloc = std::source_location::current()
+        ) : m_jo(std::move(jo)), m_props_walk(props_walk), m_sloc(sloc) {}
 
         JsonPropsWalkTree& get_props_walk_tree(void) { return m_props_walk; }
+        std::source_location const& get_src_loc(void) { return m_sloc; }
 
         bool has_key(std::string_view key) {
             return m_jo.HasKey(winrt::to_hstring(key));
@@ -286,14 +315,14 @@ namespace BiliUWP {
             using ParamType = decltype(JsonVisitorHelper::get_fn_param_helper(func, 0, 0, 0));
             if constexpr (std::is_same_v<ParamType, JsonObjectVisitor>) {
                 expect_jv_type(jv, JsonValueType::Object);
-                return func(JsonObjectVisitor{ jv.GetObject(), m_props_walk });
+                return func(JsonObjectVisitor{ jv.GetObject(), m_props_walk, m_sloc });
             }
             else if constexpr (std::is_same_v<ParamType, JsonArrayVisitor>) {
                 expect_jv_type(jv, JsonValueType::Array);
-                return func(JsonArrayVisitor{ jv.GetArray(), m_props_walk });
+                return func(JsonArrayVisitor{ jv.GetArray(), m_props_walk, m_sloc });
             }
             else if constexpr (std::is_same_v<ParamType, JsonValueVisitor>) {
-                return func(JsonValueVisitor{ std::move(jv), m_props_walk });
+                return func(JsonValueVisitor{ std::move(jv), m_props_walk, m_sloc });
             }
             else {
                 static_assert(util::misc::always_false_v<ParamType>, "Incorrect parameter type for functor");
@@ -316,7 +345,7 @@ namespace BiliUWP {
             deferred([this] {
                 m_props_walk.pop();
             });
-            populate_inner(dst, { expect_jo_lookup(m_jo, key), m_props_walk });
+            populate_inner(dst, { expect_jo_lookup(m_jo, key), m_props_walk, m_sloc });
         }
         // NOTE: std::nullopt will be stored only when the property does not exist
         template<typename T>
@@ -327,7 +356,7 @@ namespace BiliUWP {
                 deferred([this] {
                     m_props_walk.pop();
                 });
-                JsonValueVisitor{ jv, m_props_walk }.populate(temp);
+                JsonValueVisitor{ jv, m_props_walk, m_sloc }.populate(temp);
                 dst = std::move(temp);
             }
             else {
@@ -342,7 +371,10 @@ namespace BiliUWP {
         ) {
             auto jv = jo.TryLookup(winrt::to_hstring(key));
             if (!jv) {
-                throw BiliApiParseException(BiliApiParseException::json_parse_no_prop, m_props_walk);
+                throw BiliApiParseException(BiliApiParseException::json_parse_no_prop,
+                    m_props_walk,
+                    m_sloc
+                );
             }
             return jv;
         }
@@ -355,21 +387,25 @@ namespace BiliUWP {
                 throw BiliApiParseException(BiliApiParseException::json_parse_wrong_type,
                     m_props_walk,
                     JsonVisitorHelper::stringify(expected_type),
-                    JsonVisitorHelper::stringify(jvt)
+                    JsonVisitorHelper::stringify(jvt),
+                    m_sloc
                 );
             }
         }
 
+        std::source_location m_sloc;
         winrt::Windows::Data::Json::JsonObject m_jo;
         JsonPropsWalkTree& m_props_walk;
     };
     struct JsonArrayVisitor {
         JsonArrayVisitor(
             winrt::Windows::Data::Json::JsonArray ja,
-            JsonPropsWalkTree& props_walk
-        ) : m_ja(std::move(ja)), m_props_walk(props_walk) {}
+            JsonPropsWalkTree& props_walk,
+            std::source_location const& sloc = std::source_location::current()
+        ) : m_ja(std::move(ja)), m_props_walk(props_walk), m_sloc(sloc) {}
 
         JsonPropsWalkTree& get_props_walk_tree(void) { return m_props_walk; }
+        std::source_location const& get_src_loc(void) { return m_sloc; }
 
         size_t size(void) {
             return static_cast<size_t>(m_ja.Size());
@@ -385,14 +421,14 @@ namespace BiliUWP {
             using ParamType = decltype(JsonVisitorHelper::get_fn_param_helper(func, 0, 0, 0));
             if constexpr (std::is_same_v<ParamType, JsonObjectVisitor>) {
                 expect_jv_type(jv, JsonValueType::Object);
-                return func(JsonObjectVisitor{ jv.GetObject(), m_props_walk });
+                return func(JsonObjectVisitor{ jv.GetObject(), m_props_walk, m_sloc });
             }
             else if constexpr (std::is_same_v<ParamType, JsonArrayVisitor>) {
                 expect_jv_type(jv, JsonValueType::Array);
-                return func(JsonArrayVisitor{ jv.GetArray(), m_props_walk });
+                return func(JsonArrayVisitor{ jv.GetArray(), m_props_walk, m_sloc });
             }
             else if constexpr (std::is_same_v<ParamType, JsonValueVisitor>) {
-                return func(JsonValueVisitor{ std::move(jv), m_props_walk });
+                return func(JsonValueVisitor{ std::move(jv), m_props_walk, m_sloc });
             }
             else {
                 static_assert(util::misc::always_false_v<ParamType>, "Incorrect parameter type for functor");
@@ -427,7 +463,7 @@ namespace BiliUWP {
             deferred([this] {
                 m_props_walk.pop();
             });
-            populate_inner(dst, { expect_ja_get(m_ja, idx), m_props_walk });
+            populate_inner(dst, { expect_ja_get(m_ja, idx), m_props_walk, m_sloc });
         }
 
     private:
@@ -439,7 +475,8 @@ namespace BiliUWP {
             if (idx >= size) {
                 throw BiliApiParseException(BiliApiParseException::json_parse_out_of_bound,
                     m_props_walk,
-                    size
+                    size,
+                    m_sloc
                 );
             }
             return ja.GetAt(static_cast<uint32_t>(idx));
@@ -453,11 +490,13 @@ namespace BiliUWP {
                 throw BiliApiParseException(BiliApiParseException::json_parse_wrong_type,
                     m_props_walk,
                     JsonVisitorHelper::stringify(expected_type),
-                    JsonVisitorHelper::stringify(jvt)
+                    JsonVisitorHelper::stringify(jvt),
+                    m_sloc
                 );
             }
         }
 
+        std::source_location m_sloc;
         winrt::Windows::Data::Json::JsonArray m_ja;
         JsonPropsWalkTree& m_props_walk;
     };
@@ -467,24 +506,24 @@ namespace BiliUWP {
         if (m_jv.ValueType() != winrt::Windows::Data::Json::JsonValueType::Object) {
             return std::nullopt;
         }
-        return JsonObjectVisitor{ m_jv.GetObject(), m_props_walk };
+        return JsonObjectVisitor{ m_jv.GetObject(), m_props_walk, m_sloc };
     }
     template<>
     std::optional<JsonArrayVisitor> JsonValueVisitor::try_as(void) {
         if (m_jv.ValueType() != winrt::Windows::Data::Json::JsonValueType::Array) {
             return std::nullopt;
         }
-        return JsonArrayVisitor{ m_jv.GetArray(), m_props_walk };
+        return JsonArrayVisitor{ m_jv.GetArray(), m_props_walk, m_sloc };
     }
     template<>
     JsonObjectVisitor JsonValueVisitor::as(void) {
         expect_jv_type(m_jv, winrt::Windows::Data::Json::JsonValueType::Object);
-        return { m_jv.GetObject(), m_props_walk };
+        return { m_jv.GetObject(), m_props_walk, m_sloc };
     }
     template<>
     JsonArrayVisitor JsonValueVisitor::as(void) {
         expect_jv_type(m_jv, winrt::Windows::Data::Json::JsonValueType::Array);
-        return { m_jv.GetArray(), m_props_walk };
+        return { m_jv.GetArray(), m_props_walk, m_sloc };
     }
 }
 
@@ -507,7 +546,8 @@ namespace BiliUWP {
                 }
                 else {
                     throw BiliApiParseException(BiliApiParseException::json_parse_user_defined,
-                        jvv.get_props_walk_tree(), "Only 0 and 1 are expected values"
+                        jvv.get_props_walk_tree(), "Only 0 and 1 are expected values",
+                        jvv.get_src_loc()
                     );
                 }
             }
@@ -527,7 +567,8 @@ namespace BiliUWP {
                 }
                 else {
                     throw BiliApiParseException(BiliApiParseException::json_parse_user_defined,
-                        jvv.get_props_walk_tree(), "Only -1 and 0 are expected values"
+                        jvv.get_props_walk_tree(), "Only -1 and 0 are expected values",
+                        jvv.get_src_loc()
                     );
                 }
             }
@@ -969,7 +1010,6 @@ namespace BiliUWP {
         auto jo = co_await m_bili_client.api_passport_x_passport_tv_login_qrcode_auth_code(
             keys::api_tv_1, local_id
         );
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
@@ -992,7 +1032,6 @@ namespace BiliUWP {
         auto jo = co_await m_bili_client.api_passport_x_passport_tv_login_qrcode_poll(
             keys::api_tv_1, auth_code, local_id
         );
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
         double code;
@@ -1055,7 +1094,6 @@ namespace BiliUWP {
         auto jo = co_await m_bili_client.api_passport_api_v2_oauth2_refresh_token(
             m_api_sign_keys, m_refresh_token
         );
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
@@ -1106,7 +1144,6 @@ namespace BiliUWP {
         cancellation_token.enable_propagation();
 
         auto jo = co_await m_bili_client.api_passport_x_passport_login_revoke(keys::api_android_1);
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
@@ -1128,7 +1165,6 @@ namespace BiliUWP {
         cancellation_token.enable_propagation();
 
         auto jo = co_await m_bili_client.api_api_x_web_interface_nav();
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
@@ -1190,7 +1226,6 @@ namespace BiliUWP {
         cancellation_token.enable_propagation();
 
         auto jo = co_await m_bili_client.api_api_x_web_interface_nav_stat();
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
@@ -1209,7 +1244,6 @@ namespace BiliUWP {
         cancellation_token.enable_propagation();
 
         auto jo = co_await m_bili_client.api_api_x_web_interface_card(mid, true);
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
@@ -1270,7 +1304,6 @@ namespace BiliUWP {
         cancellation_token.enable_propagation();
 
         auto jo = co_await m_bili_client.api_api_x_space_acc_info(mid);
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
@@ -1378,7 +1411,6 @@ namespace BiliUWP {
         cancellation_token.enable_propagation();
 
         auto jo = co_await m_bili_client.api_api_x_space_upstat(mid);
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
@@ -1421,7 +1453,6 @@ namespace BiliUWP {
         auto jo = co_await m_bili_client.api_api_x_space_arc_search(
             mid, winrt::BiliUWP::ApiParam_Page{ page.n, page.size }, search_keyword, 0, param_order
         );
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
@@ -1481,7 +1512,6 @@ namespace BiliUWP {
         auto jo = co_await m_bili_client.api_api_audio_music_service_web_song_upper(
             mid, winrt::BiliUWP::ApiParam_Page{ page.n, page.size }, param_order
         );
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
@@ -1521,7 +1551,6 @@ namespace BiliUWP {
         }, vid);
 
         auto jo = co_await m_bili_client.api_api_x_web_interface_view(avid, bvid);
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
@@ -1628,7 +1657,6 @@ namespace BiliUWP {
         }, vid);
 
         auto jo = co_await m_bili_client.api_api_x_player_v2(avid, bvid, cid);
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
@@ -1678,7 +1706,6 @@ namespace BiliUWP {
         api_prefers.prefer_av1 = prefers.prefer_av1;
 
         auto jo = co_await m_bili_client.api_api_x_player_playurl(avid, bvid, cid, api_prefers);
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
@@ -1728,7 +1755,6 @@ namespace BiliUWP {
         }, vid);
 
         auto jo = co_await m_bili_client.api_api_x_player_videoshot(avid, bvid, cid, load_indices);
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
@@ -1753,7 +1779,6 @@ namespace BiliUWP {
         cancellation_token.enable_propagation();
 
         auto jo = co_await m_bili_client.api_www_audio_music_service_c_web_song_info(auid);
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
@@ -1801,7 +1826,6 @@ namespace BiliUWP {
         auto jo = co_await m_bili_client.api_api_audio_music_service_c_url(
             auid, static_cast<uint32_t>(quality)
         );
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
@@ -1836,7 +1860,6 @@ namespace BiliUWP {
                 };
             })
         );
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
@@ -1863,7 +1886,6 @@ namespace BiliUWP {
                 };
             })
         );
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
@@ -1901,7 +1923,6 @@ namespace BiliUWP {
         auto jo = co_await m_bili_client.api_api_x_v3_fav_resource_list(
             folder_id, winrt::BiliUWP::ApiParam_Page{ page.n, page.size }, search_keyword, param_order
         );
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", jo.Stringify()));
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
