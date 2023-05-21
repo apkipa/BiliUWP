@@ -153,25 +153,23 @@
     <Filter Include="Protos">
       <UniqueIdentifier>{b99690de-2014-4696-b1d4-f90360183e56}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Pages\Settings">
+      <UniqueIdentifier>{12794b1a-678f-45dc-b8c1-8d1a2fb19d73}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="PropertySheet.props" />
     <None Include="packages.config" />
     <None Include="BiliUWP_TemporaryKey.pfx" />
     <None Include=".editorconfig" />
+    <None Include="FixUp.targets" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="readme.txt" />
     <Text Include="AppDepsLicense.rawstr.txt" />
   </ItemGroup>
   <ItemGroup>
-    <Page Include="Pages\MainPage.xaml">
-      <Filter>Pages</Filter>
-    </Page>
     <Page Include="Pages\ContainerPage.xaml">
-      <Filter>Pages</Filter>
-    </Page>
-    <Page Include="Pages\SettingsPage.xaml">
       <Filter>Pages</Filter>
     </Page>
     <Page Include="Pages\NewPage.xaml">
@@ -221,6 +219,33 @@
     </Page>
     <Page Include="Controls\VideoDanmakuControl.xaml">
       <Filter>Controls</Filter>
+    </Page>
+    <Page Include="Pages\MainPage.xaml">
+      <Filter>Pages</Filter>
+    </Page>
+    <Page Include="Pages\Settings\UserPage.xaml">
+      <Filter>Pages\Settings</Filter>
+    </Page>
+    <Page Include="Pages\Settings\MainPage.xaml">
+      <Filter>Pages\Settings</Filter>
+    </Page>
+    <Page Include="Pages\Settings\AboutPage.xaml">
+      <Filter>Pages\Settings</Filter>
+    </Page>
+    <Page Include="Pages\Settings\AppearancePage.xaml">
+      <Filter>Pages\Settings</Filter>
+    </Page>
+    <Page Include="Pages\Settings\DeveloperPage.xaml">
+      <Filter>Pages\Settings</Filter>
+    </Page>
+    <Page Include="Pages\Settings\PlayingPage.xaml">
+      <Filter>Pages\Settings</Filter>
+    </Page>
+    <Page Include="Pages\Settings\MiscPage.xaml">
+      <Filter>Pages\Settings</Filter>
+    </Page>
+    <Page Include="Pages\Settings\CommonResources.xaml">
+      <Filter>Pages\Settings</Filter>
     </Page>
   </ItemGroup>
   <ItemGroup>

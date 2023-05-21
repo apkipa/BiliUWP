@@ -1,0 +1,36 @@
+﻿<Page
+    x:Class="BiliUWP.Settings.UserPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:BiliUWP"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="CommonResources.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <x:Double x:Key="UserPictureSize">100</x:Double>
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <ScrollViewer IsScrollInertiaEnabled="True" VerticalScrollBarVisibility="Auto">
+        <StackPanel Padding="12,0,0,6">
+            <StackPanel Orientation="Horizontal" Spacing="16" Padding="0,4,0,12">
+                <Grid x:Name="UserPictureGrid" Width="{StaticResource UserPictureSize}" Height="{StaticResource UserPictureSize}" HorizontalAlignment="Left">
+                    <PersonPicture x:Name="UserPicturePlaceholder" Width="{StaticResource UserPictureSize}" Height="{StaticResource UserPictureSize}" Visibility="{x:Bind IsLoggedOut}"/>
+                    <local:ImageEx2 CornerRadius="1000" Visibility="{x:Bind IsLoggedIn}">
+                        <local:ImageEx2.Source>
+                            <local:ImageEx2Source UriSource="{x:Bind UserPictureImageUri}"/>
+                        </local:ImageEx2.Source>
+                    </local:ImageEx2>
+                </Grid>
+                <TextBlock x:Name="UserNameTextBlock" Text="{x:Bind UserNameTextBlockText}" FontSize="28" FontWeight="SemiBold"/>
+            </StackPanel>
+            <Button x:Uid="App/Page/Settings/UserPage/LoginButton" x:Name="LoginButton" Click="LoginButton_Click" Style="{StaticResource ItemButtonStyle}" Visibility="{x:Bind IsLoggedOut}"/>
+            <Button x:Uid="App/Page/Settings/UserPage/LogoutButton" x:Name="LogoutButton" Click="LogoutButton_Click" Style="{StaticResource ItemButtonStyle}" Foreground="Red" Visibility="{x:Bind IsLoggedIn}"/>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

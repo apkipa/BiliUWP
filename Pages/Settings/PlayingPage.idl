@@ -1,0 +1,10 @@
+import "AppCfgModel.idl";
+
+namespace BiliUWP.Settings {
+    [default_interface]
+    runtimeclass PlayingPage : Windows.UI.Xaml.Controls.Page {
+        PlayingPage();
+
+        BiliUWP.AppCfgModel CfgModel{ get; };
+    };
+}

@@ -1,0 +1,25 @@
+﻿<Page
+    x:Class="BiliUWP.Settings.PlayingPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:BiliUWP"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <ResourceDictionary Source="CommonResources.xaml"/>
+    </Page.Resources>
+
+    <ScrollViewer IsScrollInertiaEnabled="True" VerticalScrollBarVisibility="Auto">
+        <StackPanel Padding="12,0,0,6">
+            <Slider x:Uid="App/Page/Settings/PlayingPage/App_GlobalVolume" Width="300" HorizontalAlignment="Left" Minimum="0" Maximum="100" StepFrequency="0.01" Style="{StaticResource ItemSliderStyle}" Value="{x:Bind CfgModel.App_GlobalVolume,Converter={StaticResource NumberScaleConverter},ConverterParameter=0.01,Mode=TwoWay}"/>
+            <ToggleSwitch x:Uid="App/Page/Settings/PlayingPage/App_AlwaysSyncPlayingCfg" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_AlwaysSyncPlayingCfg,Mode=TwoWay}"/>
+            <ToggleSwitch x:Uid="App/Page/Settings/PlayingPage/App_UseHRASForVideo" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_UseHRASForVideo,Mode=TwoWay}"/>
+            <ToggleSwitch x:Uid="App/Page/Settings/PlayingPage/App_OverrideSpaceForPlaybackControl" Style="{StaticResource ItemToggleSwitchStyle}" IsOn="{x:Bind CfgModel.App_OverrideSpaceForPlaybackControl,Mode=TwoWay}"/>
+            <TextBlock x:Uid="App/Page/Settings/PlayingPage/Subtitle" Style="{StaticResource GroupHeaderTextBlockStyle}"/>
+            <TextBlock x:Uid="App/Page/Settings/PlayingPage/Subtitle_ManagedBySystem" Style="{StaticResource ItemTextBlockStyle}"/>
+            <HyperlinkButton x:Uid="App/Page/Settings/PlayingPage/Subtitle_OpenSettings" Style="{StaticResource TightHyperlinkButtonStyle}" NavigateUri="ms-settings:easeofaccess-closedcaptioning"/>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

@@ -1,0 +1,64 @@
+﻿<Page
+    x:Class="BiliUWP.Settings.AboutPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:BiliUWP"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <ResourceDictionary Source="CommonResources.xaml"/>
+    </Page.Resources>
+
+    <ScrollViewer IsScrollInertiaEnabled="True" VerticalScrollBarVisibility="Auto">
+        <StackPanel Padding="12,0,0,6">
+            <TextBlock x:Name="AppNameVerTextBlock" Text="BiliUWP (Dev) v0.1.0" Style="{StaticResource ItemTextBlockStyle}"
+                   HorizontalAlignment="Left" Padding="0,4"
+                   IsTapEnabled="True" IsDoubleTapEnabled="False"
+                   Tapped="AppNameVerTextBlock_Tapped"/>
+            <TextBlock x:Uid="App/Page/Settings/AboutPage/About_DetailsLegal" Style="{StaticResource ItemTextBlockStyle}"
+                           FontWeight="Bold" Foreground="Red"/>
+            <TextBlock x:Uid="App/Page/Settings/AboutPage/About_Details1" Style="{StaticResource ItemTextBlockStyle}"/>
+            <HyperlinkButton Style="{StaticResource TightHyperlinkButtonStyle}"
+                                 NavigateUri="https://www.nayuki.io/page/qr-code-generator-library">
+                QR Code generator library (C++) © Project Nayuki. (MIT License)
+            </HyperlinkButton>
+            <HyperlinkButton Style="{StaticResource TightHyperlinkButtonStyle}"
+                                 NavigateUri="https://github.com/microsoft/microsoft-ui-xaml">
+                Microsoft.UI.Xaml © Microsoft Corporation. (MIT License)
+            </HyperlinkButton>
+            <HyperlinkButton Style="{StaticResource TightHyperlinkButtonStyle}"
+                                 NavigateUri="https://github.com/microsoft/cppwinrt">
+                Microsoft.Windows.CppWinRT © Microsoft Corporation. (MIT License)
+            </HyperlinkButton>
+            <HyperlinkButton Style="{StaticResource TightHyperlinkButtonStyle}"
+                                 NavigateUri="https://github.com/CommunityToolkit/WindowsCommunityToolkit">
+                Windows Community Toolkit © Microsoft Corporation. (MIT License)
+            </HyperlinkButton>
+            <HyperlinkButton Style="{StaticResource TightHyperlinkButtonStyle}"
+                                 NavigateUri="https://github.com/protocolbuffers/protobuf">
+                Protocol Buffers © Google Inc. (New BSD License)
+            </HyperlinkButton>
+            <HyperlinkButton Style="{StaticResource TightHyperlinkButtonStyle}"
+                                 NavigateUri="https://github.com/microsoft/Win2D">
+                Win2D © Microsoft Corporation. (MIT License)
+            </HyperlinkButton>
+            <TextBlock x:Name="SqliteVersionTextBlock" Style="{StaticResource ItemTextBlockStyle}"/>
+            <Button x:Name="ViewLicensesButton" Click="ViewLicensesButton_Click" Content="View licenses" Style="{StaticResource ItemButtonStyle}"/>
+            <TextBlock x:Uid="App/Page/Settings/AboutPage/About_Details2" Style="{StaticResource ItemTextBlockStyle}"/>
+            <HyperlinkButton Style="{StaticResource TightHyperlinkButtonStyle}"
+                                 NavigateUri="https://github.com/SocialSisterYi/bilibili-API-collect">
+                bilibili-API-collect © SocialSisterYi. (CC BY-NC 4.0 License)
+            </HyperlinkButton>
+            <HyperlinkButton Style="{StaticResource TightHyperlinkButtonStyle}"
+                                 NavigateUri="https://github.com/Richasy/Bili.Uwp">
+                哔哩 © Richasy. (MIT License)
+            </HyperlinkButton>
+            <HyperlinkButton Style="{StaticResource TightHyperlinkButtonStyle}"
+                                 NavigateUri="https://github.com/xiaoyaocz/biliuwp-lite">
+                哔哩哔哩 Lite © xiaoyaocz. (No License)
+            </HyperlinkButton>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

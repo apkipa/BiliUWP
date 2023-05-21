@@ -1,0 +1,11 @@
+namespace BiliUWP.Settings {
+    [default_interface]
+    runtimeclass UserPage : Windows.UI.Xaml.Controls.Page {
+        UserPage();
+
+        Boolean IsLoggedIn{ get; };
+        Boolean IsLoggedOut{ get; };
+        String UserNameTextBlockText{ get; };
+        Windows.Foundation.Uri UserPictureImageUri{ get; };
+    };
+}

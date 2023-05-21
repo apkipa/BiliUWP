@@ -2,6 +2,7 @@
 <Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="packages\Microsoft.UI.Xaml.2.8.2\build\native\Microsoft.UI.Xaml.props" Condition="Exists('packages\Microsoft.UI.Xaml.2.8.2\build\native\Microsoft.UI.Xaml.props')" />
   <Import Project="packages\Microsoft.Windows.CppWinRT.2.0.221104.6\build\native\Microsoft.Windows.CppWinRT.props" Condition="Exists('packages\Microsoft.Windows.CppWinRT.2.0.221104.6\build\native\Microsoft.Windows.CppWinRT.props')" />
+  <Import Project="$(SolutionDir)\FixUp.targets" />
   <PropertyGroup Label="Globals">
     <CppWinRTOptimized>true</CppWinRTOptimized>
     <CppWinRTRootNamespaceAutoMerge>true</CppWinRTRootNamespaceAutoMerge>
@@ -17,6 +18,7 @@
     <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
     <WindowsTargetPlatformVersion Condition=" '$(WindowsTargetPlatformVersion)' == '' ">10.0</WindowsTargetPlatformVersion>
     <WindowsTargetPlatformMinVersion>10.0.20348.0</WindowsTargetPlatformMinVersion>
+    <CppWinRTUsePrefixes>false</CppWinRTUsePrefixes>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <ItemGroup Label="ProjectConfigurations">
@@ -92,7 +94,6 @@
     <AppxBundle>Auto</AppxBundle>
     <AppxBundlePlatforms>x64|arm64</AppxBundlePlatforms>
     <HoursBetweenUpdateChecks>24</HoursBetweenUpdateChecks>
-    <AppInstallerUri>https://web-public.apkipa.eu.org/public/projects/biliuwp</AppInstallerUri>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" />
   <ItemDefinitionGroup>
@@ -121,18 +122,30 @@
       <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">stdcpplatest</LanguageStandard>
       <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdcpplatest</LanguageStandard>
       <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdcpplatest</LanguageStandard>
+      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">$(IntDir)%(RelativeDir)</ObjectFileName>
+      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">$(IntDir)%(RelativeDir)</ObjectFileName>
+      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(IntDir)%(RelativeDir)</ObjectFileName>
+      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(IntDir)%(RelativeDir)</ObjectFileName>
+      <BuildStlModules Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">false</BuildStlModules>
+      <BuildStlModules Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">false</BuildStlModules>
+      <BuildStlModules Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</BuildStlModules>
+      <BuildStlModules Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</BuildStlModules>
     </ClCompile>
     <Midl>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">$(ProjectDir)Code\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MetadataFileName Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">$(IntDir)Unmerged\%(RelativeDir)%(Filename).winmd</MetadataFileName>
     </Midl>
     <Midl>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">$(ProjectDir)Code\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MetadataFileName Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">$(IntDir)Unmerged\%(RelativeDir)%(Filename).winmd</MetadataFileName>
     </Midl>
     <Midl>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(ProjectDir)Code\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MetadataFileName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(IntDir)Unmerged\%(RelativeDir)%(Filename).winmd</MetadataFileName>
     </Midl>
     <Midl>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)Code\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MetadataFileName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(IntDir)Unmerged\%(RelativeDir)%(Filename).winmd</MetadataFileName>
     </Midl>
     <Link>
       <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">winsqlite3.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
@@ -158,6 +171,14 @@
       <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">stdcpplatest</LanguageStandard>
       <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdcpplatest</LanguageStandard>
       <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdcpplatest</LanguageStandard>
+      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">$(IntDir)%(RelativeDir)</ObjectFileName>
+      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">$(IntDir)%(RelativeDir)</ObjectFileName>
+      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(IntDir)%(RelativeDir)</ObjectFileName>
+      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(IntDir)%(RelativeDir)</ObjectFileName>
+      <BuildStlModules Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">false</BuildStlModules>
+      <BuildStlModules Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">false</BuildStlModules>
+      <BuildStlModules Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</BuildStlModules>
+      <BuildStlModules Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</BuildStlModules>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -173,15 +194,19 @@
     </Link>
     <Midl>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">$(ProjectDir)Code\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MetadataFileName Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">$(IntDir)Unmerged\%(RelativeDir)%(Filename).winmd</MetadataFileName>
     </Midl>
     <Midl>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">$(ProjectDir)Code\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MetadataFileName Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">$(IntDir)Unmerged\%(RelativeDir)%(Filename).winmd</MetadataFileName>
     </Midl>
     <Midl>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(ProjectDir)Code\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MetadataFileName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(IntDir)Unmerged\%(RelativeDir)%(Filename).winmd</MetadataFileName>
     </Midl>
     <Midl>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)Code\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MetadataFileName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(IntDir)Unmerged\%(RelativeDir)%(Filename).winmd</MetadataFileName>
     </Midl>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -261,8 +286,32 @@
       <DependentUpon>Pages\SearchPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </ClInclude>
-    <ClInclude Include="Pages\SettingsPage.h">
-      <DependentUpon>Pages\SettingsPage.xaml</DependentUpon>
+    <ClInclude Include="Pages\Settings\AboutPage.h">
+      <DependentUpon>Pages\Settings\AboutPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClInclude>
+    <ClInclude Include="Pages\Settings\AppearancePage.h">
+      <DependentUpon>Pages\Settings\AppearancePage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClInclude>
+    <ClInclude Include="Pages\Settings\DeveloperPage.h">
+      <DependentUpon>Pages\Settings\DeveloperPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClInclude>
+    <ClInclude Include="Pages\Settings\MainPage.h">
+      <DependentUpon>Pages\Settings\MainPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClInclude>
+    <ClInclude Include="Pages\Settings\MiscPage.h">
+      <DependentUpon>Pages\Settings\MiscPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClInclude>
+    <ClInclude Include="Pages\Settings\PlayingPage.h">
+      <DependentUpon>Pages\Settings\PlayingPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClInclude>
+    <ClInclude Include="Pages\Settings\UserPage.h">
+      <DependentUpon>Pages\Settings\UserPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </ClInclude>
     <ClInclude Include="Pages\UserPage.h">
@@ -282,6 +331,15 @@
     <ApplicationDefinition Include="App.xaml">
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Page Include="Pages\Settings\AboutPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Pages\Settings\AppearancePage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Pages\Settings\CommonResources.xaml">
+      <DeploymentContent>true</DeploymentContent>
+    </Page>
     <Page Include="Controls\CustomMediaPlayerElement.xaml">
       <SubType>Designer</SubType>
     </Page>
@@ -333,7 +391,19 @@
     <Page Include="Pages\SearchPage.xaml">
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Pages\SettingsPage.xaml">
+    <Page Include="Pages\Settings\DeveloperPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Pages\Settings\MainPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Pages\Settings\MiscPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Pages\Settings\PlayingPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Pages\Settings\UserPage.xaml">
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Pages\UserPage.xaml">
@@ -422,8 +492,32 @@
       <DependentUpon>Pages\SearchPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </ClCompile>
-    <ClCompile Include="Pages\SettingsPage.cpp">
-      <DependentUpon>Pages\SettingsPage.xaml</DependentUpon>
+    <ClCompile Include="Pages\Settings\AboutPage.cpp">
+      <DependentUpon>Pages\Settings\AboutPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClCompile>
+    <ClCompile Include="Pages\Settings\AppearancePage.cpp">
+      <DependentUpon>Pages\Settings\AppearancePage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClCompile>
+    <ClCompile Include="Pages\Settings\DeveloperPage.cpp">
+      <DependentUpon>Pages\Settings\DeveloperPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClCompile>
+    <ClCompile Include="Pages\Settings\MainPage.cpp">
+      <DependentUpon>Pages\Settings\MainPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClCompile>
+    <ClCompile Include="Pages\Settings\MiscPage.cpp">
+      <DependentUpon>Pages\Settings\MiscPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClCompile>
+    <ClCompile Include="Pages\Settings\PlayingPage.cpp">
+      <DependentUpon>Pages\Settings\PlayingPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClCompile>
+    <ClCompile Include="Pages\Settings\UserPage.cpp">
+      <DependentUpon>Pages\Settings\UserPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </ClCompile>
     <ClCompile Include="Pages\UserPage.cpp">
@@ -548,8 +642,32 @@
       <DependentUpon>Pages\SearchPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Midl>
-    <Midl Include="Pages\SettingsPage.idl">
-      <DependentUpon>Pages\SettingsPage.xaml</DependentUpon>
+    <Midl Include="Pages\Settings\AboutPage.idl">
+      <DependentUpon>Pages\Settings\AboutPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
+    <Midl Include="Pages\Settings\AppearancePage.idl">
+      <DependentUpon>Pages\Settings\AppearancePage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
+    <Midl Include="Pages\Settings\DeveloperPage.idl">
+      <DependentUpon>Pages\Settings\DeveloperPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
+    <Midl Include="Pages\Settings\MainPage.idl">
+      <DependentUpon>Pages\Settings\MainPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
+    <Midl Include="Pages\Settings\MiscPage.idl">
+      <DependentUpon>Pages\Settings\MiscPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
+    <Midl Include="Pages\Settings\PlayingPage.idl">
+      <DependentUpon>Pages\Settings\PlayingPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
+    <Midl Include="Pages\Settings\UserPage.idl">
+      <DependentUpon>Pages\Settings\UserPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Midl>
     <Midl Include="Pages\UserPage.idl">
@@ -560,6 +678,7 @@
   <ItemGroup>
     <None Include=".editorconfig" />
     <None Include="BiliUWP_TemporaryKey.pfx" />
+    <None Include="FixUp.targets" />
     <None Include="packages.config" />
     <None Include="PropertySheet.props" />
     <CustomBuild Include="Protos\bilibili\community\service\dm\v1\dm.proto">
@@ -598,7 +717,9 @@
   </ItemGroup>
   <ItemGroup>
     <PRIResource Include="Strings\Resources.language-en-US.resw" />
-    <PRIResource Include="Strings\Resources.language-zh-Hans.resw" />
+    <PRIResource Include="Strings\Resources.language-zh-Hans.resw">
+      <SubType>Designer</SubType>
+    </PRIResource>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Assets\LargeTile.scale-100.png" />

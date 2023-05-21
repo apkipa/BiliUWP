@@ -4,6 +4,8 @@
 #include "NewPage.g.cpp"
 #endif
 #include "App.h"
+#include "UserPage.h"
+#include "Settings/MainPage.h"
 #include <regex>
 
 using namespace winrt;
@@ -266,7 +268,7 @@ namespace winrt::BiliUWP::implementation {
     }
     void NewPage::Button_Settings_Click(IInspectable const&, RoutedEventArgs const&) {
         auto tab = ::BiliUWP::make<::BiliUWP::AppTab>();
-        tab->navigate(xaml_typename<winrt::BiliUWP::SettingsPage>());
+        tab->navigate(xaml_typename<winrt::BiliUWP::Settings::MainPage>());
         ::BiliUWP::App::get()->add_tab(tab);
         tab->activate();
     }

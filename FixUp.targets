@@ -1,0 +1,22 @@
+<!-- Reference: https://github.com/xamarin/xamarin-android/issues/1164 -->
+<!-- Workarounds a deployment issue where vcpkg dlls get deleted when only XAML files are changed -->
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- vcpkg.targets: AppLocalFromInstalled -->
+  <Target Name="_Fixedup" AfterTargets="CopyFilesToOutputDirectory" BeforeTargets="CopyLocalFilesOutputGroup;RegisterOutput">
+    <!--
+    <CreateItem Include="$(OutDir)*.dll">  
+      <Output TaskParameter="Include" ItemName="_FilesNotToDelete" />
+    </CreateItem>
+    <CreateItem Include="$([System.IO.Path]::GetFullPath('%(_FilesNotToDelete.Identity)'))"
+                Condition="Exists('%(_FilesNotToDelete.Identity)')">  
+      <Output TaskParameter="Include" ItemName="_CleanCurrentFileWrites" />  
+    </CreateItem>
+    -->
+    <ReadLinesFromFile File="$(IntDir)vcpkg.applocal.log">
+      <Output TaskParameter="Lines" ItemName="VcpkgAppLocalDLLs"/>
+    </ReadLinesFromFile>
+    <ItemGroup>
+      <ReferenceCopyLocalPaths Include="@(VcpkgAppLocalDLLs)"/>
+    </ItemGroup>
+  </Target>
+</Project>

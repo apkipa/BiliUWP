@@ -1180,8 +1180,7 @@ namespace BiliUWP {
                 jov.populate(result.level_info.next_exp, "next_exp");
             }, "level_info");
             jov.populate(result.mid, "mid");
-            // TODO: Use assign_num_0_1_to_bool for mobile_verified
-            jov.populate(result.mobile_verified, "mobile_verified");
+            jov.scope(adapter::assign_num_0_1_to_bool{ result.mobile_verified }, "mobile_verified");
             jov.populate(result.coin_count, "money");
             jov.populate(result.moral, "moral");
             jov.scope([&](JsonObjectVisitor jov) {

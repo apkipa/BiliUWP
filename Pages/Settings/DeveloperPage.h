@@ -1,19 +1,19 @@
 ﻿#pragma once
 
-#include "SettingsPage.g.h"
+#include "Settings/DeveloperPage.g.h"
+#include "Settings/MainPage.h"
 #include "util.hpp"
 
-namespace winrt::BiliUWP::implementation {
-    struct SettingsPage : SettingsPageT<SettingsPage> {
-        SettingsPage();
-        void InitializeComponent();
+namespace winrt::BiliUWP::Settings::implementation {
+    struct DeveloperPage : DeveloperPageT<DeveloperPage> {
+        DeveloperPage();
 
         void OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const&);
         void ExportConfigToClipboardButton_Click(
-            IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&
+            Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&
         );
         void ImportConfigFromClipboardButton_Click(
-            IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&
+            Windows::Foundation::IInspectable const&, Windows::UI::Xaml::RoutedEventArgs const&
         );
         fire_forget_except OpenStorageFolderButton_Click(
             Windows::Foundation::IInspectable const&,
@@ -39,19 +39,12 @@ namespace winrt::BiliUWP::implementation {
             Windows::Foundation::IInspectable const&,
             Windows::UI::Xaml::RoutedEventArgs const&
         );
-        void ViewLicensesButton_Click(
-            Windows::Foundation::IInspectable const&,
-            Windows::UI::Xaml::RoutedEventArgs const&
-        );
 
-        BiliUWP::AppCfgModel CfgModel() { return m_cfg_model; }
-        Windows::UI::Xaml::DebugSettings AppDebugSettings() { return m_app_dbg_settings; }
+        BiliUWP::AppCfgModel CfgModel() const { return m_main_page->CfgModel(); }
+        Windows::UI::Xaml::DebugSettings AppDebugSettings() const { return m_main_page->AppDebugSettings(); }
 
     private:
-        BiliUWP::AppCfgModel m_cfg_model;
-        Windows::UI::Xaml::DebugSettings m_app_dbg_settings;
-
-        unsigned m_app_name_ver_text_click_times;
+        MainPage* m_main_page{};
 
         util::winrt::async_storage m_import_config_from_clipboard_async;
         util::winrt::async_storage m_cache_async;
@@ -59,6 +52,6 @@ namespace winrt::BiliUWP::implementation {
     };
 }
 
-namespace winrt::BiliUWP::factory_implementation {
-    struct SettingsPage : SettingsPageT<SettingsPage, implementation::SettingsPage> {};
+namespace winrt::BiliUWP::Settings::factory_implementation {
+    struct DeveloperPage : DeveloperPageT<DeveloperPage, implementation::DeveloperPage> {};
 }

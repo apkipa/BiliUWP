@@ -1,0 +1,10 @@
+import "AppCfgModel.idl";
+
+namespace BiliUWP.Settings {
+    [default_interface]
+    runtimeclass AppearancePage : Windows.UI.Xaml.Controls.Page {
+        AppearancePage();
+
+        BiliUWP.AppCfgModel CfgModel{ get; };
+    };
+}

@@ -200,19 +200,14 @@ namespace BiliUWP {
         winrt::Windows::Foundation::IAsyncAction request_login(void);
         winrt::Windows::Foundation::IAsyncAction request_login_blocking(AppTab tab);
         winrt::Windows::Foundation::IAsyncAction request_logout(void);
-        template<typename T>
-        winrt::event_token login_state_changed(T&& functor) {
-            return m_ev_login_state_changed.add(
-                [functor = std::move(functor)](winrt::Windows::Foundation::IInspectable const&, bool) {
-                    functor();
-                }
-            );
+        winrt::event_token login_state_changed(winrt::delegate<> delegate) {
+            return m_ev_login_state_changed.add(delegate);
         }
         void login_state_changed(winrt::event_token et) {
             m_ev_login_state_changed.remove(et);
         }
         void signal_login_state_changed(void) {
-            m_ev_login_state_changed(nullptr, false);
+            m_ev_login_state_changed();
         }
 
         BiliClient* bili_client(void) {
@@ -284,7 +279,7 @@ namespace BiliUWP {
 
         BiliClient* m_bili_client;
 
-        winrt::event<winrt::Windows::Foundation::EventHandler<bool>> m_ev_login_state_changed;
+        winrt::event<winrt::delegate<>> m_ev_login_state_changed;
     };
 
     struct AppLoggingProvider final : util::debug::LoggingProvider {

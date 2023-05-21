@@ -51,6 +51,11 @@ namespace util {
         using first_type = T;
         template<typename, typename U>
         using second_type = U;
+
+        template<typename T>
+        concept is_smart_pointer = requires(T t) { t.operator->(); };
+        template<typename T>
+        concept is_pointer_like = std::is_pointer_v<T> || is_smart_pointer<T>;
     }
 
     namespace str {
@@ -600,24 +605,51 @@ namespace util {
             };
         };
 
+        // Must be run on UI thread
         template<typename Functor, typename T>
         void run_when_loaded(Functor&& functor, T const& elem) {
-            if (elem.IsLoaded()) {
-                functor(elem);
+            using ::winrt::Windows::UI::Xaml::RoutedEventArgs;
+            using ::winrt::Windows::Foundation::IInspectable;
+            if constexpr (util::misc::is_pointer_like<T>) {
+                if (elem->IsLoaded()) { functor(elem); }
+                else {
+                    auto raw_ptr = ::winrt::get_abi(elem);
+                    auto revoke_et = std::make_shared_for_overwrite<::winrt::event_token>();
+                    *revoke_et = elem->Loaded(
+                        [revoke_et, functor = std::forward<Functor>(functor), raw_ptr](
+                            IInspectable const&, RoutedEventArgs const&)
+                        {
+                            raw_ptr->Loaded(*revoke_et);
+                            T elem;
+                            ::winrt::copy_from_abi(elem, raw_ptr);
+                            functor(std::move(elem));
+                        }
+                    );
+                }
             }
             else {
-                using ::winrt::Windows::UI::Xaml::RoutedEventArgs;
-                using ::winrt::Windows::Foundation::IInspectable;
-                auto revoke_et = std::make_shared_for_overwrite<::winrt::event_token>();
-                *revoke_et = elem.Loaded(
-                    [revoke_et, functor = std::forward<Functor>(functor)](
-                        IInspectable const& sender, RoutedEventArgs const&)
-                    {
-                        auto elem = sender.as<T>();
-                        elem.Loaded(*revoke_et);
-                        functor(std::move(elem));
+                constexpr bool is_implementation =
+                    !std::is_same_v<decltype(::winrt::Windows::Foundation::IUnknown{}.as<T>()), T>;
+                if constexpr (is_implementation) {
+                    return run_when_loaded(std::forward<Functor>(functor), &elem);
+                }
+                else {
+                    if (elem.IsLoaded()) { functor(elem); }
+                    else {
+                        auto raw_ptr = ::winrt::get_abi(elem);
+                        auto revoke_et = std::make_shared_for_overwrite<::winrt::event_token>();
+                        *revoke_et = elem.Loaded(
+                            [revoke_et, functor = std::forward<Functor>(functor), raw_ptr](
+                                IInspectable const&, RoutedEventArgs const&)
+                            {
+                                T elem{ nullptr };
+                                ::winrt::copy_from_abi(elem, raw_ptr);
+                                elem.Loaded(*revoke_et);
+                                functor(std::move(elem));
+                            }
+                        );
                     }
-                );
+                }
             }
         }
 
@@ -1769,6 +1801,16 @@ namespace util {
         inline uint32_t get_contrast_white_black(uint32_t background) {
             return to_u32(get_contrast_white_black(to_color(background)));
         }
+
+        template<typename T>
+        struct simple_var_accessor {
+            simple_var_accessor() : t() {}
+            simple_var_accessor(T const& t) : t(t) {}
+            void operator()(T const& value) { t = value; }
+            T operator()() { return t; }
+        private:
+            T t;
+        };
     }
 
     namespace sync {
