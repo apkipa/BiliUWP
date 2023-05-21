@@ -37,9 +37,7 @@ namespace {
         void finalize(std::optional<winrt::BiliUWP::APISignKeys> keys = std::nullopt) {
             using winrt::Windows::Foundation::Uri;
 
-            if (m_result != L"") {
-                return;
-            }
+            if (m_result != L"") { return; }
 
             std::wstring res_buf;
 
@@ -85,6 +83,14 @@ namespace {
 
             m_result = res_buf;
         }
+        // For API: wbi
+        // TODO: Make sure it works properly
+        void finalize_wbi() {
+            // Sampled time: 1684638803
+            return finalize_wbi_inner(
+                L"https://i0.hdslb.com/bfs/wbi/653657f524a547ac981ded72ea172057.png",
+                L"https://i0.hdslb.com/bfs/wbi/6e4909c702f846728e64f6007736a338.png");
+        }
 
         void add_param(winrt::hstring key, winrt::hstring value) {
             m_params_vec.emplace_back(std::move(key), std::move(value));
@@ -106,6 +112,80 @@ namespace {
         std::vector<std::pair<winrt::hstring, winrt::hstring>> m_params_vec;
 
         util::cryptography::Md5 m_md5;
+
+        void finalize_wbi_inner(std::wstring_view wbi_img_url, std::wstring_view wbi_sub_url) {
+            using winrt::Windows::Foundation::Uri;
+
+            if (m_result != L"") { return; }
+
+            auto get_mixin_key_fn = [](std::wstring_view wbi_img_url, std::wstring_view wbi_sub_url) {
+                static constexpr uint16_t oe[] = {
+                    46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35,
+                    27, 43, 5, 49, 33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13,
+                    37, 48, 7, 16, 24, 55, 40, 61, 26, 17, 0, 1, 60, 51, 30, 4,
+                    22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11, 36, 20, 34, 44, 52 };
+                auto extract_key_fn = [](std::wstring_view s) {
+                    s = s.substr(s.find_last_of(L'/') + 1);
+                    s = s.substr(0, s.find_first_of(L'.'));
+                    return s;
+                };
+                auto wbi_img_key = extract_key_fn(wbi_img_url);
+                auto wbi_sub_key = extract_key_fn(wbi_sub_url);
+                auto wbi_merged_key = std::format(L"{}{}", wbi_img_key, wbi_sub_key);
+                std::wstring key;
+                for (size_t i = 0; i < 32; i++) {
+                    auto idx = oe[i];
+                    key += wbi_merged_key[idx];
+                }
+                return key;
+            };
+
+            std::wstring wbi_key = get_mixin_key_fn(wbi_img_url, wbi_sub_url);
+
+            std::wstring res_buf;
+
+            m_params_vec.emplace_back(L"wts", get_ts());
+            std::sort(
+                m_params_vec.begin(), m_params_vec.end(),
+                [](auto const& lhs, auto const& rhs) {
+                    return lhs.first < rhs.first;
+                }
+            );
+            m_md5.initialize();
+            res_buf = Uri::EscapeComponent(m_params_vec[0].first);
+            res_buf += L'=';
+            res_buf += Uri::EscapeComponent(m_params_vec[0].second);
+            for (auto const& i : std::ranges::drop_view{ m_params_vec, 1 }) {
+                res_buf += L'&';
+                res_buf += Uri::EscapeComponent(i.first);
+                res_buf += L'=';
+                res_buf += Uri::EscapeComponent(i.second);
+            }
+            m_md5.add_string(res_buf);
+            m_md5.add_string(wbi_key);
+            m_md5.finialize();
+            m_params_vec.emplace_back(L"w_rid", m_md5.get_result_as_str());
+
+            // Regenerate arguments string
+            res_buf.clear();
+            std::sort(
+                m_params_vec.begin(), m_params_vec.end(),
+                [](auto const& lhs, auto const& rhs) {
+                    return lhs.first < rhs.first;
+                }
+            );
+            res_buf = Uri::EscapeComponent(m_params_vec[0].first);
+            res_buf += L'=';
+            res_buf += Uri::EscapeComponent(m_params_vec[0].second);
+            for (auto const& i : std::ranges::drop_view{ m_params_vec, 1 }) {
+                res_buf += L'&';
+                res_buf += Uri::EscapeComponent(i.first);
+                res_buf += L'=';
+                res_buf += Uri::EscapeComponent(i.second);
+            }
+
+            m_result = res_buf;
+        };
     };
 }
 
@@ -394,6 +474,7 @@ namespace winrt::BiliUWP::implementation {
 
         // TODO: Figure out how to generate w_rid & wts
         param_maker.add_param(L"mid", to_hstring(mid));
+        param_maker.finalize_wbi();
         auto uri = make_uri(
             L"https://api.bilibili.com",
             L"/x/space/wbi/acc/info",
@@ -493,6 +574,7 @@ namespace winrt::BiliUWP::implementation {
         param_maker.add_param(L"order", order_str);
         param_maker.add_param(L"pn", to_hstring(page.n));
         param_maker.add_param(L"ps", to_hstring(page.size));
+        param_maker.finalize_wbi();
         auto uri = make_uri(
             L"https://api.bilibili.com",
             L"/x/space/wbi/arc/search",
