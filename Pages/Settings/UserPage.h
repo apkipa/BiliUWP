@@ -6,6 +6,7 @@
 namespace winrt::BiliUWP::Settings::implementation {
     struct UserPage : UserPageT<UserPage> {
         UserPage();
+        ~UserPage();
 
         void OnNavigatedTo(Windows::UI::Xaml::Navigation::NavigationEventArgs const&);
         fire_forget_except LoginButton_Click(
@@ -13,6 +14,10 @@ namespace winrt::BiliUWP::Settings::implementation {
             Windows::UI::Xaml::RoutedEventArgs const&
         );
         fire_forget_except LogoutButton_Click(
+            Windows::Foundation::IInspectable const&,
+            Windows::UI::Xaml::RoutedEventArgs const&
+        );
+        void RefreshButton_Click(
             Windows::Foundation::IInspectable const&,
             Windows::UI::Xaml::RoutedEventArgs const&
         );
@@ -27,6 +32,7 @@ namespace winrt::BiliUWP::Settings::implementation {
 
         void UpdateUI();
 
+        event_token m_et_login_state_changed;
         util::winrt::async_storage m_async;
     };
 }

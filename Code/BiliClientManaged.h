@@ -17,6 +17,8 @@ namespace winrt::BiliUWP::implementation {
         BiliUWP::UserCookies data_cookies();
         void data_cookies(BiliUWP::UserCookies const& value);
 
+        void FlushCache();
+
         // Authentication
         AsyncJsonObjectResult api_passport_x_passport_tv_login_qrcode_auth_code(
             BiliUWP::APISignKeys const& keys,
@@ -132,12 +134,23 @@ namespace winrt::BiliUWP::implementation {
         );
 
     private:
+        void queue_update_cache_if_expired(void);
+        bool is_cache_expired(void);
+
         Windows::Web::Http::Filters::HttpBaseProtocolFilter m_http_filter;
         Windows::Web::Http::HttpClient m_http_client;
 
         hstring m_access_token;
+
+        util::winrt::async_storage m_nav_async;
+
+        static constexpr auto CACHE_DURATION = std::chrono::days(1);
+        std::chrono::system_clock::time_point m_last_cache_t{};
+        hstring m_cached_api_api_x_web_interface_nav;
+        hstring m_cached_wbi_mixin_key;
     };
 }
+
 namespace winrt::BiliUWP::factory_implementation {
     struct BiliClientManaged : BiliClientManagedT<BiliClientManaged, implementation::BiliClientManaged> {};
 }

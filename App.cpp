@@ -298,7 +298,10 @@ namespace BiliUWP {
         co_await winrt::when_any(login_op, show_dlg_op);
     }
     Windows::Foundation::IAsyncAction AppInst::request_logout(void) {
-        co_await m_bili_client->revoke_login();
+        try { co_await m_bili_client->revoke_login(); }
+        catch (BiliApiUpstreamException const& e) {
+            if (e.get_api_code() != ApiCode::AccountNotLoggedIn) { throw; }
+        }
         m_cfg_model.User_ApiKey(L"");
         m_cfg_model.User_ApiKeySec(L"");
         m_cfg_model.User_AccessToken(L"");

@@ -1000,6 +1000,10 @@ namespace BiliUWP {
         m_api_sign_keys = value;
     }
 
+    void BiliClient::flush_cache() {
+        m_bili_client.FlushCache();
+    }
+
     // Authentication
     util::winrt::task<RequestTvQrLoginResult> BiliClient::request_tv_qr_login(winrt::guid local_id) {
         RequestTvQrLoginResult result;
@@ -1137,17 +1141,16 @@ namespace BiliUWP {
         co_return result;
     }
     util::winrt::task<RevokeLoginResult> BiliClient::revoke_login(void) {
-        // TODO: Fix BiliClient::revoke_login
         RevokeLoginResult result;
 
         auto cancellation_token = co_await winrt::get_cancellation_token();
         cancellation_token.enable_propagation();
 
-        auto jo = co_await m_bili_client.api_passport_x_passport_login_revoke(keys::api_android_1);
+        auto jo = co_await m_bili_client.api_passport_x_passport_login_revoke(m_api_sign_keys);
         check_json_code(jo);
-        JsonPropsWalkTree json_props_walk;
-        JsonObjectVisitor jov{ std::move(jo), json_props_walk };
-        // TODO: Breakpoint here to verify actual JSON response
+        // No data field
+
+        // NOTE: No need to flush cache; BiliClientManaged already does that automatically
 
         // Update self data
         this->set_access_token(L"");

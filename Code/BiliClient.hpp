@@ -1107,6 +1107,8 @@ namespace BiliUWP {
         winrt::BiliUWP::APISignKeys get_api_sign_keys(void);
         void set_api_sign_keys(winrt::BiliUWP::APISignKeys const& value);
 
+        void flush_cache();
+
         // Authentication
         util::winrt::task<RequestTvQrLoginResult> request_tv_qr_login(winrt::guid local_id);
         //   NOTE: When succeeded, self data will be automatically updated

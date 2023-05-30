@@ -31,6 +31,25 @@ using namespace Windows::Security::Cryptography;
 
 using ::BiliUWP::App::res_str;
 
+/* Unrelated notes:
+* 1.
+* IMFMediaEngine (inside MFMediaEngine.dll, which is used by Windows.Media.Playback.MediaPlayer)
+* registers for CoreWindow.VisibilityChanged event, and posts tasks via MFPutWorkItem to call
+* CMediaEngine::OnAppVisibilityChanged. GPU priority is adjusted accordingly, and
+* CSimpleTimer::SetTimer is used to set up a 20s timer, which, when expires, calls
+* CMediaEngine::HandleThinningTimer to throttle video decoding. This is achieved by calling
+* CMediaEngine::SetPlaybackRateInternal, with the second parameter (r8: bool: should_throttle)
+* set to true. (-> CMFPOuterPlayer::SetRateEx -> CMFPInnerPlayer::SetRate ->
+*     CSetRateOperation::Start -> CSetRateOperation::StartState ->
+*     IMFRateControl::SetRate(fThin = true))
+* 2.
+* Windows.Media.Playback.MediaPlayer allocates a new SMTC by doing Win32 tricks and creating
+* a native hidden Win32 window via CreateWindowEx (named "MediaPlayer SMTC window - {GUID}").
+* It then receives the SMTC by calling ISystemMediaTransportControlsInterop::GetForWindow.
+* 3.
+* MediaPlayerElement implements media scrubbing by setting playback rate to zero.
+*/
+
 // TODO: Maybe implement GridSplitter to ease sidebar resizing
 
 // TODO: Add support for App_AlwaysSyncPlayingCfg

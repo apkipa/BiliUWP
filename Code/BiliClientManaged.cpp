@@ -35,30 +35,14 @@ namespace {
             m_params_vec.clear();
         }
         void finalize(std::optional<winrt::BiliUWP::APISignKeys> keys = std::nullopt) {
-            using winrt::Windows::Foundation::Uri;
-
             if (m_result != L"") { return; }
 
             std::wstring res_buf;
 
             if (keys) {
                 m_params_vec.emplace_back(L"appkey", keys->key);
-                std::sort(
-                    m_params_vec.begin(), m_params_vec.end(),
-                    [](auto const& lhs, auto const& rhs) {
-                        return lhs.first < rhs.first;
-                    }
-                );
                 m_md5.initialize();
-                res_buf = Uri::EscapeComponent(m_params_vec[0].first);
-                res_buf += L'=';
-                res_buf += Uri::EscapeComponent(m_params_vec[0].second);
-                for (auto const& i : std::ranges::drop_view{ m_params_vec, 1 }) {
-                    res_buf += L'&';
-                    res_buf += Uri::EscapeComponent(i.first);
-                    res_buf += L'=';
-                    res_buf += Uri::EscapeComponent(i.second);
-                }
+                res_buf = join_params_as_str(true);
                 m_md5.add_string(res_buf);
                 m_md5.add_string(keys->sec);
                 m_md5.finialize();
@@ -68,28 +52,31 @@ namespace {
                 res_buf += m_md5.get_result_as_str();
             }
             else {
-                if (!m_params_vec.empty()) {
-                    res_buf = Uri::EscapeComponent(m_params_vec[0].first);
-                    res_buf += L'=';
-                    res_buf += Uri::EscapeComponent(m_params_vec[0].second);
-                    for (auto const& i : std::ranges::drop_view{ m_params_vec, 1 }) {
-                        res_buf += L'&';
-                        res_buf += Uri::EscapeComponent(i.first);
-                        res_buf += L'=';
-                        res_buf += Uri::EscapeComponent(i.second);
-                    }
-                }
+                res_buf = join_params_as_str(false);
             }
 
             m_result = res_buf;
         }
         // For API: wbi
         // TODO: Make sure it works properly
-        void finalize_wbi() {
-            // Sampled time: 1684638803
-            return finalize_wbi_inner(
-                L"https://i0.hdslb.com/bfs/wbi/653657f524a547ac981ded72ea172057.png",
-                L"https://i0.hdslb.com/bfs/wbi/6e4909c702f846728e64f6007736a338.png");
+        void finalize_wbi(winrt::hstring const& wbi_mixin_key) {
+            if (m_result != L"") { return; }
+
+            std::wstring res_buf;
+
+            m_params_vec.emplace_back(L"wts", get_ts());
+            m_md5.initialize();
+            res_buf = join_params_as_str(true);
+            m_md5.add_string(res_buf);
+            m_md5.add_string(wbi_mixin_key);
+            m_md5.finialize();
+            m_params_vec.emplace_back(L"w_rid", m_md5.get_result_as_str());
+
+            // Regenerate arguments string
+            res_buf.clear();
+            res_buf = join_params_as_str(true);
+
+            m_result = res_buf;
         }
 
         void add_param(winrt::hstring key, winrt::hstring value) {
@@ -106,6 +93,31 @@ namespace {
             }
             return m_result;
         }
+
+        static winrt::hstring calculate_wbi_mixin_key(
+            std::wstring_view wbi_img_url, std::wstring_view wbi_sub_url
+        ) {
+            static constexpr uint16_t oe[] = {
+                46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35,
+                27, 43, 5, 49, 33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13,
+                37, 48, 7, 16, 24, 55, 40, 61, 26, 17, 0, 1, 60, 51, 30, 4,
+                22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11, 36, 20, 34, 44, 52 };
+            auto extract_key_fn = [](std::wstring_view s) {
+                s = s.substr(s.find_last_of(L'/') + 1);
+                s = s.substr(0, s.find_first_of(L'.'));
+                return s;
+            };
+            auto wbi_img_key = extract_key_fn(wbi_img_url);
+            auto wbi_sub_key = extract_key_fn(wbi_sub_url);
+            auto wbi_merged_key = std::format(L"{}{}", wbi_img_key, wbi_sub_key);
+            std::wstring key;
+            for (size_t i = 0; i < 32; i++) {
+                auto idx = oe[i];
+                key += wbi_merged_key[idx];
+            }
+            return winrt::hstring{ key };
+        }
+
     private:
         winrt::hstring m_result;
         // pair<key, value>
@@ -113,45 +125,18 @@ namespace {
 
         util::cryptography::Md5 m_md5;
 
-        void finalize_wbi_inner(std::wstring_view wbi_img_url, std::wstring_view wbi_sub_url) {
+        std::wstring join_params_as_str(bool sort_before_join) {
             using winrt::Windows::Foundation::Uri;
-
-            if (m_result != L"") { return; }
-
-            auto get_mixin_key_fn = [](std::wstring_view wbi_img_url, std::wstring_view wbi_sub_url) {
-                static constexpr uint16_t oe[] = {
-                    46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35,
-                    27, 43, 5, 49, 33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13,
-                    37, 48, 7, 16, 24, 55, 40, 61, 26, 17, 0, 1, 60, 51, 30, 4,
-                    22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11, 36, 20, 34, 44, 52 };
-                auto extract_key_fn = [](std::wstring_view s) {
-                    s = s.substr(s.find_last_of(L'/') + 1);
-                    s = s.substr(0, s.find_first_of(L'.'));
-                    return s;
-                };
-                auto wbi_img_key = extract_key_fn(wbi_img_url);
-                auto wbi_sub_key = extract_key_fn(wbi_sub_url);
-                auto wbi_merged_key = std::format(L"{}{}", wbi_img_key, wbi_sub_key);
-                std::wstring key;
-                for (size_t i = 0; i < 32; i++) {
-                    auto idx = oe[i];
-                    key += wbi_merged_key[idx];
-                }
-                return key;
-            };
-
-            std::wstring wbi_key = get_mixin_key_fn(wbi_img_url, wbi_sub_url);
-
+            if (m_params_vec.empty()) { return {}; }
+            if (sort_before_join) {
+                std::sort(
+                    m_params_vec.begin(), m_params_vec.end(),
+                    [](auto const& lhs, auto const& rhs) {
+                        return lhs.first < rhs.first;
+                    }
+                );
+            }
             std::wstring res_buf;
-
-            m_params_vec.emplace_back(L"wts", get_ts());
-            std::sort(
-                m_params_vec.begin(), m_params_vec.end(),
-                [](auto const& lhs, auto const& rhs) {
-                    return lhs.first < rhs.first;
-                }
-            );
-            m_md5.initialize();
             res_buf = Uri::EscapeComponent(m_params_vec[0].first);
             res_buf += L'=';
             res_buf += Uri::EscapeComponent(m_params_vec[0].second);
@@ -161,31 +146,8 @@ namespace {
                 res_buf += L'=';
                 res_buf += Uri::EscapeComponent(i.second);
             }
-            m_md5.add_string(res_buf);
-            m_md5.add_string(wbi_key);
-            m_md5.finialize();
-            m_params_vec.emplace_back(L"w_rid", m_md5.get_result_as_str());
-
-            // Regenerate arguments string
-            res_buf.clear();
-            std::sort(
-                m_params_vec.begin(), m_params_vec.end(),
-                [](auto const& lhs, auto const& rhs) {
-                    return lhs.first < rhs.first;
-                }
-            );
-            res_buf = Uri::EscapeComponent(m_params_vec[0].first);
-            res_buf += L'=';
-            res_buf += Uri::EscapeComponent(m_params_vec[0].second);
-            for (auto const& i : std::ranges::drop_view{ m_params_vec, 1 }) {
-                res_buf += L'&';
-                res_buf += Uri::EscapeComponent(i.first);
-                res_buf += L'=';
-                res_buf += Uri::EscapeComponent(i.second);
-            }
-
-            m_result = res_buf;
-        };
+            return res_buf;
+        }
     };
 }
 
@@ -264,6 +226,12 @@ namespace winrt::BiliUWP::implementation {
         cookie_mgr.SetCookie(gen_http_cookie(L"DedeUserID", value.DedeUserID));
         cookie_mgr.SetCookie(gen_http_cookie(L"DedeUserID__ckMd5", value.DedeUserID__ckMd5));
         cookie_mgr.SetCookie(gen_http_cookie(L"sid", value.sid));
+    }
+    void BiliClientManaged::FlushCache() {
+        m_nav_async.cancel_running();
+        m_last_cache_t = {};
+        m_cached_api_api_x_web_interface_nav = {};
+        m_cached_wbi_mixin_key = {};
     }
 
     // Authentication
@@ -367,6 +335,7 @@ namespace winrt::BiliUWP::implementation {
         util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
         http_client_safe_invoke_begin;
         auto http_resp = co_await m_http_client.PostAsync(uri, nullptr);
+        this->FlushCache();
         auto str = co_await http_resp.Content().ReadAsStringAsync();
         util::debug::log_trace(std::format(L"Parsing JSON: {}", str));
         co_return JsonObject::Parse(std::move(str));
@@ -401,6 +370,10 @@ namespace winrt::BiliUWP::implementation {
         auto cancellation_token = co_await get_cancellation_token();
         cancellation_token.enable_propagation();
 
+        if (!is_cache_expired()) {
+            co_return JsonObject::Parse(m_cached_api_api_x_web_interface_nav);
+        }
+
         auto uri = make_uri(
             L"https://api.bilibili.com",
             L"/x/web-interface/nav"
@@ -409,7 +382,19 @@ namespace winrt::BiliUWP::implementation {
         http_client_safe_invoke_begin;
         auto str = co_await m_http_client.GetStringAsync(uri);
         util::debug::log_trace(std::format(L"Parsing JSON: {}", str));
-        co_return JsonObject::Parse(std::move(str));
+        // Also cache data for wbi APIs
+        this->m_last_cache_t = std::chrono::system_clock::now();
+        this->m_cached_api_api_x_web_interface_nav = str;
+        auto jo = JsonObject::Parse(std::move(str));
+        auto jo_wbi_img = jo.GetNamedObject(L"data").GetNamedObject(L"wbi_img");
+        // TODO: Change this
+        /*this->m_cached_wbi_mixin_key = ApiParamMaker::calculate_wbi_mixin_key(
+            jo_wbi_img.GetNamedString(L"img_url"), jo_wbi_img.GetNamedString(L"sub_url"));*/
+        this->m_cached_wbi_mixin_key = ApiParamMaker::calculate_wbi_mixin_key(
+            L"https://i0.hdslb.com/bfs/wbi/653657f524a547ac981ded72ea172057.png",
+            L"https://i0.hdslb.com/bfs/wbi/6e4909c702f846728e64f6007736a338.png"
+        );
+        co_return jo;
         http_client_safe_invoke_end;
     }
     AsyncJsonObjectResult BiliClientManaged::api_api_x_web_interface_nav_stat() {
@@ -472,9 +457,10 @@ namespace winrt::BiliUWP::implementation {
         auto cancellation_token = co_await get_cancellation_token();
         cancellation_token.enable_propagation();
 
-        // TODO: Figure out how to generate w_rid & wts
+        this->queue_update_cache_if_expired();
+
         param_maker.add_param(L"mid", to_hstring(mid));
-        param_maker.finalize_wbi();
+        param_maker.finalize_wbi(m_cached_wbi_mixin_key);
         auto uri = make_uri(
             L"https://api.bilibili.com",
             L"/x/space/wbi/acc/info",
@@ -558,6 +544,8 @@ namespace winrt::BiliUWP::implementation {
         auto cancellation_token = co_await get_cancellation_token();
         cancellation_token.enable_propagation();
 
+        this->queue_update_cache_if_expired();
+
         param_maker.add_param(L"mid", to_hstring(mid));
         param_maker.add_param(L"tid", to_hstring(tid));
         if (keyword != L"") {
@@ -574,7 +562,7 @@ namespace winrt::BiliUWP::implementation {
         param_maker.add_param(L"order", order_str);
         param_maker.add_param(L"pn", to_hstring(page.n));
         param_maker.add_param(L"ps", to_hstring(page.size));
-        param_maker.finalize_wbi();
+        param_maker.finalize_wbi(m_cached_wbi_mixin_key);
         auto uri = make_uri(
             L"https://api.bilibili.com",
             L"/x/space/wbi/arc/search",
@@ -994,5 +982,13 @@ namespace winrt::BiliUWP::implementation {
         http_client_safe_invoke_begin;
         co_return co_await m_http_client.GetBufferAsync(uri);
         http_client_safe_invoke_end;
+    }
+    void BiliClientManaged::queue_update_cache_if_expired(void) {
+        if (is_cache_expired()) {
+            m_nav_async.run_if_idle(&BiliClientManaged::api_api_x_web_interface_nav, this);
+        }
+    }
+    bool BiliClientManaged::is_cache_expired(void) {
+        return std::chrono::system_clock::now() - m_last_cache_t >= CACHE_DURATION;
     }
 }

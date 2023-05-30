@@ -11,7 +11,12 @@ using namespace Windows::UI::Xaml::Navigation;
 
 namespace winrt::BiliUWP::Settings::implementation {
     UserPage::UserPage() {
-        ::BiliUWP::App::get()->login_state_changed({ this, &UserPage::UpdateUI });
+        auto app = ::BiliUWP::App::get();
+        m_et_login_state_changed = app->login_state_changed({ this, &UserPage::UpdateUI });
+    }
+    UserPage::~UserPage() {
+        auto app = ::BiliUWP::App::get();
+        app->login_state_changed(m_et_login_state_changed);
     }
     void UserPage::OnNavigatedTo(NavigationEventArgs const& e) {
         m_main_page = e.Parameter().as<MainPage>().get();
@@ -23,6 +28,10 @@ namespace winrt::BiliUWP::Settings::implementation {
     }
     fire_forget_except UserPage::LogoutButton_Click(IInspectable const&, RoutedEventArgs const&) {
         co_await ::BiliUWP::App::get()->request_logout();
+    }
+    void UserPage::RefreshButton_Click(IInspectable const&, RoutedEventArgs const&) {
+        ::BiliUWP::App::get()->bili_client()->flush_cache();
+        this->UpdateUI();
     }
     void UserPage::UpdateUI() {
         auto app = ::BiliUWP::App::get();
@@ -42,13 +51,13 @@ namespace winrt::BiliUWP::Settings::implementation {
 
                 that->Bindings->Update();
             }, this);
-
-            Bindings->Update();
         }
         else {
             this->IsLoggedIn(false);
             this->UserNameTextBlockText(::BiliUWP::App::res_str(L"App/Common/NotLoggedIn"));
             this->UserPictureImageUri(nullptr);
         }
+
+        Bindings->Update();
     }
 }

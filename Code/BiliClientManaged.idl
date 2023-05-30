@@ -61,6 +61,8 @@ namespace BiliUWP {
         String data_access_token;
         UserCookies data_cookies;
 
+        void FlushCache();
+
         // Authentication
         // NOTE: Authentication functions do not automatically update stored credentials
         // TODO: Use IReference<APISignKeys> for optional keys

@@ -17,6 +17,11 @@
 
 // NOTE: Some code are adapted from Win2D
 
+// NOTE: This control is the reference implementation for danmaku presentation;
+//       other variants should achieve the exact same output of this.
+
+// TODO: Introduce another implementation based on Visual Layer (Windows.UI.Composition)
+
 // TODO: Maybe investigate ICompositorInterop::CreateCompositionSurfaceForSwapChain?
 
 // NOTE: A hack for std::atomic_bool in MSVC STL; use with caution
@@ -676,11 +681,13 @@ namespace winrt::BiliUWP::implementation {
                             }
                         });
                     }
+                    this->total_dm_items_cnt = danmaku_col->m_normal_items.size();
                     // Scan danmaku within time range [last_update_t, cur_p)
                     auto it = danmaku_col->m_normal_items.begin() + last_end_dm_normal_idx;
                     auto ie = danmaku_col->m_normal_items.end();
                     for (; it != ie; it++) {
                         if (it->data.appear_time >= cur_p) { break; }
+                        this->processed_dm_items_cnt++;
                         // Cache danmaku layout
                         if (!it->cache_valid) {
                             auto txt_layout = create_text_layout(
@@ -935,7 +942,7 @@ namespace winrt::BiliUWP::implementation {
                 std::vector<DanmakuItem> active_dm_items;
                 std::vector<SlotInfo> scroll_slots;
                 std::vector<SlotInfo> bottom_slots, top_slots;
-                uint64_t processed_dm_items_cnt{ 0 };
+                uint64_t processed_dm_items_cnt{ 0 }, total_dm_items_cnt{ 0 };
 
             private:
                 // NOTE: Assuming only d2d1_dev is initialized
@@ -1159,7 +1166,7 @@ namespace winrt::BiliUWP::implementation {
                                         DWRITE_FONT_WEIGHT_NORMAL,
                                         DWRITE_FONT_STYLE_NORMAL,
                                         DWRITE_FONT_STRETCH_NORMAL,
-                                        25.0f,
+                                        20.0f,
                                         L"",
                                         base_txt_fmt.put()
                                     ));
@@ -1178,8 +1185,13 @@ namespace winrt::BiliUWP::implementation {
                                     last_counter = cur_counter;
                                 }
                                 cur_counter++;
-                                auto buf = std::format(L"n: {} (fps = {})\nt: {}ms\nisProactive: {}",
-                                    cur_counter, last_fps, cur_p, shared_data->use_proactive_render_mode);
+                                auto buf = std::format(L"n: {} (fps = {})\nt: {}ms\ndm: {} / {} / {}\nisProactive: {}",
+                                    cur_counter, last_fps,
+                                    cur_p,
+                                    draw_ctx.active_dm_items.size(),
+                                    draw_ctx.processed_dm_items_cnt, draw_ctx.total_dm_items_cnt,
+                                    shared_data->use_proactive_render_mode
+                                );
                                 d2d1_dev_ctx->DrawText(
                                     buf.c_str(),
                                     buf.size(),

@@ -29,8 +29,17 @@
                 </Grid>
                 <TextBlock x:Name="UserNameTextBlock" Text="{x:Bind UserNameTextBlockText}" FontSize="28" FontWeight="SemiBold"/>
             </StackPanel>
-            <Button x:Uid="App/Page/Settings/UserPage/LoginButton" x:Name="LoginButton" Click="LoginButton_Click" Style="{StaticResource ItemButtonStyle}" Visibility="{x:Bind IsLoggedOut}"/>
-            <Button x:Uid="App/Page/Settings/UserPage/LogoutButton" x:Name="LogoutButton" Click="LogoutButton_Click" Style="{StaticResource ItemButtonStyle}" Foreground="Red" Visibility="{x:Bind IsLoggedIn}"/>
+            <StackPanel Orientation="Horizontal">
+                <Button x:Uid="App/Page/Settings/UserPage/LoginButton" x:Name="LoginButton" Click="LoginButton_Click" Style="{StaticResource ItemButtonStyle}" Visibility="{x:Bind IsLoggedOut}"/>
+                <Button x:Uid="App/Page/Settings/UserPage/LogoutButton" x:Name="LogoutButton" Click="LogoutButton_Click" Style="{StaticResource ItemButtonStyle}" Visibility="{x:Bind IsLoggedIn}">
+                    <Button.Resources>
+                        <SolidColorBrush x:Key="ButtonForeground" Color="Red"/>
+                        <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="Red"/>
+                        <SolidColorBrush x:Key="ButtonForegroundPressed" Color="Red"/>
+                    </Button.Resources>
+                </Button>
+                <Button x:Uid="App/Page/Settings/UserPage/RefreshButton" x:Name="RefreshButton" Click="RefreshButton_Click" Style="{StaticResource ItemButtonStyle}" Visibility="{x:Bind IsLoggedIn}"/>
+            </StackPanel>
         </StackPanel>
     </ScrollViewer>
 </Page>
