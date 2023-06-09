@@ -191,6 +191,8 @@ namespace winrt::BiliUWP::implementation {
     }
     void BiliClientManaged::data_access_token(hstring const& value) {
         m_access_token = value;
+
+        this->FlushCache();
     }
     BiliUWP::UserCookies BiliClientManaged::data_cookies() {
         BiliUWP::UserCookies user_cookies{};
@@ -226,12 +228,15 @@ namespace winrt::BiliUWP::implementation {
         cookie_mgr.SetCookie(gen_http_cookie(L"DedeUserID", value.DedeUserID));
         cookie_mgr.SetCookie(gen_http_cookie(L"DedeUserID__ckMd5", value.DedeUserID__ckMd5));
         cookie_mgr.SetCookie(gen_http_cookie(L"sid", value.sid));
+
+        this->FlushCache();
     }
     void BiliClientManaged::FlushCache() {
         m_nav_async.cancel_running();
-        m_last_cache_t = {};
-        m_cached_api_api_x_web_interface_nav = {};
-        m_cached_wbi_mixin_key = {};
+        std::unique_lock guard{ m_cache.mutex };
+        m_cache.last_t = {};
+        m_cache.api_api_x_web_interface_nav = {};
+        m_cache.wbi_mixin_key = {};
     }
 
     // Authentication
@@ -370,32 +375,7 @@ namespace winrt::BiliUWP::implementation {
         auto cancellation_token = co_await get_cancellation_token();
         cancellation_token.enable_propagation();
 
-        if (!is_cache_expired()) {
-            co_return JsonObject::Parse(m_cached_api_api_x_web_interface_nav);
-        }
-
-        auto uri = make_uri(
-            L"https://api.bilibili.com",
-            L"/x/web-interface/nav"
-        );
-        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
-        http_client_safe_invoke_begin;
-        auto str = co_await m_http_client.GetStringAsync(uri);
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", str));
-        // Also cache data for wbi APIs
-        this->m_last_cache_t = std::chrono::system_clock::now();
-        this->m_cached_api_api_x_web_interface_nav = str;
-        auto jo = JsonObject::Parse(std::move(str));
-        auto jo_wbi_img = jo.GetNamedObject(L"data").GetNamedObject(L"wbi_img");
-        // TODO: Change this
-        /*this->m_cached_wbi_mixin_key = ApiParamMaker::calculate_wbi_mixin_key(
-            jo_wbi_img.GetNamedString(L"img_url"), jo_wbi_img.GetNamedString(L"sub_url"));*/
-        this->m_cached_wbi_mixin_key = ApiParamMaker::calculate_wbi_mixin_key(
-            L"https://i0.hdslb.com/bfs/wbi/653657f524a547ac981ded72ea172057.png",
-            L"https://i0.hdslb.com/bfs/wbi/6e4909c702f846728e64f6007736a338.png"
-        );
-        co_return jo;
-        http_client_safe_invoke_end;
+        co_return JsonObject::Parse(co_await get_cache_entry(&response_cache::api_api_x_web_interface_nav));
     }
     AsyncJsonObjectResult BiliClientManaged::api_api_x_web_interface_nav_stat() {
         auto cancellation_token = co_await get_cancellation_token();
@@ -432,35 +412,14 @@ namespace winrt::BiliUWP::implementation {
         co_return JsonObject::Parse(std::move(str));
         http_client_safe_invoke_end;
     }
-    AsyncJsonObjectResult BiliClientManaged::api_api_x_space_acc_info(uint64_t mid) {
-        ApiParamMaker param_maker;
-
-        auto cancellation_token = co_await get_cancellation_token();
-        cancellation_token.enable_propagation();
-
-        param_maker.add_param(L"mid", to_hstring(mid));
-        auto uri = make_uri(
-            L"https://api.bilibili.com",
-            L"/x/space/acc/info",
-            param_maker.get_as_str()
-        );
-        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
-        http_client_safe_invoke_begin;
-        auto str = co_await m_http_client.GetStringAsync(uri);
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", str));
-        co_return JsonObject::Parse(std::move(str));
-        http_client_safe_invoke_end;
-    }
     AsyncJsonObjectResult BiliClientManaged::api_api_x_space_wbi_acc_info(uint64_t mid) {
         ApiParamMaker param_maker;
 
         auto cancellation_token = co_await get_cancellation_token();
         cancellation_token.enable_propagation();
 
-        this->queue_update_cache_if_expired();
-
         param_maker.add_param(L"mid", to_hstring(mid));
-        param_maker.finalize_wbi(m_cached_wbi_mixin_key);
+        param_maker.finalize_wbi(co_await get_cache_entry(&response_cache::wbi_mixin_key));
         auto uri = make_uri(
             L"https://api.bilibili.com",
             L"/x/space/wbi/acc/info",
@@ -492,46 +451,6 @@ namespace winrt::BiliUWP::implementation {
         co_return JsonObject::Parse(std::move(str));
         http_client_safe_invoke_end;
     }
-    AsyncJsonObjectResult BiliClientManaged::api_api_x_space_arc_search(
-        uint64_t mid,
-        BiliUWP::ApiParam_Page page,
-        hstring keyword,
-        uint64_t tid,
-        BiliUWP::ApiParam_SpaceArcSearchOrder order
-    ) {
-        ApiParamMaker param_maker;
-
-        auto cancellation_token = co_await get_cancellation_token();
-        cancellation_token.enable_propagation();
-
-        param_maker.add_param(L"mid", to_hstring(mid));
-        param_maker.add_param(L"tid", to_hstring(tid));
-        if (keyword != L"") {
-            param_maker.add_param(L"keyword", keyword);
-        }
-        hstring order_str;
-        switch (order) {
-        case BiliUWP::ApiParam_SpaceArcSearchOrder::ByPublishTime:      order_str = L"mtime";       break;
-        case BiliUWP::ApiParam_SpaceArcSearchOrder::ByClickCount:       order_str = L"view";        break;
-        case BiliUWP::ApiParam_SpaceArcSearchOrder::ByFavouriteCount:   order_str = L"pubtime";     break;
-        default:
-            throw hresult_invalid_argument();
-        }
-        param_maker.add_param(L"order", order_str);
-        param_maker.add_param(L"pn", to_hstring(page.n));
-        param_maker.add_param(L"ps", to_hstring(page.size));
-        auto uri = make_uri(
-            L"https://api.bilibili.com",
-            L"/x/space/arc/search",
-            param_maker.get_as_str()
-        );
-        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
-        http_client_safe_invoke_begin;
-        auto str = co_await m_http_client.GetStringAsync(uri);
-        util::debug::log_trace(std::format(L"Parsing JSON: {}", str));
-        co_return JsonObject::Parse(std::move(str));
-        http_client_safe_invoke_end;
-    }
     AsyncJsonObjectResult BiliClientManaged::api_api_x_space_wbi_arc_search(
         uint64_t mid,
         BiliUWP::ApiParam_Page page,
@@ -544,8 +463,6 @@ namespace winrt::BiliUWP::implementation {
         auto cancellation_token = co_await get_cancellation_token();
         cancellation_token.enable_propagation();
 
-        this->queue_update_cache_if_expired();
-
         param_maker.add_param(L"mid", to_hstring(mid));
         param_maker.add_param(L"tid", to_hstring(tid));
         if (keyword != L"") {
@@ -562,7 +479,7 @@ namespace winrt::BiliUWP::implementation {
         param_maker.add_param(L"order", order_str);
         param_maker.add_param(L"pn", to_hstring(page.n));
         param_maker.add_param(L"ps", to_hstring(page.size));
-        param_maker.finalize_wbi(m_cached_wbi_mixin_key);
+        param_maker.finalize_wbi(co_await get_cache_entry(&response_cache::wbi_mixin_key));
         auto uri = make_uri(
             L"https://api.bilibili.com",
             L"/x/space/wbi/arc/search",
@@ -983,12 +900,47 @@ namespace winrt::BiliUWP::implementation {
         co_return co_await m_http_client.GetBufferAsync(uri);
         http_client_safe_invoke_end;
     }
-    void BiliClientManaged::queue_update_cache_if_expired(void) {
-        if (is_cache_expired()) {
-            m_nav_async.run_if_idle(&BiliClientManaged::api_api_x_web_interface_nav, this);
+    template<typename T>
+    util::winrt::task<T> BiliClientManaged::get_cache_entry(T response_cache::* memptr) {
+        auto cancellation_token = co_await get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        auto is_cache_expired_nolock_fn = [=] {
+            return std::chrono::system_clock::now() - m_cache.last_t >= m_cache.CACHE_DURATION;
+        };
+        {
+            std::shared_lock guard{ m_cache.mutex };
+            if (is_cache_expired_nolock_fn()) {
+                m_nav_async.run_if_idle(&BiliClientManaged::api_nocache_api_x_web_interface_nav, this);
+            }
         }
+        co_await m_nav_async;
+        std::shared_lock guard{ m_cache.mutex };
+        co_return m_cache.*memptr;
     }
-    bool BiliClientManaged::is_cache_expired(void) {
-        return std::chrono::system_clock::now() - m_last_cache_t >= CACHE_DURATION;
+    AsyncJsonObjectResult BiliClientManaged::api_nocache_api_x_web_interface_nav() {
+        auto cancellation_token = co_await get_cancellation_token();
+        cancellation_token.enable_propagation();
+
+        auto uri = make_uri(
+            L"https://api.bilibili.com",
+            L"/x/web-interface/nav"
+        );
+        util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
+        http_client_safe_invoke_begin;
+        auto str = co_await m_http_client.GetStringAsync(uri);
+        util::debug::log_trace(std::format(L"Parsing JSON: {}", str));
+        auto jo = JsonObject::Parse(str);
+        auto jo_wbi_img = jo.GetNamedObject(L"data").GetNamedObject(L"wbi_img");
+        {   // Update cache
+            std::unique_lock guard{ m_cache.mutex };
+            m_cache.api_api_x_web_interface_nav = std::move(str);
+            // NOTE: wbi keys are valid in ~3 (before update) + ~15 (after update) days
+            m_cache.wbi_mixin_key = ApiParamMaker::calculate_wbi_mixin_key(
+                jo_wbi_img.GetNamedString(L"img_url"), jo_wbi_img.GetNamedString(L"sub_url"));
+            m_cache.last_t = std::chrono::system_clock::now();
+        }
+        co_return jo;
+        http_client_safe_invoke_end;
     }
 }

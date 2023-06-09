@@ -44,16 +44,8 @@ namespace winrt::BiliUWP::implementation {
         AsyncJsonObjectResult api_api_x_web_interface_nav(void);
         AsyncJsonObjectResult api_api_x_web_interface_nav_stat(void);
         AsyncJsonObjectResult api_api_x_web_interface_card(uint64_t mid, bool get_photo);
-        AsyncJsonObjectResult api_api_x_space_acc_info(uint64_t mid);
         AsyncJsonObjectResult api_api_x_space_wbi_acc_info(uint64_t mid);
         AsyncJsonObjectResult api_api_x_space_upstat(uint64_t mid);
-        AsyncJsonObjectResult api_api_x_space_arc_search(
-            uint64_t mid,
-            BiliUWP::ApiParam_Page page,
-            hstring keyword,
-            uint64_t tid,
-            BiliUWP::ApiParam_SpaceArcSearchOrder order
-        );
         AsyncJsonObjectResult api_api_x_space_wbi_arc_search(
             uint64_t mid,
             BiliUWP::ApiParam_Page page,
@@ -134,8 +126,12 @@ namespace winrt::BiliUWP::implementation {
         );
 
     private:
-        void queue_update_cache_if_expired(void);
-        bool is_cache_expired(void);
+        struct response_cache;
+
+        template<typename T>
+        util::winrt::task<T> get_cache_entry(T response_cache::* memptr);
+
+        AsyncJsonObjectResult api_nocache_api_x_web_interface_nav(void);
 
         Windows::Web::Http::Filters::HttpBaseProtocolFilter m_http_filter;
         Windows::Web::Http::HttpClient m_http_client;
@@ -144,10 +140,13 @@ namespace winrt::BiliUWP::implementation {
 
         util::winrt::async_storage m_nav_async;
 
-        static constexpr auto CACHE_DURATION = std::chrono::days(1);
-        std::chrono::system_clock::time_point m_last_cache_t{};
-        hstring m_cached_api_api_x_web_interface_nav;
-        hstring m_cached_wbi_mixin_key;
+        struct response_cache {
+            static constexpr auto CACHE_DURATION = std::chrono::days(1);
+            std::shared_mutex mutex;
+            std::chrono::system_clock::time_point last_t{};
+            hstring api_api_x_web_interface_nav;
+            hstring wbi_mixin_key;
+        } m_cache;
     };
 }
 

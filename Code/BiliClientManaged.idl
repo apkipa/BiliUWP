@@ -100,10 +100,6 @@ namespace BiliUWP {
         Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_web_interface_card(
             UInt64 mid, Boolean get_photo
         );
-        //   https://api.bilibili.com/x/space/acc/info | cookies
-        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_space_acc_info(
-            UInt64 mid
-        );
         //   https://api.bilibili.com/x/space/wbi/acc/info | cookies
         Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_space_wbi_acc_info(
             UInt64 mid
@@ -111,14 +107,6 @@ namespace BiliUWP {
         //   https://api.bilibili.com/x/space/upstat | cookies
         Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_space_upstat(
             UInt64 mid
-        );
-        //   https://api.bilibili.com/x/space/arc/search | cookies
-        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_space_arc_search(
-            UInt64 mid,
-            ApiParam_Page page,
-            String keyword,         // Optional
-            UInt64 tid,
-            ApiParam_SpaceArcSearchOrder order
         );
         //   https://api.bilibili.com/x/space/wbi/arc/search | cookies
         Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_space_wbi_arc_search(

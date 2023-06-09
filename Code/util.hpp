@@ -1245,15 +1245,62 @@ namespace util {
                 return m_data->async;
             }
 
+            // Waits until current task is done or cancelled
+            auto operator co_await() {
+                struct awaitable : ::winrt::enable_await_cancellation {
+                    explicit awaitable(async_storage* that) : m_data(that->m_data) {}
+                    awaitable(awaitable const&) = delete;
+                    awaitable(awaitable&&) = delete;
+
+                    void enable_cancellation(::winrt::cancellable_promise* promise) {
+                        // Stop waiting, but keep the async running
+                        promise->set_canceller([](void* context) {
+                            auto that = static_cast<awaitable*>(context);
+                            that->fire_immediately();
+                        }, this);
+                    }
+                    bool await_ready() const {
+                        std::scoped_lock guard{ m_data->lock };
+                        return !m_data->async;
+                    }
+                    bool await_suspend(std::coroutine_handle<> resume) {
+                        std::scoped_lock guard{ m_data->lock };
+                        if (!m_data->async) { return false; }
+                        m_coro = resume;
+                        m_data->co_resumes.push_back(resume);
+                        return true;
+                    }
+                    void await_resume() const {}
+
+                private:
+                    std::shared_ptr<data> m_data;
+                    std::coroutine_handle<> m_coro;
+
+                    void fire_immediately() {
+                        std::coroutine_handle<> resume = std::move(m_coro);
+                        bool is_erased;
+                        if (!resume) { return; }
+                        {
+                            std::scoped_lock guard{ m_data->lock };
+                            is_erased = std::erase(m_data->co_resumes, m_coro) > 0;
+                        }
+                        if (is_erased) { resume(); }
+                    }
+                };
+                return awaitable{ this };
+            }
+
         private:
             void safe_cancel_clear(void) {
+                std::vector<std::coroutine_handle<>> co_resumes;
                 m_data->lock.lock();
                 // SAFETY: noexcept
                 auto old_async = std::exchange(m_data->async, nullptr);
+                if (old_async) { co_resumes.swap(m_data->co_resumes); }
                 m_data->lock.unlock();
-                if (old_async) {
-                    old_async.Cancel();
-                }
+                if (old_async) { old_async.Cancel(); }
+
+                for (auto resume : co_resumes) { resume(); }
             }
 
             template<typename T>
@@ -1282,14 +1329,19 @@ namespace util {
                     }
                     void operator()(auto&& sender, ::winrt::Windows::Foundation::AsyncStatus status) {
                         if (status == ::winrt::Windows::Foundation::AsyncStatus::Started) { return; }
+                        std::vector<std::coroutine_handle<>> co_resumes;
                         {
                             std::scoped_lock guard{ m_data->lock };
+                            // Check if current async owns the m_data
                             if (sender == m_data->async) {
                                 // NOTE: Coroutine is not freed if IAsyncInfo is still alive
                                 m_data->async = nullptr;
+
+                                co_resumes.swap(m_data->co_resumes);
                             }
                         }
                         m_data = nullptr;
+                        for (auto resume : co_resumes) { resume(); }
                     }
                 private:
                     std::shared_ptr<data> m_data;
@@ -1300,6 +1352,7 @@ namespace util {
             struct data {
                 std::mutex lock{};
                 ::winrt::Windows::Foundation::IAsyncInfo async{ nullptr };
+                std::vector<std::coroutine_handle<>> co_resumes;
             };
             std::shared_ptr<data> m_data;
             std::mutex m_method_lock;
