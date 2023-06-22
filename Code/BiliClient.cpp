@@ -762,6 +762,14 @@ namespace BiliUWP {
         return result;
     }
     template<>
+    VideoPlayUrl_Dash_Flac JsonValueVisitor::as(void) {
+        VideoPlayUrl_Dash_Flac result;
+        auto jov = this->as<JsonObjectVisitor>();
+        jov.populate(result.display, "display");
+        jov.scope(adapter::assign_value_or_null_to_optional{ result.audio }, "audio");
+        return result;
+    }
+    template<>
     VideoPlayUrl_Dash JsonValueVisitor::as(void) {
         VideoPlayUrl_Dash result;
         auto jov = this->as<JsonObjectVisitor>();
@@ -769,6 +777,7 @@ namespace BiliUWP {
         jov.populate(result.min_buffer_time, "min_buffer_time");
         jov.populate(result.video, "video");
         jov.scope(adapter::assign_vec_or_null_as_empty{ result.audio }, "audio");
+        jov.scope(adapter::assign_value_or_null_to_optional{ result.flac }, "flac");
         return result;
     }
     template<>

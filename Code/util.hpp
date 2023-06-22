@@ -1025,6 +1025,20 @@ namespace util {
                     m_outer_cancellable->revoke_canceller();
                 }
             }
+
+            template<typename Functor>
+            task<std::invoke_result_t<Functor, ReturnType>> map(Functor functor) {
+                using NewRet = std::invoke_result_t<Functor, ReturnType>;
+                return {
+                    m_task.then([functor = std::move(functor)](ReturnWrapType value) {
+                        return std::make_shared<NewRet>(functor(*value));
+                    }),
+                    m_cts,
+                    m_cancellable,
+                    nullptr
+                };
+            }
+
         private:
             task(
                 concurrency::task<ReturnWrapType> task,
@@ -1152,6 +1166,20 @@ namespace util {
                     m_outer_cancellable->revoke_canceller();
                 }
             }
+
+            template<typename Functor>
+            task<std::invoke_result_t<Functor>> map(Functor functor) {
+                using NewRet = std::invoke_result_t<Functor>;
+                return {
+                    m_task.then([functor = std::move(functor)]() {
+                        return std::make_shared<NewRet>(functor());
+                    }),
+                    m_cts,
+                    m_cancellable,
+                    nullptr
+                };
+            }
+
         private:
             task(
                 concurrency::task<void> task,
@@ -1356,6 +1384,54 @@ namespace util {
             };
             std::shared_ptr<data> m_data;
             std::mutex m_method_lock;
+        };
+
+        // A simplified version for single-instance execution
+        // (task type must support multiple awaiters)
+        template<typename T = task<>>
+        struct typed_task_storage {
+        private:
+            struct data {
+                std::mutex lock{};
+                T task{ nullptr };
+            };
+            std::shared_ptr<data> m_data;
+
+        public:
+            typed_task_storage() : m_data(std::make_shared<data>()) {}
+
+            struct task_wrapper {
+                task_wrapper(std::shared_ptr<data> data, bool has_ownership) :
+                    m_data(std::move(data)), m_has_ownership(has_ownership) {}
+
+                ~task_wrapper() {
+                    if (m_has_ownership) {
+                        std::scoped_lock guard(m_data->lock);
+                        m_data->task = nullptr;
+                    }
+                }
+
+                T operator co_await() const { return m_data->task; }
+
+            private:
+                std::shared_ptr<data> m_data;
+                bool m_has_ownership;
+            };
+
+            template<typename Functor, typename... Args>
+            task_wrapper run_if_idle(Functor&& functor, Args&&... args) const {
+                T task;
+                bool owns_task{};
+                {
+                    std::scoped_lock guard(m_data->lock);
+                    task = m_data->task;
+                    if (!task) {
+                        task = m_data->task = std::invoke(std::forward<Functor>(functor), std::forward<Args>(args)...);
+                        owns_task = true;
+                    }
+                }
+                return { m_data, owns_task };
+            }
         };
 
         namespace details {

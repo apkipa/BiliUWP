@@ -65,3 +65,5 @@
 #include <winrt/Microsoft.UI.Xaml.XamlTypeInfo.h>
 
 #include <chrono>
+#include <vector>
+#include <queue>

@@ -258,6 +258,9 @@
   <data name="App.Page.LoginPage.TokenLoginWarn.Text" xml:space="preserve">
     <value>警告: 如果你不知道这意味着什么，请不要继续操作。</value>
   </data>
+  <data name="App.Page.MediaPlayPage.EnableLosslessAudio.Text" xml:space="preserve">
+    <value>启用无损音频</value>
+  </data>
   <data name="App.Page.MediaPlayPage.Error.ServerAPIFailed" xml:space="preserve">
     <value>服务器 API 调用失败，音/视频可能不存在或程序出现了 BUG</value>
   </data>

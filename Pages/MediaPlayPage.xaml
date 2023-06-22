@@ -83,12 +83,14 @@
                                 <MenuFlyoutSubItem.Icon>
                                     <FontIcon FontFamily="{StaticResource FluentSystemIconsRegularFontFamily}" Glyph="&#xE6EA;" Margin="-1.5,-2,-0.5,-4"/>
                                 </MenuFlyoutSubItem.Icon>
+                                <!--
                                 <MenuFlyoutItem Text="Dash"/>
                                 <MenuFlyoutItem Text="Flv"/>
                                 <MenuFlyoutSeparator/>
                                 <MenuFlyoutItem Text="Resolution 1"/>
                                 <MenuFlyoutItem Text="Resolution 2"/>
                                 <MenuFlyoutItem Text="Resolution 3"/>
+                                -->
                             </MenuFlyoutSubItem>
                         </local:CustomMediaTransportControls.AdditionalItems>
                     </local:CustomMediaTransportControls>

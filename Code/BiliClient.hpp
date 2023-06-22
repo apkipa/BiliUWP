@@ -801,11 +801,16 @@ namespace BiliUWP {
         } segment_base;
         uint32_t codecid;
     };
+    struct VideoPlayUrl_Dash_Flac {
+        bool display;
+        std::optional<VideoPlayUrl_Dash_Stream> audio;
+    };
     struct VideoPlayUrl_Dash {
         uint64_t duration;
         double min_buffer_time;
         std::vector<VideoPlayUrl_Dash_Stream> video;
         std::vector<VideoPlayUrl_Dash_Stream> audio;
+        std::optional<VideoPlayUrl_Dash_Flac> flac;
     };
     struct VideoPlayUrl_SupportFormat {
         uint32_t quality;

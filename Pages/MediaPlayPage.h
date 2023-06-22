@@ -9,6 +9,9 @@
 namespace winrt::BiliUWP::implementation {
     struct DetailedStatsContext;
     struct DetailedStatsProvider;
+    struct DetailedMediaPlaybackSourceProvider;
+    template<typename T> struct MediaSourceInputContext;
+    struct MSICInput_DashStream;
 
     struct MediaPlayPage_UpItem : MediaPlayPage_UpItemT<MediaPlayPage_UpItem> {
         MediaPlayPage_UpItem(hstring up_name, hstring up_face_url, uint64_t up_mid) :
@@ -206,6 +209,7 @@ namespace winrt::BiliUWP::implementation {
             std::function<util::winrt::task<::BiliUWP::VideoPlayUrl_Dash_Stream>(void)> get_new_stream_fn
         );
         util::winrt::task<> PlayVideoWithCidInner(uint64_t cid);
+        util::winrt::task<> PlayVideoWithCidInner_Legacy(uint64_t cid);
         util::winrt::task<> PlayVideoWithCid(uint64_t cid);
         util::winrt::task<> UpdateAudioInfoInner(uint64_t auid);
         util::winrt::task<> UpdateAudioInfo(uint64_t auid);
@@ -213,6 +217,12 @@ namespace winrt::BiliUWP::implementation {
         util::winrt::task<> PlayAudio();
 
         // NOTE: Setting source to null will only stop current media
+        util::winrt::task<> SubmitMediaPlaybackSourceToNativePlayer_V2(
+            std::shared_ptr<DetailedMediaPlaybackSourceProvider> source,
+            Windows::UI::Xaml::Media::ImageSource poster_source = nullptr,
+            bool enable_custom_presenter = false,
+            bool use_reactive_present_mode = false      // For custom presenter
+        );
         util::winrt::task<> SubmitMediaPlaybackSourceToNativePlayer(
             Windows::Media::Playback::IMediaPlaybackSource source,
             Windows::UI::Xaml::Media::ImageSource poster_source = nullptr,
@@ -230,9 +240,11 @@ namespace winrt::BiliUWP::implementation {
         void QueueLoadDanmakuFromTimestamp(uint32_t sec);
         void UpdateVideoDanmakuControlState(void);
 
+        void ResetMTCStreamSelectionMenu();
+
         BiliUWP::AppCfgModel m_cfg_model;
 
-        // NOTE: HttpClient for general-purpose fetching and media fetching
+        // NOTE: HttpClient for general-purpose fetching and dedicated media fetching
         Windows::Web::Http::HttpClient m_http_client, m_http_client_m;
 
         util::winrt::async_storage m_cur_async;
@@ -243,6 +255,8 @@ namespace winrt::BiliUWP::implementation {
         Windows::Foundation::Collections::IObservableVector<Windows::Foundation::IInspectable> m_parts_list;
         std::variant<std::monostate, ::BiliUWP::VideoViewInfoResult, ::BiliUWP::AudioBasicInfoResult>
             m_media_info;
+
+        //std::variant<std::monostate, MediaSourceInputContext<MSICInput_DashStream>> m_media_insrc;
 
         Windows::Media::Playback::MediaPlayer::VolumeChanged_revoker m_volume_changed_revoker;
         BiliUWP::AppCfgModel::PropertyChanged_revoker m_cfg_changed_revoker;
