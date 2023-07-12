@@ -11,8 +11,6 @@
 #include <ranges>
 #include <regex>
 
-#include <stacktrace>
-
 using namespace winrt;
 using namespace Windows::Foundation;
 using namespace Windows::UI;
@@ -867,7 +865,7 @@ namespace winrt::BiliUWP::implementation {
             // Use buffer replacing (may waste some memory)
             adaptive_media_src.DownloadRequested(
                 [mso, shared_data = std::move(shared_data)]
-            (AdaptiveMediaSource const&, AdaptiveMediaSourceDownloadRequestedEventArgs const& e) -> fire_forget_except {
+                (AdaptiveMediaSource const&, AdaptiveMediaSourceDownloadRequestedEventArgs const& e) -> fire_forget_except {
                     co_safe_capture(shared_data);
                     const BiliUWP::HttpRandomAccessStream* target_hras;
                     if (e.ResourceContentType().starts_with(L"video")) { target_hras = &shared_data->vhras; }

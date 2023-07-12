@@ -1729,7 +1729,8 @@ namespace util {
         ::winrt::Windows::Storage::Streams::IRandomAccessStream string_to_utf8_stream(::winrt::hstring const& s);
 
         // A simple wrapper mutex around OS's synchronization primitives, with async support
-        // NOTE: It is safe to destroy a locked mutex!
+        // TODO: Destroying a locked mutex is bad, find a better way out
+        // ~~NOTE: It is safe to destroy a locked mutex!~~
         // TODO: Maybe optimize async waiting performance
         // TODO: Rewrite using srwlock to avoid UB
         struct mutex {

@@ -673,7 +673,7 @@ namespace BiliUWP {
         jov.populate(result.dimension, "dimension");
         return result;
     }
-    template<>
+    /*template<>
     VideoViewInfo_Subtitle JsonValueVisitor::as(void) {
         VideoViewInfo_Subtitle result;
         auto jov = this->as<JsonObjectVisitor>();
@@ -690,7 +690,7 @@ namespace BiliUWP {
             jov.populate(result.author.sign, "sign");
         }, "author");
         return result;
-    }
+    }*/
     template<>
     VideoViewInfo_Staff JsonValueVisitor::as(void) {
         VideoViewInfo_Staff result;
@@ -1627,10 +1627,10 @@ namespace BiliUWP {
             jov.populate(result.cid_1p, "cid");
             jov.populate(result.dimension_1p, "dimension");
             jov.populate(result.pages, "pages");
-            jov.scope([&](JsonObjectVisitor jov) {
+            /*jov.scope([&](JsonObjectVisitor jov) {
                 jov.populate(result.subtitle.allow_submit, "allow_submit");
                 jov.populate(result.subtitle.list, "list");
-            }, "subtitle");
+            }, "subtitle");*/
             jov.populate(result.staff, "staff");
             jov.scope([&](JsonObjectVisitor jov) {
                 jov.populate(result.user_garb.url_image_ani_cut, "url_image_ani_cut");
@@ -1667,7 +1667,7 @@ namespace BiliUWP {
             }
         }, vid);
 
-        auto jo = co_await m_bili_client.api_api_x_player_v2(avid, bvid, cid);
+        auto jo = co_await m_bili_client.api_api_x_player_wbi_v2(avid, bvid, cid);
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };
@@ -1716,7 +1716,7 @@ namespace BiliUWP {
         api_prefers.prefer_8k = prefers.prefer_8k;
         api_prefers.prefer_av1 = prefers.prefer_av1;
 
-        auto jo = co_await m_bili_client.api_api_x_player_playurl(avid, bvid, cid, api_prefers);
+        auto jo = co_await m_bili_client.api_api_x_player_wbi_playurl(avid, bvid, cid, api_prefers);
         check_json_code(jo);
         JsonPropsWalkTree json_props_walk;
         JsonObjectVisitor jov{ std::move(jo), json_props_walk };

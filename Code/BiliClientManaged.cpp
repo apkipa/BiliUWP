@@ -583,7 +583,7 @@ namespace winrt::BiliUWP::implementation {
         co_return JsonObject::Parse(std::move(str));
         http_client_safe_invoke_end;
     }
-    AsyncJsonObjectResult BiliClientManaged::api_api_x_player_v2(
+    AsyncJsonObjectResult BiliClientManaged::api_api_x_player_wbi_v2(
         uint64_t avid,
         hstring bvid,
         uint64_t cid
@@ -600,9 +600,10 @@ namespace winrt::BiliUWP::implementation {
             param_maker.add_param(L"aid", to_hstring(avid));
         }
         param_maker.add_param(L"cid", to_hstring(cid));
+        param_maker.finalize_wbi(co_await get_cache_entry(&response_cache::wbi_mixin_key));
         auto uri = make_uri(
             L"https://api.bilibili.com",
-            L"/x/player/v2",
+            L"/x/player/wbi/v2",
             param_maker.get_as_str()
         );
         util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));
@@ -612,7 +613,7 @@ namespace winrt::BiliUWP::implementation {
         co_return JsonObject::Parse(std::move(str));
         http_client_safe_invoke_end;
     }
-    AsyncJsonObjectResult BiliClientManaged::api_api_x_player_playurl(
+    AsyncJsonObjectResult BiliClientManaged::api_api_x_player_wbi_playurl(
         uint64_t avid,
         hstring bvid,
         uint64_t cid,
@@ -653,9 +654,10 @@ namespace winrt::BiliUWP::implementation {
         }
         param_maker.add_param(L"fnval", to_hstring(fnval));
         param_maker.add_param(L"fourk", to_hstring(fourk));
+        param_maker.finalize_wbi(co_await get_cache_entry(&response_cache::wbi_mixin_key));
         auto uri = make_uri(
             L"https://api.bilibili.com",
-            L"/x/player/playurl",
+            L"/x/player/wbi/playurl",
             param_maker.get_as_str()
         );
         util::debug::log_trace(std::format(L"Sending request: {}", uri.ToString()));

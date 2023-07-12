@@ -68,12 +68,12 @@ namespace winrt::BiliUWP::implementation {
             uint64_t avid,
             hstring bvid
         );
-        AsyncJsonObjectResult api_api_x_player_v2(
+        AsyncJsonObjectResult api_api_x_player_wbi_v2(
             uint64_t avid,
             hstring bvid,
             uint64_t cid
         );
-        AsyncJsonObjectResult api_api_x_player_playurl(
+        AsyncJsonObjectResult api_api_x_player_wbi_playurl(
             uint64_t avid,
             hstring bvid,
             uint64_t cid,

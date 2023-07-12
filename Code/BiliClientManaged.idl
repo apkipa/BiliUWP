@@ -137,16 +137,16 @@ namespace BiliUWP {
             UInt64 avid,
             String bvid
         );
-        //   https://api.bilibili.com/x/player/v2 | cookies
+        //   https://api.bilibili.com/x/player/wbi/v2 | cookies
         //   NOTE: bvid is preferred (avid will be used only when bvid is null)
-        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_player_v2(
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_player_wbi_v2(
             UInt64 avid,
             String bvid,
             UInt64 cid
         );
-        //   https://api.bilibili.com/x/player/playurl | cookies
+        //   https://api.bilibili.com/x/player/wbi/playurl | cookies
         //   NOTE: bvid is preferred (avid will be used only when bvid is null)
-        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_player_playurl(
+        Windows.Foundation.IAsyncOperation<Windows.Data.Json.JsonObject> api_api_x_player_wbi_playurl(
             UInt64 avid,
             String bvid,
             UInt64 cid,

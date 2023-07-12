@@ -659,7 +659,8 @@ namespace BiliUWP {
         winrt::hstring external_weblink;
         VideoViewInfo_Dimension dimension;
     };
-    struct VideoViewInfo_Subtitle {
+    // TODO: Check and clean VideoViewInfo_Subtitle related stuff
+    /*struct VideoViewInfo_Subtitle {
         uint64_t id;
         winrt::hstring language;
         winrt::hstring language_doc;
@@ -672,7 +673,7 @@ namespace BiliUWP {
             winrt::hstring face_url;
             winrt::hstring sign;
         } author;
-    };
+    };*/
     struct VideoViewInfo_Staff {
         uint64_t mid;
         winrt::hstring title;
@@ -744,10 +745,10 @@ namespace BiliUWP {
         uint64_t cid_1p;
         VideoViewInfo_Dimension dimension_1p;
         std::vector<VideoViewInfo_Page> pages;
-        struct {
+        /*struct {
             bool allow_submit;
             std::vector<VideoViewInfo_Subtitle> list;
-        } subtitle;
+        } subtitle;*/
         std::optional<std::vector<VideoViewInfo_Staff>> staff;
         struct {
             winrt::hstring url_image_ani_cut;
