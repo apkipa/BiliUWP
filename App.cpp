@@ -456,6 +456,7 @@ namespace BiliUWP {
         using util::winrt::color_from_argb;
 
         auto window = Window::Current();
+        //auto core_window = window.CoreWindow();
         auto av = ApplicationView::GetForCurrentView();
         auto av_title_bar = av.TitleBar();
         auto cav_title_bar = CoreApplication::GetCurrentView().TitleBar();
@@ -579,16 +580,27 @@ namespace BiliUWP {
 #endif
             }
 
-            auto update_titlebar_fn = [=](bool is_active) {
+            auto update_titlebar_fn = [](TextBlock const& header_textblock, bool is_active) {
                 header_textblock.Opacity(is_active ? 1 : 0.4);
             };
-            //update_titlebar_appearance_fn(true);
+            auto update_titlebar_wrapped_fn = [=](bool is_active) {
+                update_titlebar_fn(header_textblock, is_active);
+            };
             window.Activated(
-                [update_fn = std::move(update_titlebar_fn)]
+                [update_fn = std::move(update_titlebar_wrapped_fn)]
                 (IInspectable const&, WindowActivatedEventArgs const& e) {
                     update_fn(e.WindowActivationState() != CoreWindowActivationState::Deactivated);
                 }
             );
+            // HACK: Update title bar before the Activated handler comes into effect, so that
+            //       title bar appearance is always correct
+            // TODO: It still doesn't work as intended really occasionally (creating a race condition
+            //       is very hard, while still possible) (where the app will flash in taskbar)
+            util::winrt::run_when_loaded([update_titlebar_fn](TextBlock const& sender) {
+                auto core_wnd = Window::Current().CoreWindow();
+                bool is_active = core_wnd.ActivationMode() == CoreWindowActivationMode::ActivatedInForeground;
+                update_titlebar_fn(sender, is_active);
+            }, header_textblock);
             // UNLIKELY TODO: SystemOverlayLeftInset (header_textblock can act as padding)
             cav_title_bar.LayoutMetricsChanged(
                 [=](CoreApplicationViewTitleBar const& sender, IInspectable const&) {
