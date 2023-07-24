@@ -2614,9 +2614,14 @@ namespace winrt::BiliUWP::implementation {
                 // Add BOM header so that TimedTextSource can load subtitles correctly
                 std::wstring srt_str{ 0xfeff };
                 util::debug::log_trace(std::format(L"Downloading subtitle from `{}`...", st.subtitle_url));
-                auto jo = Windows::Data::Json::JsonObject::Parse(
-                    co_await hc.GetStringAsync(Uri(st.subtitle_url))
-                );
+                auto subtitle_json_str = co_await hc.GetStringAsync(Uri(st.subtitle_url));
+                util::debug::log_trace(std::format(L"Parsing subtitle JSON: {}", subtitle_json_str));
+                auto jo = Windows::Data::Json::JsonObject::Parse(subtitle_json_str);
+                auto jv_body = jo.GetNamedValue(L"body");
+                if (jv_body.ValueType() == Windows::Data::Json::JsonValueType::Null) {
+                    // Invalid subtitle data, skip generation
+                    continue;
+                }
                 for (size_t idx = 0; auto&& i : jo.GetNamedArray(L"body")) {
                     auto secs_to_srt_time_str_fn = [](double t) {
                         double hrs = std::floor(t / 60 / 60);
