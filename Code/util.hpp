@@ -1355,7 +1355,7 @@ namespace util {
                             (*this)(std::decay_t<T>{}, ::winrt::Windows::Foundation::AsyncStatus::Error);
                         }
                     }
-                    void operator()(auto&& sender, ::winrt::Windows::Foundation::AsyncStatus status) {
+                    void operator()(std::decay_t<T> const& sender, ::winrt::Windows::Foundation::AsyncStatus status) {
                         if (status == ::winrt::Windows::Foundation::AsyncStatus::Started) { return; }
                         std::vector<std::coroutine_handle<>> co_resumes;
                         {

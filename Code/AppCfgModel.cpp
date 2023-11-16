@@ -7,7 +7,7 @@
     functor(ConfigVersion, L"0.1.0");                                               \
     functor(App_UseTabView, true);                                                  \
     functor(App_ShowTabThumbnails, false);                                          \
-    functor(App_UseWinUI3Style, false);                                               \
+    functor(App_UseWinUI3Style, false);                                             \
     functor(App_AlwaysSyncPlayingCfg, true);                                        \
     functor(App_GlobalVolume, 1000);                                                \
     functor(App_UseHRASForVideo, true);                                             \

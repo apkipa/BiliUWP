@@ -599,7 +599,7 @@ namespace BiliUWP {
                 // Fetch & store resource
                 uint64_t res_max_age;
                 {
-                    util::debug::log_trace(std::format(L"HttpCache: Fetching resource `{}`...", uri));
+                    util::debug::log_trace(std::format(L"HttpCache: Fetching resource `{}`...", uri.ToString()));
                     auto http_req = HttpRequestMessage();
                     http_req.Method(HttpMethod::Get());
                     http_req.RequestUri(uri);
